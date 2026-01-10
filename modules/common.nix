@@ -20,6 +20,9 @@
   # Fonts
   fonts.packages = with pkgs; [
     noto-fonts-cjk-sans
+    noto-fonts-emoji
+    nerd-fonts.jetbrains-mono
+    font-awesome
   ];
   fonts.fontconfig = {
     defaultFonts = {
@@ -73,15 +76,11 @@
 
   # System packages
   environment.systemPackages = with pkgs; [
-    git
     google-chrome
-    vscode
     neovim
     neovide
     nodejs
     alacritty
-    clang
-    rustup
 
     # CLI tools
     ripgrep
@@ -91,13 +90,28 @@
     bat
     jq
     lazygit
+    tmux
+
+    # Development
+    git
+    gh
+    vscode
+    clang
+    rustup
+    mise
+    uv
 
     # System
+    htop
     btop
     unzip
     wl-clipboard
   ];
 
+
+  # GNOME Keyring (for password/secret management)
+  services.gnome.gnome-keyring.enable = true;
+  security.pam.services.login.enableGnomeKeyring = true;
 
   # SSH
   services.openssh = {
