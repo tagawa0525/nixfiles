@@ -20,6 +20,7 @@
           ./modules/common.nix
           home-manager.nixosModules.home-manager
           {
+            nixpkgs.overlays = [ (import ./overlays/vscode.nix) ];
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             home-manager.backupFileExtension = "backup";
