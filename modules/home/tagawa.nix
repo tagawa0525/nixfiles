@@ -57,8 +57,8 @@
       la = "eza -a";
       lt = "eza --tree";
       cat = "bat";
-      rebuild = "sudo nixos-rebuild switch --flake ~/setup/NixOS#xc8";
-      update = "cd ~/setup/NixOS && nix flake update && sudo nixos-rebuild switch --flake .#xc8";
+      rebuild = "sudo nixos-rebuild switch --flake ~/NixOS#xc8";
+      update = "cd ~/NixOS && nix flake update && sudo nixos-rebuild switch --flake .#xc8";
     };
   };
 
