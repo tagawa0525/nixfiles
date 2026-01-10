@@ -8,9 +8,14 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    lanzaboote = {
+      url = "github:nix-community/lanzaboote/v0.4.2";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, home-manager, ... }: {
+  outputs = { self, nixpkgs, home-manager, lanzaboote, ... }: {
     nixosConfigurations = {
       # Laptop
       xc8 = nixpkgs.lib.nixosSystem {
@@ -18,6 +23,7 @@
         modules = [
           ./hosts/xc8
           ./modules/common.nix
+          lanzaboote.nixosModules.lanzaboote
           home-manager.nixosModules.home-manager
           {
             nixpkgs.overlays = [ (import ./overlays/vscode.nix) ];

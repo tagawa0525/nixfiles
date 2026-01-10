@@ -6,9 +6,13 @@
     ./hardware-configuration.nix
   ];
 
-  # Boot
-  boot.loader.systemd-boot.enable = true;
+  # Boot with Secure Boot (lanzaboote)
+  boot.loader.systemd-boot.enable = lib.mkForce false;
   boot.loader.efi.canTouchEfiVariables = true;
+  boot.lanzaboote = {
+    enable = true;
+    pkiBundle = "/var/lib/sbctl";
+  };
   boot.resumeDevice = "/dev/disk/by-label/swap";
   boot.kernelPackages = pkgs.linuxPackages_latest;
 

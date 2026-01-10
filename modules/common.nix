@@ -106,6 +106,7 @@
     btop
     unzip
     wl-clipboard
+    sbctl
   ];
 
 
