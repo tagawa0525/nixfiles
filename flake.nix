@@ -11,7 +11,7 @@
 
     lanzaboote = {
       url = "github:nix-community/lanzaboote/v0.4.2";
-      inputs.nixpkgs.follows = "nixpkgs";
+      # Don't follow nixpkgs to avoid Rust version incompatibility
     };
   };
 
