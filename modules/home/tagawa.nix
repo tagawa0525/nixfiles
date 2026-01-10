@@ -80,6 +80,8 @@
       github.copilot-chat
       mhutchie.git-graph
       ms-ceintl.vscode-language-pack-ja
+      rust-lang.rust-analyzer
+      vscodevim.vim
     ];
   };
 
