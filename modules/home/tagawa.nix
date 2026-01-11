@@ -116,6 +116,21 @@
     }
   '';
 
+  # Default applications (mimeapps)
+  xdg.mimeApps = {
+    enable = true;
+    defaultApplications = {
+      "application/x-terminal-emulator" = "Alacritty.desktop";
+      "x-scheme-handler/terminal" = "Alacritty.desktop";
+      "text/html" = "google-chrome.desktop";
+      "x-scheme-handler/http" = "google-chrome.desktop";
+      "x-scheme-handler/https" = "google-chrome.desktop";
+      "x-scheme-handler/about" = "google-chrome.desktop";
+      "x-scheme-handler/unknown" = "google-chrome.desktop";
+      "text/plain" = "neovide.desktop";
+    };
+  };
+
   # Fish shell
   programs.fish = {
     enable = true;
