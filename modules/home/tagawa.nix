@@ -221,13 +221,18 @@
   # ===========================================================================
   programs.git = {
     enable = true;
-    delta.enable = true; # deltaでdiffを見やすく表示
     settings = {
       user.name = "Hiroaki Tagawa";
       user.email = "tagawa0525@gmail.com";
       init.defaultBranch = "main";  # 新規リポジトリのデフォルトブランチ
       pull.rebase = true;           # pull時にrebaseを使用（マージコミットを避ける）
     };
+  };
+
+  # deltaでdiffを見やすく表示
+  programs.delta = {
+    enable = true;
+    enableGitIntegration = true;
   };
 
   # ===========================================================================
