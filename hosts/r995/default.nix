@@ -40,7 +40,7 @@
 
   # AMD GPU用の追加パッケージ
   hardware.graphics.extraPackages = with pkgs; [
-    amdvlk           # AMD公式Vulkanドライバー
+    # amdvlk           # AMD公式Vulkanドライバー
     rocmPackages.clr # OpenCLサポート（GPGPU計算用）
   ];
 

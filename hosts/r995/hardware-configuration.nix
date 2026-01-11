@@ -5,8 +5,6 @@
 # 実際のインストール時に以下のコマンドで生成された内容に置き換えてください：
 #   sudo nixos-generate-config --show-hardware-config
 #
-# 特に以下のUUIDは実際のディスクに合わせて変更が必要：
-#   - /dev/disk/by-uuid/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
 # =============================================================================
 { config, lib, pkgs, modulesPath, ... }:
 
@@ -18,7 +16,7 @@
   # ===========================================================================
   # カーネルモジュール
   # ===========================================================================
-  boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "sd_mod" ];
+  boot.initrd.availableKernelModules = [ "nvme" "xhci_pci" "ahci" "thunderbolt" "usbhid" "usb_storage" "sd_mod" ];
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ "kvm-amd" ];  # AMD CPUのKVM仮想化サポート
   boot.extraModulePackages = [ ];
@@ -39,41 +37,40 @@
   # 確認方法: lsblk -f
 
   fileSystems."/" =
-    { device = "/dev/disk/by-uuid/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX";
+    { device = "/dev/disk/by-uuid/62f2c635-bfb9-42a6-9d9c-296a93fdb7c0";
       fsType = "btrfs";
-      options = [ "subvol=@root" "compress=zstd" "noatime" ];
+      options = [ "subvol=@root" ];
     };
 
   fileSystems."/home" =
-    { device = "/dev/disk/by-uuid/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX";
+    { device = "/dev/disk/by-uuid/62f2c635-bfb9-42a6-9d9c-296a93fdb7c0";
       fsType = "btrfs";
-      options = [ "subvol=@home" "compress=zstd" "noatime" ];
+      options = [ "subvol=@home" ];
     };
 
   fileSystems."/nix" =
-    { device = "/dev/disk/by-uuid/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX";
+    { device = "/dev/disk/by-uuid/62f2c635-bfb9-42a6-9d9c-296a93fdb7c0";
       fsType = "btrfs";
-      options = [ "subvol=@nix" "compress=zstd" "noatime" ];
+      options = [ "subvol=@nix" ];
     };
 
   fileSystems."/var/log" =
-    { device = "/dev/disk/by-uuid/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX";
+    { device = "/dev/disk/by-uuid/62f2c635-bfb9-42a6-9d9c-296a93fdb7c0";
       fsType = "btrfs";
-      options = [ "subvol=@log" "compress=zstd" "noatime" ];
+      options = [ "subvol=@log" ];
     };
 
   # EFIシステムパーティション
-  # TODO: UUIDを実際のESPパーティションのUUIDに置き換えてください
   fileSystems."/boot" =
-    { device = "/dev/disk/by-uuid/XXXX-XXXX";
+    { device = "/dev/disk/by-uuid/D878-9B1C";
       fsType = "vfat";
       options = [ "fmask=0022" "dmask=0022" ];
     };
 
   # スワップ（ハイバネートを使用する場合は設定）
-  # swapDevices =
-  #   [ { device = "/dev/disk/by-uuid/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"; }
-  #   ];
+  swapDevices =
+    [ { device = "/dev/disk/by-uuid/86b93a4e-8f47-4345-8771-cb61f33ede09"; }
+    ];
 
   # ===========================================================================
   # ハードウェア設定
