@@ -27,7 +27,6 @@
 
   # Packages
   home.packages = with pkgs; [
-    neovide
     fastfetch
   ];
 
