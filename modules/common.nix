@@ -127,6 +127,18 @@
   # Tailscale
   services.tailscale.enable = true;
 
+  # Keyboard remapping (works on Wayland/X11/TTY)
+  services.keyd = {
+    enable = true;
+    keyboards.default = {
+      ids = ["*"];
+      settings.main = {
+        capslock = "overload(control, esc)";  # 単独でEsc、組み合わせでCtrl
+        # capslock = "leftcontrol";
+      };
+    };
+  };
+
   # Firewall
   networking.firewall.allowedTCPPorts = [ 22 ];
 
