@@ -122,7 +122,27 @@
   # ===========================================================================
   programs.firefox.enable = true;
   programs.fish.enable = true;  # モダンなシェル（補完が優秀）
-  programs.nix-ld.enable = true;
+
+  # ===========================================================================
+  # nix-ld（動的リンカー互換レイヤー）
+  # ===========================================================================
+  # FHS非準拠のNixOSで、/lib64/ld-linux-x86-64.so.2を期待する
+  # 外部バイナリ（VS Code Server等）を動作させるために必要
+  programs.nix-ld = {
+    enable = true;
+    libraries = with pkgs; [
+      # VS Code Server、その他の外部バイナリが必要とする基本ライブラリ
+      stdenv.cc.cc.lib  # libstdc++.so
+      zlib              # libz.so（圧縮）
+      openssl           # libssl.so, libcrypto.so
+      curl              # libcurl.so
+      icu               # Unicode処理
+      libsecret         # シークレット管理
+      libunwind         # スタックトレース
+      libuuid           # UUID生成
+      krb5              # Kerberos認証
+    ];
+  };
 
   # ===========================================================================
   # システムパッケージ
