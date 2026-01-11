@@ -65,21 +65,27 @@
       # ─────────────────────────────────────────────────────────────
       # r995: デスクトップ（開発用）
       # ─────────────────────────────────────────────────────────────
-      # TODO: hosts/r995/default.nix と hardware-configuration.nix を作成後に有効化
-      # r995 = nixpkgs.lib.nixosSystem {
-      #   system = "x86_64-linux";
-      #   modules = [
-      #     ./hosts/r995
-      #     ./modules/common.nix
-      #     home-manager.nixosModules.home-manager
-      #     {
-      #       home-manager.useGlobalPkgs = true;
-      #       home-manager.useUserPackages = true;
-      #       home-manager.backupFileExtension = "backup";
-      #       home-manager.users.tagawa = import ./modules/home/tagawa.nix;
-      #     }
-      #   ];
-      # };
+      # Ryzen 9950X + AMD Radeon Graphics のハイエンドデスクトップ
+      r995 = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          ./hosts/r995                   # ホスト固有設定（ブート、GPU、ホスト名等）
+          ./modules/common.nix           # 共通システム設定
+          lanzaboote.nixosModules.lanzaboote  # Secure Bootサポート
+          home-manager.nixosModules.home-manager
+          {
+            # VSCodeのバージョン固定オーバーレイ
+            nixpkgs.overlays = [ (import ./overlays/vscode.nix) ];
+            # Home Manager設定
+            home-manager.useGlobalPkgs = true;      # システムのnixpkgsを使用
+            home-manager.useUserPackages = true;    # ユーザーパッケージをシステムに統合
+            home-manager.backupFileExtension = "backup";  # 既存ファイルのバックアップ拡張子
+            # ホスト固有のディスプレイ設定をHome Managerに渡す
+            home-manager.extraSpecialArgs = import ./hosts/r995/niri-output.nix;
+            home-manager.users.tagawa = import ./modules/home/tagawa.nix;
+          }
+        ];
+      };
     };
   };
 }
