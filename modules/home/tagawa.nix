@@ -257,6 +257,7 @@
         "window.customMenuBarAltFocus" = false; # Alキー単押しでMenu Barにフォーカスしない
         "git.autofetch" = true;
         "accessibility.voice.speechLanguage" = "ja-JP"; # 音声認識で使用する言語
+	"remote.SSH.useExecServer" = false;
       };
     };
   };
@@ -314,4 +315,11 @@
     enable = true;
     enableFishIntegration = true;
   };
+
+  # ===========================================================================
+  # VS Code Server（リモート接続用）
+  # ===========================================================================
+  # NixOSでVS Code Remote SSHを動作させるためのサービス
+  # ダウンロードされたサーバーバイナリを自動でパッチする
+  services.vscode-server.enable = true;
 }

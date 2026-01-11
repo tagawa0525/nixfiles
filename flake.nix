@@ -30,12 +30,18 @@
       url = "github:nix-community/lanzaboote/v0.4.2";
       # Rustバージョンの非互換を避けるためnixpkgsをフォローしない
     };
+
+    # nixos-vscode-server: VS Code Remote SSH用のサーバーを自動パッチ
+    vscode-server = {
+      url = "github:nix-community/nixos-vscode-server";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # ===========================================================================
   # 出力（システム設定）
   # ===========================================================================
-  outputs = { self, nixpkgs, home-manager, lanzaboote, ... }: {
+  outputs = { self, nixpkgs, home-manager, lanzaboote, vscode-server, ... }: {
     nixosConfigurations = {
 
       # ─────────────────────────────────────────────────────────────
@@ -57,6 +63,7 @@
             home-manager.backupFileExtension = "backup";  # 既存ファイルのバックアップ拡張子
             # ホスト固有のディスプレイ設定をHome Managerに渡す
             home-manager.extraSpecialArgs = import ./hosts/xc8/niri-output.nix;
+            home-manager.sharedModules = [ vscode-server.homeModules.default ];
             home-manager.users.tagawa = import ./modules/home/tagawa.nix;
           }
         ];
@@ -82,6 +89,7 @@
             home-manager.backupFileExtension = "backup";  # 既存ファイルのバックアップ拡張子
             # ホスト固有のディスプレイ設定をHome Managerに渡す
             home-manager.extraSpecialArgs = import ./hosts/r995/niri-output.nix;
+            home-manager.sharedModules = [ vscode-server.homeModules.default ];
             home-manager.users.tagawa = import ./modules/home/tagawa.nix;
           }
         ];
