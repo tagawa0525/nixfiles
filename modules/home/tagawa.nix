@@ -258,6 +258,7 @@
         "git.autofetch" = true;
         "accessibility.voice.speechLanguage" = "ja-JP"; # 音声認識で使用する言語
 	"remote.SSH.useExecServer" = false;
+	"workbench.startupEditor" = "none";
       };
     };
   };
