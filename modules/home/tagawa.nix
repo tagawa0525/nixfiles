@@ -44,6 +44,44 @@
     videos = "$HOME/Videos";
   };
 
+  # fcitx5 configuration
+  xdg.configFile."fcitx5/profile".text = ''
+    [Groups/0]
+    Name=デフォルト
+    Default Layout=us
+    DefaultIM=mozc
+
+    [Groups/0/Items/0]
+    Name=keyboard-us
+    Layout=
+
+    [Groups/0/Items/1]
+    Name=mozc
+    Layout=
+
+    [GroupOrder]
+    0=デフォルト
+  '';
+
+  xdg.configFile."fcitx5/config".text = ''
+    [Hotkey]
+    EnumerateWithTriggerKeys=True
+
+    [Hotkey/TriggerKeys]
+    0=Control+space
+
+    [Hotkey/ActivateKeys]
+    0=Alt+Alt_R
+
+    [Hotkey/DeactivateKeys]
+    0=Alt+Alt_L
+
+    [Behavior]
+    ShareInputState=All
+    PreeditEnabledByDefault=True
+    ShowInputMethodInformation=True
+  '';
+
   # Fish shell
   programs.fish = {
     enable = true;
