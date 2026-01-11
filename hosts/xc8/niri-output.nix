@@ -1,8 +1,23 @@
-# xc8 (Laptop) specific niri output configuration
+# =============================================================================
+# xc8 (ノートPC) のNiriディスプレイ設定
+# =============================================================================
+# Niriウィンドウマネージャ用のディスプレイ設定。
+# この設定はHome Managerを通じて modules/home/niri.nix に渡されます。
+#
+# 設定の確認方法:
+#   niri msg outputs  # 接続中のディスプレイ一覧を表示
+#
+# 設定例:
+#   output "eDP-1" {        # ディスプレイ名
+#       mode "1920x1080@60" # 解像度@リフレッシュレート
+#       scale 1.5           # スケーリング（HiDPI用）
+#       position x=0 y=0    # マルチモニタ時の位置
+#   }
+# =============================================================================
 {
   niriOutputConfig = ''
-    // xc8 laptop display configuration
-    // Uncomment and adjust when using niri
+    // xc8ノートPCのディスプレイ設定
+    // niri使用時にコメント解除して調整
     // output "eDP-1" {
     //     mode "1920x1080@120.030"
     //     scale 2

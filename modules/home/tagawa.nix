@@ -1,43 +1,67 @@
-# Home Manager configuration for tagawa
+# =============================================================================
+# tagawa用のHome Manager設定
+# =============================================================================
+# ユーザー固有の設定（ドットファイル、シェル設定、アプリ設定など）を定義
+# システム設定（common.nix）とは別に、ユーザー空間の設定を管理
+# =============================================================================
 { config, pkgs, lib, niriOutputConfig ? "", ... }:
 
 {
   imports = [
-    ./niri.nix
+    ./niri.nix  # Niriウィンドウマネージャの設定
   ];
 
-  # Pass niriOutputConfig to niri.nix
+  # niriOutputConfigをniri.nixに渡す（ホスト固有のディスプレイ設定用）
   _module.args.niriOutputConfig = niriOutputConfig;
 
+  # Home Managerのバージョン（変更しない）
   home.stateVersion = "25.11";
 
-  # Activation scripts
+  # ===========================================================================
+  # アクティベーションスクリプト
+  # ===========================================================================
+  # nixos-rebuildまたはhome-manager switch時に実行されるスクリプト
+  # 初回セットアップや、Nixで管理しにくいツールの設定に使用
+
+  # Rustツールチェーンの初期化（初回のみ実行）
   home.activation.rustup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     if [ ! -d "$HOME/.rustup/toolchains" ]; then
       ${pkgs.rustup}/bin/rustup default stable
     fi
   '';
 
+  # npmグローバルパッケージ用ディレクトリの設定
+  # デフォルトの/usr/libはNixOSでは書き込み不可のため、ホームに変更
   home.activation.npmGlobalDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "$HOME/.npm-global"
     ${pkgs.nodejs}/bin/npm config set prefix "$HOME/.npm-global"
   '';
 
+  # Claude Code（Anthropic製AIコーディングアシスタント）のインストール
+  # npmGlobalDirの後に実行される
   home.activation.claudeCode = lib.hm.dag.entryAfter [ "npmGlobalDir" ] ''
     if ! command -v claude &> /dev/null; then
       ${pkgs.nodejs}/bin/npm install -g @anthropic-ai/claude-code
     fi
   '';
 
-  # PATH
+  # ===========================================================================
+  # パス設定
+  # ===========================================================================
+  # npmグローバルパッケージへのパスを追加
   home.sessionPath = [ "$HOME/.npm-global/bin" ];
 
-  # Packages
+  # ===========================================================================
+  # ユーザーパッケージ
+  # ===========================================================================
   home.packages = with pkgs; [
-    fastfetch
+    fastfetch  # システム情報表示（neofetchの高速版）
   ];
 
-  # XDG directories
+  # ===========================================================================
+  # XDGユーザーディレクトリ
+  # ===========================================================================
+  # デスクトップ、ダウンロード等の標準ディレクトリを自動作成
   xdg.userDirs = {
     enable = true;
     createDirectories = true;
@@ -51,7 +75,11 @@
     videos = "$HOME/Videos";
   };
 
-  # fcitx5 configuration
+  # ===========================================================================
+  # fcitx5設定（日本語入力）
+  # ===========================================================================
+  # 入力メソッドのプロファイル設定
+  # USキーボード + Mozcの構成
   xdg.configFile."fcitx5/profile".text = ''
     [Groups/0]
     Name=デフォルト
@@ -70,6 +98,7 @@
     0=デフォルト
   '';
 
+  # fcitx5のホットキー設定
   xdg.configFile."fcitx5/config".text = ''
     [Hotkey]
     EnumerateWithTriggerKeys=True
@@ -89,7 +118,10 @@
     ShowInputMethodInformation=True
   '';
 
-  # Zed editor configuration
+  # ===========================================================================
+  # Zedエディタ設定
+  # ===========================================================================
+  # Rust製の高速エディタ。VSCodeライクなUIでVimモードをサポート
   xdg.configFile."zed/settings.json".text = ''
     {
       "terminal": {
@@ -116,30 +148,44 @@
     }
   '';
 
-  # Default applications (mimeapps)
+  # ===========================================================================
+  # デフォルトアプリケーション
+  # ===========================================================================
+  # ファイルタイプごとに使用するアプリケーションを指定
   xdg.mimeApps = {
     enable = true;
     defaultApplications = {
+      # ターミナル
       "application/x-terminal-emulator" = "Alacritty.desktop";
       "x-scheme-handler/terminal" = "Alacritty.desktop";
+      # ブラウザ（HTTPリンク、HTMLファイル）
       "text/html" = "google-chrome.desktop";
       "x-scheme-handler/http" = "google-chrome.desktop";
       "x-scheme-handler/https" = "google-chrome.desktop";
       "x-scheme-handler/about" = "google-chrome.desktop";
       "x-scheme-handler/unknown" = "google-chrome.desktop";
+      # テキストファイル
       "text/plain" = "neovide.desktop";
     };
   };
 
-  # COSMIC DE settings
+  # ===========================================================================
+  # COSMIC DE設定
+  # ===========================================================================
+  # System76製デスクトップ環境の設定ファイルを直接配置
+
+  # ターミナルショートカットをAlacrittyに設定
   xdg.configFile."cosmic/com.system76.CosmicSettings.Shortcuts/v1/system_actions".text = ''
     {
         Terminal: "alacritty",
     }
   '';
 
+  # 自動タイリング有効化（ウィンドウを自動的にタイル状に配置）
   xdg.configFile."cosmic/com.system76.CosmicComp/v1/autotile".text = "true";
+  # ワークスペースごとにタイリング状態を管理
   xdg.configFile."cosmic/com.system76.CosmicComp/v1/autotile_behavior".text = "PerWorkspace";
+  # ワークスペースの動作設定
   xdg.configFile."cosmic/com.system76.CosmicComp/v1/workspaces".text = ''
     (
         workspace_mode: OutputBound,
@@ -147,79 +193,107 @@
     )
   '';
 
-  # Fish shell
+  # ===========================================================================
+  # Fishシェル
+  # ===========================================================================
+  # モダンなシェル。強力な補完、シンタックスハイライト、履歴検索
   programs.fish = {
     enable = true;
+    # 起動時のグリーティングメッセージを無効化
     interactiveShellInit = ''
       set -g fish_greeting
     '';
+    # よく使うコマンドのエイリアス
     shellAliases = {
-      ls = "eza";
-      ll = "eza -la";
-      la = "eza -a";
-      lt = "eza --tree";
-      cat = "bat";
+      ls = "eza";           # モダンなls
+      ll = "eza -la";       # 詳細表示
+      la = "eza -a";        # 隠しファイル含む
+      lt = "eza --tree";    # ツリー表示
+      cat = "bat";          # シンタックスハイライト付きcat
+      # NixOS再構築用エイリアス
       rebuild = "sudo nixos-rebuild switch --flake ~/NixOS#xc8";
       update = "cd ~/NixOS && nix flake update && sudo nixos-rebuild switch --flake .#xc8";
     };
   };
 
-  # Git
+  # ===========================================================================
+  # Git設定
+  # ===========================================================================
   programs.git = {
     enable = true;
-    delta.enable = true;
+    delta.enable = true; # deltaでdiffを見やすく表示
     settings = {
       user.name = "Hiroaki Tagawa";
       user.email = "tagawa0525@gmail.com";
-      init.defaultBranch = "main";
-      pull.rebase = true;
+      init.defaultBranch = "main";  # 新規リポジトリのデフォルトブランチ
+      pull.rebase = true;           # pull時にrebaseを使用（マージコミットを避ける）
     };
   };
 
-  # VSCode
+  # ===========================================================================
+  # VSCode設定
+  # ===========================================================================
+  # Home Managerで拡張機能を宣言的に管理
   programs.vscode = {
     enable = true;
     profiles.default.extensions = with pkgs.vscode-extensions; [
-      github.copilot-chat
-      mhutchie.git-graph
-      ms-ceintl.vscode-language-pack-ja
-      rust-lang.rust-analyzer
-      vscodevim.vim
+      github.copilot-chat           # AIペアプログラミング
+      mhutchie.git-graph            # Gitの履歴をグラフ表示
+      ms-ceintl.vscode-language-pack-ja  # 日本語UI
+      rust-lang.rust-analyzer       # Rust言語サポート
+      vscodevim.vim                 # Vimキーバインド
     ];
   };
 
-  # Alacritty
+  # ===========================================================================
+  # Alacritty設定（ターミナル）
+  # ===========================================================================
+  # Rust製GPU加速ターミナル。軽量で高速
   programs.alacritty = {
     enable = true;
     settings = {
       font = {
         size = 12;
-        normal.family = "Noto Sans Mono CJK JP";
+        normal.family = "Noto Sans Mono CJK JP";  # 日本語対応等幅フォント
       };
     };
   };
 
-  # Neovim
+  # ===========================================================================
+  # Neovim設定
+  # ===========================================================================
   programs.neovim = {
     enable = true;
-    defaultEditor = true;
-    viAlias = true;
-    vimAlias = true;
+    defaultEditor = true;  # $EDITORに設定
+    viAlias = true;        # viコマンドでneovimを起動
+    vimAlias = true;       # vimコマンドでneovimを起動
   };
 
-  # Direnv
+  # ===========================================================================
+  # Direnv（ディレクトリごとの環境変数）
+  # ===========================================================================
+  # .envrcファイルでディレクトリ進入時に自動で環境をロード
+  # nix-direnv: flake.nixを使った開発環境の自動切り替え
   programs.direnv = {
     enable = true;
-    nix-direnv.enable = true;
+    nix-direnv.enable = true;  # use flake で nix develop 環境を自動ロード
   };
 
-  # Starship prompt
+  # ===========================================================================
+  # Starshipプロンプト
+  # ===========================================================================
+  # Rust製の高速でカスタマイズ可能なプロンプト
+  # Git状態、言語バージョン、実行時間などを表示
   programs.starship = {
     enable = true;
     enableFishIntegration = true;
   };
 
-  # Zoxide
+  # ===========================================================================
+  # Zoxide（スマートcd）
+  # ===========================================================================
+  # 移動履歴を学習し、部分一致でディレクトリにジャンプ
+  # 例: z proj → ~/projects/myproject に移動
   programs.zoxide = {
     enable = true;
     enableFishIntegration = true;

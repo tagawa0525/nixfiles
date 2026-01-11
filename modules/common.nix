@@ -1,29 +1,47 @@
-# Common system configuration shared across all hosts
+# =============================================================================
+# 全ホスト共通のシステム設定
+# =============================================================================
+# このファイルはxc8(ノートPC)とr995(デスクトップ)で共有される設定を定義します。
+# ホスト固有の設定は hosts/<hostname>/default.nix に記述してください。
+# =============================================================================
 { config, lib, pkgs, ... }:
 
 {
-  # Nix settings
+  # ===========================================================================
+  # Nix設定
+  # ===========================================================================
+  # flakesとnix commandを有効化（従来のnix-buildに代わる新しいCLI）
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  # プロプライエタリソフトウェア（Chrome、VSCode等）のインストールを許可
   nixpkgs.config.allowUnfree = true;
 
-  # Network
+  # ===========================================================================
+  # ネットワーク
+  # ===========================================================================
+  # NetworkManagerでWi-Fi/有線を管理（GUIからも設定可能）
   networking.networkmanager.enable = true;
 
-  # Timezone and locale
+  # ===========================================================================
+  # タイムゾーンとロケール
+  # ===========================================================================
   time.timeZone = "Asia/Tokyo";
   i18n.defaultLocale = "ja_JP.UTF-8";
   i18n.supportedLocales = [
     "ja_JP.UTF-8/UTF-8"
-    "en_US.UTF-8/UTF-8"
+    "en_US.UTF-8/UTF-8"  # 英語ロケールも必要（一部アプリが要求）
   ];
 
-  # Fonts
+  # ===========================================================================
+  # フォント
+  # ===========================================================================
+  # 日本語表示に必要なフォントと開発用フォントをインストール
   fonts.packages = with pkgs; [
-    noto-fonts-cjk-sans
-    noto-fonts-color-emoji
-    nerd-fonts.jetbrains-mono
-    font-awesome
+    noto-fonts-cjk-sans   # Google Noto日本語フォント
+    noto-fonts-color-emoji # 絵文字フォント
+    nerd-fonts.jetbrains-mono # 開発用フォント（アイコン付き）
+    font-awesome          # アイコンフォント（ステータスバー等で使用）
   ];
+  # システム全体のデフォルトフォントを日本語対応に設定
   fonts.fontconfig = {
     defaultFonts = {
       sansSerif = [ "Noto Sans CJK JP" "Noto Sans" ];
@@ -32,164 +50,214 @@
     };
   };
 
-  # Japanese input method
+  # ===========================================================================
+  # 日本語入力 (fcitx5 + Mozc)
+  # ===========================================================================
+  # fcitx5: 入力メソッドフレームワーク
+  # Mozc: Google日本語入力のオープンソース版
   i18n.inputMethod = {
     enable = true;
     type = "fcitx5";
     fcitx5.addons = with pkgs; [
-      fcitx5-mozc
-      fcitx5-gtk
+      fcitx5-mozc # 日本語変換エンジン
+      fcitx5-gtk  # GTKアプリとの統合
     ];
   };
 
-  # Environment variables
+  # ===========================================================================
+  # 環境変数
+  # ===========================================================================
   environment.sessionVariables = {
+    # Electron/ChromiumアプリをWaylandネイティブで動作させる
     NIXOS_OZONE_WL = "1";
+    # npmグローバルパッケージ用のパス（Claude Code等）
     PATH = [ "$HOME/.npm-global/bin" ];
   };
 
-  # Desktop environment
+  # ===========================================================================
+  # デスクトップ環境 (COSMIC DE)
+  # ===========================================================================
+  # System76が開発中のRust製デスクトップ環境
+  # Waylandネイティブでタイル型ウィンドウ管理をサポート
   services.desktopManager.cosmic.enable = true;
   services.displayManager.cosmic-greeter.enable = true;
 
-  # Podman
+  # ===========================================================================
+  # コンテナ (Podman)
+  # ===========================================================================
+  # DockerのRootless代替。デーモン不要でセキュリティが高い
   virtualisation.podman = {
     enable = true;
-    dockerCompat = true;
-    defaultNetwork.settings.dns_enabled = true;
+    dockerCompat = true;  # dockerコマンドをpodmanにエイリアス
+    defaultNetwork.settings.dns_enabled = true;  # コンテナ間DNS解決
   };
+  # Rootlessコンテナに必要なユーザー名前空間を許可
   security.unprivilegedUsernsClone = true;
 
-  # libvirt/KVM
+  # ===========================================================================
+  # 仮想化 (libvirt/KVM)
+  # ===========================================================================
+  # ハードウェア仮想化によるVM実行環境
+  # Windows VM、開発環境の分離などに使用
   virtualisation.libvirtd.enable = true;
-  programs.virt-manager.enable = true;
+  programs.virt-manager.enable = true;  # VM管理用GUI
 
-  # User account
+  # ===========================================================================
+  # ユーザーアカウント
+  # ===========================================================================
   users.users.tagawa = {
     isNormalUser = true;
+    # Rootlessコンテナ用のサブUID/GID範囲を割り当て
     subUidRanges = [{ startUid = 100000; count = 65536; }];
     subGidRanges = [{ startGid = 100000; count = 65536; }];
+    # wheel: sudo権限, podman: コンテナ操作, libvirtd: VM操作
     extraGroups = [ "wheel" "podman" "libvirtd" ];
+    # mkpasswd -m sha-512 で生成したハッシュ
     hashedPassword = "$6$g8T1ZyjV8uoBKzcp$HPjF9mnYkkpEyY3NXeK1HXv.Y3vcUSN4bHkzktlzuSi9SHxBYcNbbhtfwYHMSw5gQ2spy8fF9MORT.oUOUboA.";
     shell = pkgs.fish;
   };
 
-  # Programs
+  # ===========================================================================
+  # プログラム
+  # ===========================================================================
   programs.firefox.enable = true;
-  programs.fish.enable = true;
+  programs.fish.enable = true;  # モダンなシェル（補完が優秀）
 
-  # System packages
+  # ===========================================================================
+  # システムパッケージ
+  # ===========================================================================
   environment.systemPackages = with pkgs; [
     # ─────────────────────────────────────────────────────────────
-    # Browsers
+    # ブラウザ
     # ─────────────────────────────────────────────────────────────
-    google-chrome  # Chromiumベースのウェブブラウザ
+    google-chrome  # Chromiumベース。開発者ツールが充実
 
     # ─────────────────────────────────────────────────────────────
-    # Editors & Terminal
+    # エディタ・ターミナル
     # ─────────────────────────────────────────────────────────────
-    neovim    # モダンなVimフォーク
-    neovide   # Neovim用のGUIフロントエンド
-    vscode    # 拡張機能豊富なコードエディタ
-    alacritty # GPU加速ターミナルエミュレータ
+    neovim    # Vimの後継。Luaで拡張可能
+    neovide   # Neovim用GUI。アニメーションやIME対応が優秀
+    vscode    # 拡張機能が豊富。デバッグやGit統合が便利
+    alacritty # Rust製GPU加速ターミナル。設定はYAML
 
     # ─────────────────────────────────────────────────────────────
-    # Languages & Runtimes
+    # 言語・ランタイム
     # ─────────────────────────────────────────────────────────────
-    nodejs  # JavaScript/TypeScriptランタイム(Claude Code Install用)
-    clang   # C/C++コンパイラ (LLVMベース)
-    rustup  # Rustツールチェーン管理
-    mise    # 多言語バージョン管理 (asdf代替)
-    uv      # 高速Pythonパッケージマネージャ
+    nodejs  # JS/TSランタイム。Claude Codeのインストールに必要
+    clang   # C/C++コンパイラ。GCCより高速でエラーメッセージが分かりやすい
+    rustup  # Rustツールチェーン管理。rustc, cargo, rustfmt等を管理
+    mise    # 多言語バージョン管理。Node, Python, Go等を切り替え
+    uv      # Rust製Python環境管理。pip/venvより10-100倍高速
 
     # ─────────────────────────────────────────────────────────────
-    # Version Control
+    # バージョン管理
     # ─────────────────────────────────────────────────────────────
     git     # 分散バージョン管理システム
-    gh      # GitHub CLI
-    lazygit # Git用のターミナルUI
-    delta   # git diff/grep用のシンタックスハイライト
+    gh      # GitHub CLI。PR作成、Issue管理がターミナルから可能
+    lazygit # Git用TUI。ステージング、コミット、ブランチ操作が直感的
+    delta   # git diffを見やすく表示。シンタックスハイライト対応
 
     # ─────────────────────────────────────────────────────────────
-    # CLI Utilities - Search & Navigation
+    # CLIユーティリティ - 検索・ナビゲーション
     # ─────────────────────────────────────────────────────────────
-    ripgrep # 高速grep (rg)
-    fd      # 高速find
-    fzf     # ファジーファインダー
-    zoxide  # スマートcd (頻繁に使うディレクトリを学習)
+    ripgrep # Rust製grep。.gitignoreを尊重し高速検索
+    fd      # Rust製find。シンプルな構文で高速検索
+    fzf     # ファジーファインダー。履歴検索やファイル選択に
+    zoxide  # cdの学習型代替。z <部分一致>でジャンプ
 
     # ─────────────────────────────────────────────────────────────
-    # CLI Utilities - File & Text
+    # CLIユーティリティ - ファイル・テキスト
     # ─────────────────────────────────────────────────────────────
-    eza   # モダンなls代替
-    bat   # シンタックスハイライト付きcat
-    jq    # JSONプロセッサ
+    eza   # Rust製ls。アイコン、Git状態、ツリー表示対応
+    bat   # Rust製cat。シンタックスハイライトと行番号付き
+    jq    # JSONをコマンドラインで整形・フィルタリング
     unzip # ZIPアーカイブ展開
-    tmux  # ターミナルマルチプレクサ
+    tmux  # ターミナル多重化。セッション保持やペイン分割
 
     # ─────────────────────────────────────────────────────────────
-    # Debug & Analysis
+    # デバッグ・分析
     # ─────────────────────────────────────────────────────────────
-    strace    # システムコールトレーサ
-    ltrace    # ライブラリコールトレーサ
-    tokei     # コード行数カウント
-    hyperfine # コマンドベンチマーク
-    dust      # ディスク使用量の可視化 (du代替)
+    strace    # プロセスのシステムコールをトレース。デバッグに必須
+    ltrace    # ライブラリ関数呼び出しをトレース
+    tokei     # 言語別コード行数カウント。プロジェクト規模把握に
+    hyperfine # コマンドのベンチマーク。複数コマンドの比較が簡単
+    dust      # Rust製du。ディスク使用量を視覚的に表示
 
     # ─────────────────────────────────────────────────────────────
-    # System Monitoring
+    # システム監視
     # ─────────────────────────────────────────────────────────────
-    htop # インタラクティブなプロセスビューア
-    btop # リソースモニタ (htop代替)
+    htop # プロセス一覧とリソース使用状況をリアルタイム表示
+    btop # htopの高機能版。CPU/メモリ/ネットワークをグラフ表示
 
     # ─────────────────────────────────────────────────────────────
-    # GUI Tools - Development
+    # GUIツール - 開発
     # ─────────────────────────────────────────────────────────────
-    podman-desktop # コンテナ管理GUI
-    meld           # ビジュアルdiff/マージツール
-    dbeaver-bin    # データベースGUIクライアント
+    podman-desktop # コンテナ管理GUI。Docker Desktopの代替
+    meld           # ファイル/ディレクトリの差分比較・マージ
+    dbeaver-bin    # 多数のDBに対応したGUIクライアント
 
     # ─────────────────────────────────────────────────────────────
-    # System Utilities
+    # システムユーティリティ
     # ─────────────────────────────────────────────────────────────
-    wl-clipboard # Wayland用クリップボードユーティリティ
-    sbctl        # Secure Boot鍵管理
+    wl-clipboard # Wayland用クリップボード操作（wl-copy, wl-paste）
+    sbctl        # Secure Boot鍵管理。自己署名鍵の作成・登録
   ];
 
 
-  # GNOME Keyring (for password/secret management)
+  # ===========================================================================
+  # GNOME Keyring
+  # ===========================================================================
+  # SSH鍵、GPG鍵、アプリのパスワードを安全に保管
+  # ログイン時に自動でアンロックされる
   services.gnome.gnome-keyring.enable = true;
   security.pam.services.login.enableGnomeKeyring = true;
 
+  # ===========================================================================
   # SSH
+  # ===========================================================================
+  # リモートからのSSH接続を許可（公開鍵認証のみ）
   services.openssh = {
     enable = true;
     settings = {
-      PermitRootLogin = "no";
-      PasswordAuthentication = false;
+      PermitRootLogin = "no";          # rootログイン禁止
+      PasswordAuthentication = false;   # パスワード認証禁止（鍵認証のみ）
     };
     ports = [ 22 ];
   };
 
-  # Tailscale
+  # ===========================================================================
+  # Tailscale (VPN)
+  # ===========================================================================
+  # WireGuardベースのメッシュVPN。NAT越えが簡単で、
+  # 自宅PCへのリモートアクセスやデバイス間通信に使用
   services.tailscale.enable = true;
 
-  # Keyboard remapping (works on Wayland/X11/TTY)
+  # ===========================================================================
+  # キーリマップ (keyd)
+  # ===========================================================================
+  # Wayland/X11/TTY全てで動作するキーリマッパー
+  # CapsLockを「単独押し=Esc」「長押し/組み合わせ=Ctrl」に変更
+  # Vim使用時に非常に便利
   services.keyd = {
     enable = true;
     keyboards.default = {
-      ids = ["*"];
+      ids = ["*"];  # 全キーボードに適用
       settings.main = {
-        capslock = "overload(control, esc)";  # 単独でEsc、組み合わせでCtrl
-        # capslock = "leftcontrol";
+        capslock = "overload(control, esc)";
       };
     };
   };
 
-  # Firewall
+  # ===========================================================================
+  # ファイアウォール
+  # ===========================================================================
+  # SSH(22)のみ許可。他のポートは必要に応じて追加
   networking.firewall.allowedTCPPorts = [ 22 ];
 
-  # XDG user directories defaults
+  # ===========================================================================
+  # XDGユーザーディレクトリ
+  # ===========================================================================
+  # ホームディレクトリの標準フォルダ構成を定義
   environment.etc."xdg/user-dirs.defaults".text = ''
     DESKTOP=Desktop
     DOWNLOAD=Downloads

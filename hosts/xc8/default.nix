@@ -1,24 +1,43 @@
-# Host-specific configuration for xc8
+# =============================================================================
+# xc8 (ThinkPad X1 Carbon 8th Gen) 固有の設定
+# =============================================================================
+# このホストのみに適用される設定。主にハードウェア関連とブート設定。
+# 共通設定は modules/common.nix を参照。
+# =============================================================================
 { config, lib, pkgs, ... }:
 
 {
   imports = [
-    ./hardware-configuration.nix
+    ./hardware-configuration.nix  # nixos-generate-config で生成されたハードウェア設定
   ];
 
-  # Boot with Secure Boot (lanzaboote)
-  boot.loader.systemd-boot.enable = lib.mkForce false;
+  # ===========================================================================
+  # ブート設定
+  # ===========================================================================
+  # Lanzabooteを使用したSecure Boot対応
+  # UEFIのSecure Bootを有効にしたまま、自己署名したカーネルで起動
+  boot.loader.systemd-boot.enable = lib.mkForce false;  # lanzabooteと競合するため無効化
   boot.loader.efi.canTouchEfiVariables = true;
   boot.lanzaboote = {
     enable = true;
-    pkiBundle = "/var/lib/sbctl";
+    pkiBundle = "/var/lib/sbctl";  # sbctlで管理するSecure Boot鍵の保存場所
   };
+
+  # ハイバネート（休止状態）用のスワップデバイス
   boot.resumeDevice = "/dev/disk/by-label/swap";
+
+  # 最新のLinuxカーネルを使用（ハードウェアサポート向上のため）
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
-  # Host
+  # ===========================================================================
+  # ネットワーク
+  # ===========================================================================
   networking.hostName = "xc8";
 
-  # This value determines the NixOS release
+  # ===========================================================================
+  # システムバージョン
+  # ===========================================================================
+  # NixOSの互換性バージョン。初回インストール時のバージョンを維持。
+  # アップグレード時も変更しないこと（データ移行の問題を避けるため）
   system.stateVersion = "25.11";
 }
