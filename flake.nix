@@ -30,6 +30,7 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             home-manager.backupFileExtension = "backup";
+            home-manager.extraSpecialArgs = import ./hosts/xc8/niri-output.nix;
             home-manager.users.tagawa = import ./modules/home/tagawa.nix;
           }
         ];

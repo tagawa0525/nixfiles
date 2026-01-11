@@ -1,7 +1,14 @@
 # Home Manager configuration for tagawa
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, niriOutputConfig ? "", ... }:
 
 {
+  imports = [
+    ./niri.nix
+  ];
+
+  # Pass niriOutputConfig to niri.nix
+  _module.args.niriOutputConfig = niriOutputConfig;
+
   home.stateVersion = "25.11";
 
   # Activation scripts
