@@ -210,9 +210,9 @@
       la = "eza -a";        # 隠しファイル含む
       lt = "eza --tree";    # ツリー表示
       cat = "bat";          # シンタックスハイライト付きcat
-      # NixOS再構築用エイリアス
-      rebuild = "sudo nixos-rebuild switch --flake ~/NixOS#xc8";
-      update = "cd ~/NixOS && nix flake update && sudo nixos-rebuild switch --flake .#xc8";
+      # NixOS再構築用エイリアス（ホスト名を動的に取得）
+      rebuild = "sudo nixos-rebuild switch --flake ~/NixOS#$(hostname)";
+      update = "cd ~/NixOS && nix flake update && sudo nixos-rebuild switch --flake .#$(hostname)";
     };
   };
 
