@@ -167,6 +167,7 @@
   # Git
   programs.git = {
     enable = true;
+    delta.enable = true;
     settings = {
       user.name = "Hiroaki Tagawa";
       user.email = "tagawa0525@gmail.com";
@@ -204,5 +205,23 @@
     defaultEditor = true;
     viAlias = true;
     vimAlias = true;
+  };
+
+  # Direnv
+  programs.direnv = {
+    enable = true;
+    nix-direnv.enable = true;
+  };
+
+  # Starship prompt
+  programs.starship = {
+    enable = true;
+    enableFishIntegration = true;
+  };
+
+  # Zoxide
+  programs.zoxide = {
+    enable = true;
+    enableFishIntegration = true;
   };
 }
