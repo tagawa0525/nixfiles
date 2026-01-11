@@ -23,6 +23,8 @@
     pkiBundle = "/var/lib/sbctl";  # sbctlで管理するSecure Boot鍵の保存場所
   };
 
+  boot.resumeDevice = "/dev/disk/by-label/swap";
+
   # 最新のLinuxカーネルを使用（Ryzen 9000シリーズのサポート向上のため）
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
