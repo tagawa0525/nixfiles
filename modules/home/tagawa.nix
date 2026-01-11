@@ -109,9 +109,9 @@
   # Git
   programs.git = {
     enable = true;
-    userName = "Hiroaki Tagawa";
-    userEmail = "tagawa0525@gmail.com";
-    extraConfig = {
+    settings = {
+      user.name = "Hiroaki Tagawa";
+      user.email = "tagawa0525@gmail.com";
       init.defaultBranch = "main";
       pull.rebase = true;
     };
