@@ -131,6 +131,22 @@
     };
   };
 
+  # COSMIC DE settings
+  xdg.configFile."cosmic/com.system76.CosmicSettings.Shortcuts/v1/system_actions".text = ''
+    {
+        Terminal: "alacritty",
+    }
+  '';
+
+  xdg.configFile."cosmic/com.system76.CosmicComp/v1/autotile".text = "true";
+  xdg.configFile."cosmic/com.system76.CosmicComp/v1/autotile_behavior".text = "PerWorkspace";
+  xdg.configFile."cosmic/com.system76.CosmicComp/v1/workspaces".text = ''
+    (
+        workspace_mode: OutputBound,
+        workspace_layout: Vertical,
+    )
+  '';
+
   # Fish shell
   programs.fish = {
     enable = true;
