@@ -257,8 +257,10 @@
         "window.customMenuBarAltFocus" = false; # Alキー単押しでMenu Barにフォーカスしない
         "git.autofetch" = true;
         "accessibility.voice.speechLanguage" = "ja-JP"; # 音声認識で使用する言語
-	"remote.SSH.useExecServer" = false;
-	"workbench.startupEditor" = "none";
+	      "remote.SSH.useExecServer" = true;
+	      "remote.SSH.enableRemoteCommand" = true;
+	      "remote.SSH.enableDynamicForwarding" = false;
+	      "workbench.startupEditor" = "none";
       };
     };
   };
