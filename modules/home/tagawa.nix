@@ -241,13 +241,24 @@
   # Home Managerで拡張機能を宣言的に管理
   programs.vscode = {
     enable = true;
-    profiles.default.extensions = with pkgs.vscode-extensions; [
-      github.copilot-chat           # AIペアプログラミング
-      mhutchie.git-graph            # Gitの履歴をグラフ表示
-      ms-ceintl.vscode-language-pack-ja  # 日本語UI
-      rust-lang.rust-analyzer       # Rust言語サポート
-      vscodevim.vim                 # Vimキーバインド
-    ];
+    profiles.default = {
+        extensions = with pkgs.vscode-extensions; [
+        github.copilot-chat           # AIペアプログラミング
+        mhutchie.git-graph            # Gitの履歴をグラフ表示
+        ms-ceintl.vscode-language-pack-ja  # 日本語UI
+        rust-lang.rust-analyzer       # Rust言語サポート
+        vscodevim.vim                 # Vimキーバインド
+      ];
+      userSettings = {
+        # VS Code Speechの音声認識言語を日本語に設定
+        "github.copilot.nextEditSuggestions.enabled" = true;
+        "git.confirmSync" = false;
+        "git.enableSmartCommit" = true;
+        "window.customMenuBarAltFocus" = false; # Alキー単押しでMenu Barにフォーカスしない
+        "git.autofetch" = true;
+        "accessibility.voice.speechLanguage" = "ja-JP"; # 音声認識で使用する言語
+      };
+    };
   };
 
   # ===========================================================================
