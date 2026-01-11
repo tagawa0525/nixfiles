@@ -60,12 +60,16 @@
   };
   security.unprivilegedUsernsClone = true;
 
+  # libvirt/KVM
+  virtualisation.libvirtd.enable = true;
+  programs.virt-manager.enable = true;
+
   # User account
   users.users.tagawa = {
     isNormalUser = true;
     subUidRanges = [{ startUid = 100000; count = 65536; }];
     subGidRanges = [{ startGid = 100000; count = 65536; }];
-    extraGroups = [ "wheel" "podman" ];
+    extraGroups = [ "wheel" "podman" "libvirtd" ];
     hashedPassword = "$6$g8T1ZyjV8uoBKzcp$HPjF9mnYkkpEyY3NXeK1HXv.Y3vcUSN4bHkzktlzuSi9SHxBYcNbbhtfwYHMSw5gQ2spy8fF9MORT.oUOUboA.";
     shell = pkgs.fish;
   };
