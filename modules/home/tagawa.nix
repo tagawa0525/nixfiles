@@ -261,8 +261,6 @@
 	      "remote.SSH.enableRemoteCommand" = true;
 	      "remote.SSH.enableDynamicForwarding" = false;
 	      "workbench.startupEditor" = "none";
-        # NixOSでは署名検証に必要なライブラリがないため無効化
-        "extensions.verifySignature" = false;
       };
     };
   };

@@ -141,6 +141,11 @@
       libunwind         # スタックトレース
       libuuid           # UUID生成
       krb5              # Kerberos認証
+      # VS Code拡張機能の署名検証に必要
+      gnupg             # GnuPG
+      libgcrypt         # 暗号ライブラリ
+      libgpg-error      # GPGエラー処理
+      gpgme             # GPG Made Easy（高レベルAPI）
     ];
   };
 
