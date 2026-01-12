@@ -53,9 +53,10 @@ let
   '';
 
   # SSH経由でtmux接続するスクリプトを生成
+  # リモートホストにも同じNixOS設定があるので、local-tmuxを呼び出す
   mkSshTmux = name: host:
     pkgs.writeShellScriptBin name ''
-      ssh -t ${host} '${tmuxConnectCmd}'
+      ssh -t ${host} local-tmux
     '';
 
   # SSH tmux用デスクトップエントリを生成
