@@ -1,33 +1,16 @@
 # =============================================================================
 # xc8 (ThinkPad X1 Carbon 8th Gen) 固有の設定
 # =============================================================================
-# このホストのみに適用される設定。主にハードウェア関連とブート設定。
-# 共通設定は modules/common.nix を参照。
+# このホストのみに適用される設定。
+# 共通設定は modules/common.nix、ブート設定は modules/boot-lanzaboote.nix を参照。
 # =============================================================================
 { config, lib, pkgs, ... }:
 
 {
   imports = [
-    ./hardware-configuration.nix  # nixos-generate-config で生成されたハードウェア設定
+    ./hardware-configuration.nix   # nixos-generate-config で生成されたハードウェア設定
+    ../../modules/boot-lanzaboote.nix  # Secure Boot共通設定
   ];
-
-  # ===========================================================================
-  # ブート設定
-  # ===========================================================================
-  # Lanzabooteを使用したSecure Boot対応
-  # UEFIのSecure Bootを有効にしたまま、自己署名したカーネルで起動
-  boot.loader.systemd-boot.enable = lib.mkForce false;  # lanzabooteと競合するため無効化
-  boot.loader.efi.canTouchEfiVariables = true;
-  boot.lanzaboote = {
-    enable = true;
-    pkiBundle = "/var/lib/sbctl";  # sbctlで管理するSecure Boot鍵の保存場所
-  };
-
-  # ハイバネート（休止状態）用のスワップデバイス
-  boot.resumeDevice = "/dev/disk/by-label/swap";
-
-  # 最新のLinuxカーネルを使用（ハードウェアサポート向上のため）
-  boot.kernelPackages = pkgs.linuxPackages_latest;
 
   # ===========================================================================
   # ネットワーク
