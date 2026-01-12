@@ -3,7 +3,6 @@
 # =============================================================================
 # COSMIC DE, XDG, fcitx5, mimeApps などデスクトップ関連の設定
 # =============================================================================
-{ pkgs, ... }:
 
 {
   # ===========================================================================
@@ -111,60 +110,4 @@
     )
   '';
 
-  # ===========================================================================
-  # tmux接続用スクリプト
-  # ===========================================================================
-  home.packages = [
-    # ローカルtmux起動（グループセッションで新規windowを作成）
-    # 既存セッションがあれば新規windowを作成してそこに接続
-    # なければ新規セッション作成
-    (pkgs.writeShellScriptBin "local-tmux" ''
-      if tmux has-session -t main 2>/dev/null; then
-        tmux new-session -t main \; new-window
-      else
-        tmux new-session -s main
-      fi
-    '')
-    # Tailscale経由でリモートホストにSSH接続し、tmuxセッションにアタッチ
-    # 既存セッションがあれば新規windowを作成してそこに接続
-    (pkgs.writeShellScriptBin "ssh-r995-tmux" ''
-      ssh -t r995 'if tmux has-session -t main 2>/dev/null; then tmux new-session -t main \; new-window; else tmux new-session -s main; fi'
-    '')
-    (pkgs.writeShellScriptBin "ssh-xc8-tmux" ''
-      ssh -t xc8 'if tmux has-session -t main 2>/dev/null; then tmux new-session -t main \; new-window; else tmux new-session -s main; fi'
-    '')
-  ];
-
-  # ===========================================================================
-  # tmux接続用ランチャーエントリ
-  # ===========================================================================
-  xdg.desktopEntries = {
-    # ローカルtmux起動
-    local-tmux = {
-      name = "Terminal (tmux)";
-      comment = "Alacrittyでtmuxセッションを起動";
-      icon = "utilities-terminal";
-      exec = "${pkgs.alacritty}/bin/alacritty -e local-tmux";
-      terminal = false;
-      categories = [ "System" "TerminalEmulator" ];
-    };
-    # r995（デスクトップ）へのtmux接続
-    ssh-r995 = {
-      name = "SSH to r995 (tmux)";
-      comment = "Tailscale経由でr995にSSH接続しtmuxにアタッチ";
-      icon = "utilities-terminal";
-      exec = "${pkgs.alacritty}/bin/alacritty -e ssh-r995-tmux";
-      terminal = false;
-      categories = [ "Network" "RemoteAccess" ];
-    };
-    # xc8（ノートPC）へのtmux接続
-    ssh-xc8 = {
-      name = "SSH to xc8 (tmux)";
-      comment = "Tailscale経由でxc8にSSH接続しtmuxにアタッチ";
-      icon = "utilities-terminal";
-      exec = "${pkgs.alacritty}/bin/alacritty -e ssh-xc8-tmux";
-      terminal = false;
-      categories = [ "Network" "RemoteAccess" ];
-    };
-  };
 }

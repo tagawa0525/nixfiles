@@ -14,6 +14,7 @@
   imports = [
     ./niri.nix # Niriウィンドウマネージャの設定
     ./shell.nix # Fish, Starship, Zoxide, Direnv
+    ./tmux.nix # Tmux設定と接続スクリプト
     ./editors.nix # VSCode, Neovim, Zed, Alacritty
     ./desktop.nix # COSMIC, XDG, fcitx5, mimeApps
     ./development.nix # Git, activation scripts
