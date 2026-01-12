@@ -140,14 +140,14 @@
     ];
     # mkpasswd -m sha-512 で生成したハッシュ
     hashedPassword = "$6$g8T1ZyjV8uoBKzcp$HPjF9mnYkkpEyY3NXeK1HXv.Y3vcUSN4bHkzktlzuSi9SHxBYcNbbhtfwYHMSw5gQ2spy8fF9MORT.oUOUboA.";
-    shell = pkgs.fish;
+    shell = pkgs.bash; # デフォルトはbash（VSCode-Server等の互換性のため）
   };
 
   # ===========================================================================
   # プログラム
   # ===========================================================================
   programs.firefox.enable = true;
-  programs.fish.enable = true; # モダンなシェル（補完が優秀）
+  programs.fish.enable = true; # tmux内で使用
 
   # ===========================================================================
   # nix-ld（動的リンカー互換レイヤー）

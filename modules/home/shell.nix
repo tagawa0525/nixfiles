@@ -1,8 +1,11 @@
 # =============================================================================
 # シェル関連の設定
 # =============================================================================
-# Fish, Starship, Zoxide, Direnv などシェル環境の設定
+# Fish, Tmux, Starship, Zoxide, Direnv などシェル環境の設定
+# デフォルトシェルはbash、tmux内ではfishを使用
 # =============================================================================
+{ pkgs, ... }:
+
 {
   # ===========================================================================
   # Fishシェル
@@ -55,5 +58,40 @@
   programs.direnv = {
     enable = true;
     nix-direnv.enable = true; # use flake で nix develop 環境を自動ロード
+  };
+
+  # ===========================================================================
+  # Tmux設定
+  # ===========================================================================
+  # ターミナル多重化。tmux内ではfishを使用
+  programs.tmux = {
+    enable = true;
+    # tmux内ではfishを使用（デフォルトシェルはbashなのでVSCode-Serverも問題なし）
+    shell = "${pkgs.fish}/bin/fish";
+    # エスケープキーをCtrl+\に変更（Ctrl+Bから）
+    prefix = "C-\\\\";
+    # その他の設定
+    escapeTime = 0; # Escキーの遅延をなくす
+    historyLimit = 50000;
+    mouse = true; # Alacrittyはマウス対応なので有効化
+    terminal = "tmux-256color";
+    extraConfig = ''
+      # Ctrl+\ 2回押しで前のウィンドウに戻る
+      bind C-\\ last-window
+
+      # ビジュアルベル無効化
+      set -g visual-bell off
+
+      # ウィンドウ番号の自動リナンバリング無効化
+      set -g renumber-windows off
+
+      # ステータスライン設定
+      set -g status-left "#{session_name} | "
+      set -g status-right "%Y/%m/%d %H:%M"
+      set -g window-status-current-style bg=white
+
+      # クリップボード統合（Alacrittyで使用）
+      set -g set-clipboard on
+    '';
   };
 }

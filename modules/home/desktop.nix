@@ -3,6 +3,7 @@
 # =============================================================================
 # COSMIC DE, XDG, fcitx5, mimeApps などデスクトップ関連の設定
 # =============================================================================
+{ pkgs, ... }:
 
 {
   # ===========================================================================
@@ -109,4 +110,54 @@
         workspace_layout: Vertical,
     )
   '';
+
+  # ===========================================================================
+  # tmux接続用スクリプト
+  # ===========================================================================
+  home.packages = [
+    # ローカルtmux起動（セッションがあればアタッチ、なければ作成）
+    (pkgs.writeShellScriptBin "local-tmux" ''
+      tmux new-session -A -s main
+    '')
+    # Tailscale経由でリモートホストにSSH接続し、tmuxセッションにアタッチ
+    (pkgs.writeShellScriptBin "ssh-r995-tmux" ''
+      ssh -t r995 'tmux new-session -A -s main'
+    '')
+    (pkgs.writeShellScriptBin "ssh-xc8-tmux" ''
+      ssh -t xc8 'tmux new-session -A -s main'
+    '')
+  ];
+
+  # ===========================================================================
+  # tmux接続用ランチャーエントリ
+  # ===========================================================================
+  xdg.desktopEntries = {
+    # ローカルtmux起動
+    local-tmux = {
+      name = "Terminal (tmux)";
+      comment = "Alacrittyでtmuxセッションを起動";
+      icon = "utilities-terminal";
+      exec = "${pkgs.alacritty}/bin/alacritty -e local-tmux";
+      terminal = false;
+      categories = [ "System" "TerminalEmulator" ];
+    };
+    # r995（デスクトップ）へのtmux接続
+    ssh-r995 = {
+      name = "SSH to r995 (tmux)";
+      comment = "Tailscale経由でr995にSSH接続しtmuxにアタッチ";
+      icon = "utilities-terminal";
+      exec = "${pkgs.alacritty}/bin/alacritty -e ssh-r995-tmux";
+      terminal = false;
+      categories = [ "Network" "RemoteAccess" ];
+    };
+    # xc8（ノートPC）へのtmux接続
+    ssh-xc8 = {
+      name = "SSH to xc8 (tmux)";
+      comment = "Tailscale経由でxc8にSSH接続しtmuxにアタッチ";
+      icon = "utilities-terminal";
+      exec = "${pkgs.alacritty}/bin/alacritty -e ssh-xc8-tmux";
+      terminal = false;
+      categories = [ "Network" "RemoteAccess" ];
+    };
+  };
 }
