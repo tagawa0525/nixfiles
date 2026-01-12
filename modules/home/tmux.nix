@@ -10,15 +10,45 @@
 
 let
   # ===========================================================================
+  # window番号の優先順位（押しやすい順）
+  # ===========================================================================
+  windowPriority = "3 4 2 8 7 9 5 6 1 0";
+
+  # ===========================================================================
+  # 優先順位で空いているwindow番号にnew-windowを作成
+  # ===========================================================================
+  tmuxNewWindowCmd = ''
+    existing=$(tmux list-windows -F '#I' 2>/dev/null)
+    for n in ${windowPriority}; do
+      if ! echo "$existing" | grep -q "^$n$"; then
+        tmux new-window -t ":$n"
+        exit 0
+      fi
+    done
+    tmux new-window
+  '';
+
+  # ===========================================================================
   # tmux接続の共通ロジック
   # ===========================================================================
   # 既存セッションがあれば新規windowを作成してグループセッションで接続
   # なければ新規セッション作成
   tmuxConnectCmd = ''
     if tmux has-session -t main 2>/dev/null; then
-      tmux new-session -t main \; new-window
+      # 優先順位で空いているwindow番号を探す
+      existing=$(tmux list-windows -t main -F '#I' 2>/dev/null)
+      for n in ${windowPriority}; do
+        if ! echo "$existing" | grep -q "^$n$"; then
+          exec tmux new-session -t main \; new-window -t ":$n"
+        fi
+      done
+      # 全て埋まっていたら通常のnew-window
+      exec tmux new-session -t main \; new-window
     else
-      tmux new-session -s main
+      # 新規セッション：window 0で作成後、window 3に移動
+      tmux new-session -d -s main
+      tmux move-window -s main:0 -t main:3
+      exec tmux attach -t main
     fi
   '';
 
@@ -57,6 +87,9 @@ in
       # Ctrl+\ 2回押しで前のウィンドウに戻る
       bind C-\\ last-window
 
+      # 新規window作成を押しやすい番号順で（3, 4, 2, 8, 7, 9, 5, 6, 1, 0）
+      bind c run-shell 'tmux-new-window-smart'
+
       # ビジュアルベル無効化
       set -g visual-bell off
 
@@ -77,6 +110,8 @@ in
   # tmux接続スクリプト
   # ===========================================================================
   home.packages = [
+    # 優先順位でnew-windowを作成（tmux内から呼び出し用）
+    (pkgs.writeShellScriptBin "tmux-new-window-smart" tmuxNewWindowCmd)
     # ローカルtmux起動
     (pkgs.writeShellScriptBin "local-tmux" tmuxConnectCmd)
     # リモートホストへのtmux接続
