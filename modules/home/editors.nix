@@ -96,6 +96,7 @@
   programs.alacritty = {
     enable = true;
     settings = {
+      window.decorations = "None"; # タイトルバーを非表示
       font = {
         size = 12;
         normal.family = "Noto Sans Mono CJK JP"; # 日本語対応等幅フォント
