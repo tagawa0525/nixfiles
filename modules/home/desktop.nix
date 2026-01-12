@@ -92,10 +92,10 @@
   # ===========================================================================
   # System76製デスクトップ環境の設定ファイルを直接配置
 
-  # ターミナルショートカットをAlacrittyに設定
+  # ターミナルショートカットをAlacritty + tmuxに設定
   xdg.configFile."cosmic/com.system76.CosmicSettings.Shortcuts/v1/system_actions".text = ''
     {
-        Terminal: "alacritty",
+        Terminal: "alacritty -e local-tmux",
     }
   '';
 

@@ -142,7 +142,7 @@
         Mod+Shift+Slash { show-hotkey-overlay; }
 
         // アプリケーション起動
-        Mod+T hotkey-overlay-title="Open a Terminal: alacritty" { spawn "alacritty"; }
+        Mod+T hotkey-overlay-title="Open a Terminal: alacritty + tmux" { spawn "alacritty" "-e" "local-tmux"; }
         Mod+D hotkey-overlay-title="Run an Application: fuzzel" { spawn "fuzzel"; }
         Super+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
 
