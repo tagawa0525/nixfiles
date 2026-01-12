@@ -3,7 +3,7 @@
 # =============================================================================
 # VSCode, Neovim, Zed, Alacritty などエディタ・ターミナルの設定
 # =============================================================================
-{ config, pkgs, lib, ... }:
+{ pkgs, ... }:
 
 {
   # ===========================================================================
@@ -13,12 +13,12 @@
   programs.vscode = {
     enable = true;
     profiles.default = {
-        extensions = with pkgs.vscode-extensions; [
-        github.copilot-chat           # AIペアプログラミング
-        mhutchie.git-graph            # Gitの履歴をグラフ表示
-        ms-ceintl.vscode-language-pack-ja  # 日本語UI
-        rust-lang.rust-analyzer       # Rust言語サポート
-        vscodevim.vim                 # Vimキーバインド
+      extensions = with pkgs.vscode-extensions; [
+        github.copilot-chat # AIペアプログラミング
+        mhutchie.git-graph # Gitの履歴をグラフ表示
+        ms-ceintl.vscode-language-pack-ja # 日本語UI
+        rust-lang.rust-analyzer # Rust言語サポート
+        vscodevim.vim # Vimキーバインド
       ];
       userSettings = {
         # VS Code Speechの音声認識言語を日本語に設定
@@ -28,10 +28,10 @@
         "window.customMenuBarAltFocus" = false; # Alキー単押しでMenu Barにフォーカスしない
         "git.autofetch" = true;
         "accessibility.voice.speechLanguage" = "ja-JP"; # 音声認識で使用する言語
-	      "remote.SSH.useExecServer" = false;
-	      "remote.SSH.enableRemoteCommand" = true;
-	      "remote.SSH.enableDynamicForwarding" = false;
-	      "workbench.startupEditor" = "none";
+        "remote.SSH.useExecServer" = false;
+        "remote.SSH.enableRemoteCommand" = true;
+        "remote.SSH.enableDynamicForwarding" = false;
+        "workbench.startupEditor" = "none";
         # NixOSでは署名検証に必要なライブラリがないため無効化
         "extensions.verifySignature" = false;
       };
@@ -50,9 +50,9 @@
   # ===========================================================================
   programs.neovim = {
     enable = true;
-    defaultEditor = true;  # $EDITORに設定
-    viAlias = true;        # viコマンドでneovimを起動
-    vimAlias = true;       # vimコマンドでneovimを起動
+    defaultEditor = true; # $EDITORに設定
+    viAlias = true; # viコマンドでneovimを起動
+    vimAlias = true; # vimコマンドでneovimを起動
   };
 
   # ===========================================================================
@@ -94,7 +94,7 @@
     settings = {
       font = {
         size = 12;
-        normal.family = "Noto Sans Mono CJK JP";  # 日本語対応等幅フォント
+        normal.family = "Noto Sans Mono CJK JP"; # 日本語対応等幅フォント
       };
     };
   };

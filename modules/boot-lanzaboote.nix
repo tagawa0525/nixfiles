@@ -4,18 +4,18 @@
 # UEFIのSecure Bootを有効にしたまま、自己署名したカーネルで起動する設定。
 # 各ホストでimportして使用。
 # =============================================================================
-{ config, lib, pkgs, ... }:
+{ lib, pkgs, ... }:
 
 {
   # ===========================================================================
   # ブートローダー設定
   # ===========================================================================
   # Lanzabooteを使用したSecure Boot対応
-  boot.loader.systemd-boot.enable = lib.mkForce false;  # lanzabooteと競合するため無効化
+  boot.loader.systemd-boot.enable = lib.mkForce false; # lanzabooteと競合するため無効化
   boot.loader.efi.canTouchEfiVariables = true;
   boot.lanzaboote = {
     enable = true;
-    pkiBundle = "/var/lib/sbctl";  # sbctlで管理するSecure Boot鍵の保存場所
+    pkiBundle = "/var/lib/sbctl"; # sbctlで管理するSecure Boot鍵の保存場所
   };
 
   # ===========================================================================

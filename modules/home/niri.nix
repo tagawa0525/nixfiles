@@ -9,7 +9,10 @@
 #
 # キーバインドのカスタマイズは binds セクションで行います。
 # =============================================================================
-{ config, pkgs, lib, niriOutputConfig ? "", ... }:
+{
+  niriOutputConfig ? "",
+  ...
+}:
 
 {
   xdg.configFile."niri/config.kdl".text = ''

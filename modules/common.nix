@@ -4,14 +4,17 @@
 # このファイルはxc8(ノートPC)とr995(デスクトップ)で共有される設定を定義します。
 # ホスト固有の設定は hosts/<hostname>/default.nix に記述してください。
 # =============================================================================
-{ config, lib, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   # ===========================================================================
   # Nix設定
   # ===========================================================================
   # flakesとnix commandを有効化（従来のnix-buildに代わる新しいCLI）
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings.experimental-features = [
+    "nix-command"
+    "flakes"
+  ];
   # プロプライエタリソフトウェア（Chrome、VSCode等）のインストールを許可
   nixpkgs.config.allowUnfree = true;
 
@@ -28,7 +31,7 @@
   i18n.defaultLocale = "ja_JP.UTF-8";
   i18n.supportedLocales = [
     "ja_JP.UTF-8/UTF-8"
-    "en_US.UTF-8/UTF-8"  # 英語ロケールも必要（一部アプリが要求）
+    "en_US.UTF-8/UTF-8" # 英語ロケールも必要（一部アプリが要求）
   ];
 
   # ===========================================================================
@@ -36,17 +39,26 @@
   # ===========================================================================
   # 日本語表示に必要なフォントと開発用フォントをインストール
   fonts.packages = with pkgs; [
-    noto-fonts-cjk-sans   # Google Noto日本語フォント
+    noto-fonts-cjk-sans # Google Noto日本語フォント
     noto-fonts-color-emoji # 絵文字フォント
     nerd-fonts.jetbrains-mono # 開発用フォント（アイコン付き）
-    font-awesome          # アイコンフォント（ステータスバー等で使用）
+    font-awesome # アイコンフォント（ステータスバー等で使用）
   ];
   # システム全体のデフォルトフォントを日本語対応に設定
   fonts.fontconfig = {
     defaultFonts = {
-      sansSerif = [ "Noto Sans CJK JP" "Noto Sans" ];
-      serif = [ "Noto Serif CJK JP" "Noto Serif" ];
-      monospace = [ "Noto Sans Mono CJK JP" "Noto Sans Mono" ];
+      sansSerif = [
+        "Noto Sans CJK JP"
+        "Noto Sans"
+      ];
+      serif = [
+        "Noto Serif CJK JP"
+        "Noto Serif"
+      ];
+      monospace = [
+        "Noto Sans Mono CJK JP"
+        "Noto Sans Mono"
+      ];
     };
   };
 
@@ -60,7 +72,7 @@
     type = "fcitx5";
     fcitx5.addons = with pkgs; [
       fcitx5-mozc # 日本語変換エンジン
-      fcitx5-gtk  # GTKアプリとの統合
+      fcitx5-gtk # GTKアプリとの統合
     ];
   };
 
@@ -88,8 +100,8 @@
   # DockerのRootless代替。デーモン不要でセキュリティが高い
   virtualisation.podman = {
     enable = true;
-    dockerCompat = true;  # dockerコマンドをpodmanにエイリアス
-    defaultNetwork.settings.dns_enabled = true;  # コンテナ間DNS解決
+    dockerCompat = true; # dockerコマンドをpodmanにエイリアス
+    defaultNetwork.settings.dns_enabled = true; # コンテナ間DNS解決
   };
   # Rootlessコンテナに必要なユーザー名前空間を許可
   security.unprivilegedUsernsClone = true;
@@ -100,7 +112,7 @@
   # ハードウェア仮想化によるVM実行環境
   # Windows VM、開発環境の分離などに使用
   virtualisation.libvirtd.enable = true;
-  programs.virt-manager.enable = true;  # VM管理用GUI
+  programs.virt-manager.enable = true; # VM管理用GUI
 
   # ===========================================================================
   # ユーザーアカウント
@@ -108,10 +120,24 @@
   users.users.tagawa = {
     isNormalUser = true;
     # Rootlessコンテナ用のサブUID/GID範囲を割り当て
-    subUidRanges = [{ startUid = 100000; count = 65536; }];
-    subGidRanges = [{ startGid = 100000; count = 65536; }];
+    subUidRanges = [
+      {
+        startUid = 100000;
+        count = 65536;
+      }
+    ];
+    subGidRanges = [
+      {
+        startGid = 100000;
+        count = 65536;
+      }
+    ];
     # wheel: sudo権限, podman: コンテナ操作, libvirtd: VM操作
-    extraGroups = [ "wheel" "podman" "libvirtd" ];
+    extraGroups = [
+      "wheel"
+      "podman"
+      "libvirtd"
+    ];
     # mkpasswd -m sha-512 で生成したハッシュ
     hashedPassword = "$6$g8T1ZyjV8uoBKzcp$HPjF9mnYkkpEyY3NXeK1HXv.Y3vcUSN4bHkzktlzuSi9SHxBYcNbbhtfwYHMSw5gQ2spy8fF9MORT.oUOUboA.";
     shell = pkgs.fish;
@@ -121,7 +147,7 @@
   # プログラム
   # ===========================================================================
   programs.firefox.enable = true;
-  programs.fish.enable = true;  # モダンなシェル（補完が優秀）
+  programs.fish.enable = true; # モダンなシェル（補完が優秀）
 
   # ===========================================================================
   # nix-ld（動的リンカー互換レイヤー）
@@ -132,15 +158,15 @@
     enable = true;
     libraries = with pkgs; [
       # VS Code Server、その他の外部バイナリが必要とする基本ライブラリ
-      stdenv.cc.cc.lib  # libstdc++.so
-      zlib              # libz.so（圧縮）
-      openssl           # libssl.so, libcrypto.so
-      curl              # libcurl.so
-      icu               # Unicode処理
-      libsecret         # シークレット管理
-      libunwind         # スタックトレース
-      libuuid           # UUID生成
-      krb5              # Kerberos認証
+      stdenv.cc.cc.lib # libstdc++.so
+      zlib # libz.so（圧縮）
+      openssl # libssl.so, libcrypto.so
+      curl # libcurl.so
+      icu # Unicode処理
+      libsecret # シークレット管理
+      libunwind # スタックトレース
+      libuuid # UUID生成
+      krb5 # Kerberos認証
     ];
   };
 
@@ -151,60 +177,60 @@
     # ─────────────────────────────────────────────────────────────
     # ブラウザ
     # ─────────────────────────────────────────────────────────────
-    google-chrome  # Chromiumベース。開発者ツールが充実
+    google-chrome # Chromiumベース。開発者ツールが充実
 
     # ─────────────────────────────────────────────────────────────
     # エディタ・ターミナル
     # ─────────────────────────────────────────────────────────────
-    neovim     # Vimの後継。Luaで拡張可能
-    neovide    # Neovim用GUI。アニメーションやIME対応が優秀
-    vscode     # 拡張機能が豊富。デバッグやGit統合が便利
+    neovim # Vimの後継。Luaで拡張可能
+    neovide # Neovim用GUI。アニメーションやIME対応が優秀
+    vscode # 拡張機能が豊富。デバッグやGit統合が便利
     zed-editor # Rust製高速エディタ。VSCodeライクなUIでVimモード対応
-    alacritty  # Rust製GPU加速ターミナル。設定はYAML
+    alacritty # Rust製GPU加速ターミナル。設定はYAML
 
     # ─────────────────────────────────────────────────────────────
     # 言語・ランタイム
     # ─────────────────────────────────────────────────────────────
-    nodejs  # JS/TSランタイム。Claude Codeのインストールに必要
-    clang   # C/C++コンパイラ。GCCより高速でエラーメッセージが分かりやすい
-    rustup  # Rustツールチェーン管理。rustc, cargo, rustfmt等を管理
-    mise    # 多言語バージョン管理。Node, Python, Go等を切り替え
-    uv      # Rust製Python環境管理。pip/venvより10-100倍高速
-    nil     # Nix言語サーバー。エディタでの補完・診断に使用
+    nodejs # JS/TSランタイム。Claude Codeのインストールに必要
+    clang # C/C++コンパイラ。GCCより高速でエラーメッセージが分かりやすい
+    rustup # Rustツールチェーン管理。rustc, cargo, rustfmt等を管理
+    mise # 多言語バージョン管理。Node, Python, Go等を切り替え
+    uv # Rust製Python環境管理。pip/venvより10-100倍高速
+    nil # Nix言語サーバー。エディタでの補完・診断に使用
 
     # ─────────────────────────────────────────────────────────────
     # バージョン管理
     # ─────────────────────────────────────────────────────────────
-    git     # 分散バージョン管理システム
-    gh      # GitHub CLI。PR作成、Issue管理がターミナルから可能
+    git # 分散バージョン管理システム
+    gh # GitHub CLI。PR作成、Issue管理がターミナルから可能
     lazygit # Git用TUI。ステージング、コミット、ブランチ操作が直感的
-    delta   # git diffを見やすく表示。シンタックスハイライト対応
+    delta # git diffを見やすく表示。シンタックスハイライト対応
 
     # ─────────────────────────────────────────────────────────────
     # CLIユーティリティ - 検索・ナビゲーション
     # ─────────────────────────────────────────────────────────────
     ripgrep # Rust製grep。.gitignoreを尊重し高速検索
-    fd      # Rust製find。シンプルな構文で高速検索
-    fzf     # ファジーファインダー。履歴検索やファイル選択に
-    zoxide  # cdの学習型代替。z <部分一致>でジャンプ
+    fd # Rust製find。シンプルな構文で高速検索
+    fzf # ファジーファインダー。履歴検索やファイル選択に
+    zoxide # cdの学習型代替。z <部分一致>でジャンプ
 
     # ─────────────────────────────────────────────────────────────
     # CLIユーティリティ - ファイル・テキスト
     # ─────────────────────────────────────────────────────────────
-    eza   # Rust製ls。アイコン、Git状態、ツリー表示対応
-    bat   # Rust製cat。シンタックスハイライトと行番号付き
-    jq    # JSONをコマンドラインで整形・フィルタリング
+    eza # Rust製ls。アイコン、Git状態、ツリー表示対応
+    bat # Rust製cat。シンタックスハイライトと行番号付き
+    jq # JSONをコマンドラインで整形・フィルタリング
     unzip # ZIPアーカイブ展開
-    tmux  # ターミナル多重化。セッション保持やペイン分割
+    tmux # ターミナル多重化。セッション保持やペイン分割
 
     # ─────────────────────────────────────────────────────────────
     # デバッグ・分析
     # ─────────────────────────────────────────────────────────────
-    strace    # プロセスのシステムコールをトレース。デバッグに必須
-    ltrace    # ライブラリ関数呼び出しをトレース
-    tokei     # 言語別コード行数カウント。プロジェクト規模把握に
+    strace # プロセスのシステムコールをトレース。デバッグに必須
+    ltrace # ライブラリ関数呼び出しをトレース
+    tokei # 言語別コード行数カウント。プロジェクト規模把握に
     hyperfine # コマンドのベンチマーク。複数コマンドの比較が簡単
-    dust      # Rust製du。ディスク使用量を視覚的に表示
+    dust # Rust製du。ディスク使用量を視覚的に表示
 
     # ─────────────────────────────────────────────────────────────
     # システム監視
@@ -217,16 +243,15 @@
     # GUIツール - 開発
     # ─────────────────────────────────────────────────────────────
     podman-desktop # コンテナ管理GUI。Docker Desktopの代替
-    meld           # ファイル/ディレクトリの差分比較・マージ
-    dbeaver-bin    # 多数のDBに対応したGUIクライアント
+    meld # ファイル/ディレクトリの差分比較・マージ
+    dbeaver-bin # 多数のDBに対応したGUIクライアント
 
     # ─────────────────────────────────────────────────────────────
     # システムユーティリティ
     # ─────────────────────────────────────────────────────────────
     wl-clipboard # Wayland用クリップボード操作（wl-copy, wl-paste）
-    sbctl        # Secure Boot鍵管理。自己署名鍵の作成・登録
+    sbctl # Secure Boot鍵管理。自己署名鍵の作成・登録
   ];
-
 
   # ===========================================================================
   # GNOME Keyring
@@ -243,8 +268,8 @@
   services.openssh = {
     enable = true;
     settings = {
-      PermitRootLogin = "no";          # rootログイン禁止
-      PasswordAuthentication = false;   # パスワード認証禁止（鍵認証のみ）
+      PermitRootLogin = "no"; # rootログイン禁止
+      PasswordAuthentication = false; # パスワード認証禁止（鍵認証のみ）
     };
     ports = [ 22 ];
   };
@@ -265,7 +290,7 @@
   services.keyd = {
     enable = true;
     keyboards.default = {
-      ids = ["*"];  # 全キーボードに適用
+      ids = [ "*" ]; # 全キーボードに適用
       settings.main = {
         capslock = "overload(control, esc)";
       };

@@ -4,12 +4,11 @@
 # このホストのみに適用される設定。
 # 共通設定は modules/common.nix、ブート設定は modules/boot-lanzaboote.nix を参照。
 # =============================================================================
-{ config, lib, pkgs, ... }:
 
 {
   imports = [
-    ./hardware-configuration.nix   # nixos-generate-config で生成されたハードウェア設定
-    ../../modules/boot-lanzaboote.nix  # Secure Boot共通設定
+    ./hardware-configuration.nix # nixos-generate-config で生成されたハードウェア設定
+    ../../modules/boot-lanzaboote.nix # Secure Boot共通設定
   ];
 
   # ===========================================================================

@@ -3,8 +3,6 @@
 # =============================================================================
 # Fish, Starship, Zoxide, Direnv などシェル環境の設定
 # =============================================================================
-{ config, pkgs, lib, ... }:
-
 {
   # ===========================================================================
   # Fishシェル
@@ -18,11 +16,11 @@
     '';
     # よく使うコマンドのエイリアス
     shellAliases = {
-      ls = "eza";           # モダンなls
-      ll = "eza -la";       # 詳細表示
-      la = "eza -a";        # 隠しファイル含む
-      lt = "eza --tree";    # ツリー表示
-      cat = "bat";          # シンタックスハイライト付きcat
+      ls = "eza"; # モダンなls
+      ll = "eza -la"; # 詳細表示
+      la = "eza -a"; # 隠しファイル含む
+      lt = "eza --tree"; # ツリー表示
+      cat = "bat"; # シンタックスハイライト付きcat
       # NixOS再構築用エイリアス（ホスト名を動的に取得）
       rebuild = "sudo nixos-rebuild switch --flake ~/NixOS#$(hostname)";
       update = "cd ~/NixOS && nix flake update && sudo nixos-rebuild switch --flake .#$(hostname)";
@@ -56,6 +54,6 @@
   # nix-direnv: flake.nixを使った開発環境の自動切り替え
   programs.direnv = {
     enable = true;
-    nix-direnv.enable = true;  # use flake で nix develop 環境を自動ロード
+    nix-direnv.enable = true; # use flake で nix develop 環境を自動ロード
   };
 }

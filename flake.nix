@@ -21,7 +21,7 @@
     # Home Manager: ユーザー設定（ドットファイル）を宣言的に管理
     home-manager = {
       url = "github:nix-community/home-manager";
-      inputs.nixpkgs.follows = "nixpkgs";  # nixpkgsのバージョンを統一
+      inputs.nixpkgs.follows = "nixpkgs"; # nixpkgsのバージョンを統一
     };
 
     # Lanzaboote: NixOSでSecure Bootを有効にするためのツール
@@ -41,42 +41,52 @@
   # ===========================================================================
   # 出力（システム設定）
   # ===========================================================================
-  outputs = { self, nixpkgs, home-manager, lanzaboote, vscode-server, ... }:
-  let
-    # ─────────────────────────────────────────────────────────────────────────
-    # mkHost: ホスト設定を生成するヘルパー関数
-    # ─────────────────────────────────────────────────────────────────────────
-    # 引数: ホスト名（hosts/<hostName>/配下に設定ファイルが必要）
-    # 新しいホストを追加する場合:
-    #   1. hosts/<hostName>/default.nix と hardware-configuration.nix を作成
-    #   2. hosts/<hostName>/niri-output.nix を作成
-    #   3. nixosConfigurations に `<hostName> = mkHost "<hostName>";` を追加
-    # ─────────────────────────────────────────────────────────────────────────
-    mkHost = hostName: nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        ./hosts/${hostName}              # ホスト固有設定（ブート、ホスト名等）
-        ./modules/common.nix             # 共通システム設定
-        lanzaboote.nixosModules.lanzaboote  # Secure Bootサポート
-        home-manager.nixosModules.home-manager
-        {
-          # VSCodeのバージョン固定オーバーレイ
-          nixpkgs.overlays = [ (import ./overlays/vscode.nix) ];
-          # Home Manager設定
-          home-manager.useGlobalPkgs = true;      # システムのnixpkgsを使用
-          home-manager.useUserPackages = true;    # ユーザーパッケージをシステムに統合
-          home-manager.backupFileExtension = "backup";  # 既存ファイルのバックアップ拡張子
-          # ホスト固有のディスプレイ設定をHome Managerに渡す
-          home-manager.extraSpecialArgs = import ./hosts/${hostName}/niri-output.nix;
-          home-manager.sharedModules = [ vscode-server.homeModules.default ];
-          home-manager.users.tagawa = import ./modules/home/tagawa.nix;
-        }
-      ];
+  outputs =
+    {
+      nixpkgs,
+      home-manager,
+      lanzaboote,
+      vscode-server,
+      ...
+    }:
+    let
+      # ─────────────────────────────────────────────────────────────────────────
+      # mkHost: ホスト設定を生成するヘルパー関数
+      # ─────────────────────────────────────────────────────────────────────────
+      # 引数: ホスト名（hosts/<hostName>/配下に設定ファイルが必要）
+      # 新しいホストを追加する場合:
+      #   1. hosts/<hostName>/default.nix と hardware-configuration.nix を作成
+      #   2. hosts/<hostName>/niri-output.nix を作成
+      #   3. nixosConfigurations に `<hostName> = mkHost "<hostName>";` を追加
+      # ─────────────────────────────────────────────────────────────────────────
+      mkHost =
+        hostName:
+        nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            ./hosts/${hostName} # ホスト固有設定（ブート、ホスト名等）
+            ./modules/common.nix # 共通システム設定
+            lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
+            home-manager.nixosModules.home-manager
+            {
+              # VSCodeのバージョン固定オーバーレイ
+              nixpkgs.overlays = [ (import ./overlays/vscode.nix) ];
+              # Home Manager設定
+              home-manager.useGlobalPkgs = true; # システムのnixpkgsを使用
+              home-manager.useUserPackages = true; # ユーザーパッケージをシステムに統合
+              home-manager.backupFileExtension = "backup"; # 既存ファイルのバックアップ拡張子
+              # ホスト固有のディスプレイ設定をHome Managerに渡す
+              home-manager.extraSpecialArgs = import ./hosts/${hostName}/niri-output.nix;
+              home-manager.sharedModules = [ vscode-server.homeModules.default ];
+              home-manager.users.tagawa = import ./modules/home/tagawa.nix;
+            }
+          ];
+        };
+    in
+    {
+      nixosConfigurations = {
+        xc8 = mkHost "xc8"; # ノートPC (ThinkPad X1 Carbon 8th Gen)
+        r995 = mkHost "r995"; # デスクトップ (Ryzen 9950X + AMD GPU)
+      };
     };
-  in {
-    nixosConfigurations = {
-      xc8 = mkHost "xc8";    # ノートPC (ThinkPad X1 Carbon 8th Gen)
-      r995 = mkHost "r995";  # デスクトップ (Ryzen 9950X + AMD GPU)
-    };
-  };
 }

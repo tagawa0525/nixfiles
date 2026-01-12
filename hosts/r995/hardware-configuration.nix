@@ -6,19 +6,32 @@
 #   sudo nixos-generate-config --show-hardware-config
 #
 # =============================================================================
-{ config, lib, pkgs, modulesPath, ... }:
+{
+  config,
+  lib,
+  modulesPath,
+  ...
+}:
 
 {
-  imports =
-    [ (modulesPath + "/installer/scan/not-detected.nix")
-    ];
+  imports = [
+    (modulesPath + "/installer/scan/not-detected.nix")
+  ];
 
   # ===========================================================================
   # カーネルモジュール
   # ===========================================================================
-  boot.initrd.availableKernelModules = [ "nvme" "xhci_pci" "ahci" "thunderbolt" "usbhid" "usb_storage" "sd_mod" ];
+  boot.initrd.availableKernelModules = [
+    "nvme"
+    "xhci_pci"
+    "ahci"
+    "thunderbolt"
+    "usbhid"
+    "usb_storage"
+    "sd_mod"
+  ];
   boot.initrd.kernelModules = [ ];
-  boot.kernelModules = [ "kvm-amd" ];  # AMD CPUのKVM仮想化サポート
+  boot.kernelModules = [ "kvm-amd" ]; # AMD CPUのKVM仮想化サポート
   boot.extraModulePackages = [ ];
 
   # ===========================================================================
@@ -36,41 +49,44 @@
   # TODO: 以下のUUIDを実際のディスクのUUIDに置き換えてください
   # 確認方法: lsblk -f
 
-  fileSystems."/" =
-    { device = "/dev/disk/by-uuid/62f2c635-bfb9-42a6-9d9c-296a93fdb7c0";
-      fsType = "btrfs";
-      options = [ "subvol=@root" ];
-    };
+  fileSystems."/" = {
+    device = "/dev/disk/by-uuid/62f2c635-bfb9-42a6-9d9c-296a93fdb7c0";
+    fsType = "btrfs";
+    options = [ "subvol=@root" ];
+  };
 
-  fileSystems."/home" =
-    { device = "/dev/disk/by-uuid/62f2c635-bfb9-42a6-9d9c-296a93fdb7c0";
-      fsType = "btrfs";
-      options = [ "subvol=@home" ];
-    };
+  fileSystems."/home" = {
+    device = "/dev/disk/by-uuid/62f2c635-bfb9-42a6-9d9c-296a93fdb7c0";
+    fsType = "btrfs";
+    options = [ "subvol=@home" ];
+  };
 
-  fileSystems."/nix" =
-    { device = "/dev/disk/by-uuid/62f2c635-bfb9-42a6-9d9c-296a93fdb7c0";
-      fsType = "btrfs";
-      options = [ "subvol=@nix" ];
-    };
+  fileSystems."/nix" = {
+    device = "/dev/disk/by-uuid/62f2c635-bfb9-42a6-9d9c-296a93fdb7c0";
+    fsType = "btrfs";
+    options = [ "subvol=@nix" ];
+  };
 
-  fileSystems."/var/log" =
-    { device = "/dev/disk/by-uuid/62f2c635-bfb9-42a6-9d9c-296a93fdb7c0";
-      fsType = "btrfs";
-      options = [ "subvol=@log" ];
-    };
+  fileSystems."/var/log" = {
+    device = "/dev/disk/by-uuid/62f2c635-bfb9-42a6-9d9c-296a93fdb7c0";
+    fsType = "btrfs";
+    options = [ "subvol=@log" ];
+  };
 
   # EFIシステムパーティション
-  fileSystems."/boot" =
-    { device = "/dev/disk/by-uuid/D878-9B1C";
-      fsType = "vfat";
-      options = [ "fmask=0022" "dmask=0022" ];
-    };
+  fileSystems."/boot" = {
+    device = "/dev/disk/by-uuid/D878-9B1C";
+    fsType = "vfat";
+    options = [
+      "fmask=0022"
+      "dmask=0022"
+    ];
+  };
 
   # スワップ（ハイバネートを使用する場合は設定）
-  swapDevices =
-    [ { device = "/dev/disk/by-uuid/86b93a4e-8f47-4345-8771-cb61f33ede09"; }
-    ];
+  swapDevices = [
+    { device = "/dev/disk/by-uuid/86b93a4e-8f47-4345-8771-cb61f33ede09"; }
+  ];
 
   # ===========================================================================
   # ハードウェア設定

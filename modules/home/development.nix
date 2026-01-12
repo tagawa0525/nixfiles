@@ -3,7 +3,7 @@
 # =============================================================================
 # Git, activation scripts (rustup, npm, claude) など開発ツールの設定
 # =============================================================================
-{ config, pkgs, lib, ... }:
+{ pkgs, lib, ... }:
 
 {
   # ===========================================================================
@@ -48,8 +48,8 @@
     settings = {
       user.name = "Hiroaki Tagawa";
       user.email = "tagawa0525@gmail.com";
-      init.defaultBranch = "main";  # 新規リポジトリのデフォルトブランチ
-      pull.rebase = true;           # pull時にrebaseを使用（マージコミットを避ける）
+      init.defaultBranch = "main"; # 新規リポジトリのデフォルトブランチ
+      pull.rebase = true; # pull時にrebaseを使用（マージコミットを避ける）
     };
   };
 
