@@ -115,16 +115,23 @@
   # tmux接続用スクリプト
   # ===========================================================================
   home.packages = [
-    # ローカルtmux起動（セッションがあればアタッチ、なければ作成）
+    # ローカルtmux起動（グループセッションで新規windowを作成）
+    # 既存セッションがあれば新規windowを作成してそこに接続
+    # なければ新規セッション作成
     (pkgs.writeShellScriptBin "local-tmux" ''
-      tmux new-session -A -s main
+      if tmux has-session -t main 2>/dev/null; then
+        tmux new-session -t main \; new-window
+      else
+        tmux new-session -s main
+      fi
     '')
     # Tailscale経由でリモートホストにSSH接続し、tmuxセッションにアタッチ
+    # 既存セッションがあれば新規windowを作成してそこに接続
     (pkgs.writeShellScriptBin "ssh-r995-tmux" ''
-      ssh -t r995 'tmux new-session -A -s main'
+      ssh -t r995 'if tmux has-session -t main 2>/dev/null; then tmux new-session -t main \; new-window; else tmux new-session -s main; fi'
     '')
     (pkgs.writeShellScriptBin "ssh-xc8-tmux" ''
-      ssh -t xc8 'tmux new-session -A -s main'
+      ssh -t xc8 'if tmux has-session -t main 2>/dev/null; then tmux new-session -t main \; new-window; else tmux new-session -s main; fi'
     '')
   ];
 
