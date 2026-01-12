@@ -15,6 +15,7 @@
     profiles.default = {
       extensions = with pkgs.vscode-extensions; [
         github.copilot-chat # AIペアプログラミング
+        jnoortheen.nix-ide # Nix言語サポート（シンタックスハイライト、補完、フォーマット）
         mhutchie.git-graph # Gitの履歴をグラフ表示
         ms-ceintl.vscode-language-pack-ja # 日本語UI
         rust-lang.rust-analyzer # Rust言語サポート
@@ -34,6 +35,9 @@
         "workbench.startupEditor" = "none";
         # NixOSでは署名検証に必要なライブラリがないため無効化
         "extensions.verifySignature" = false;
+        # Nix IDE設定
+        "nix.enableLanguageServer" = true;
+        "nix.serverPath" = "nil"; # nilをLSPとして使用
       };
     };
   };
