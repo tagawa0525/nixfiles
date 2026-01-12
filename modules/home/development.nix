@@ -45,6 +45,9 @@
   # ===========================================================================
   programs.git = {
     enable = true;
+    ignores = [
+      "**/.claude/settings.local.json" # Claude Code のローカル設定を除外
+    ];
     settings = {
       user.name = "Hiroaki Tagawa";
       user.email = "tagawa0525@gmail.com";
@@ -57,5 +60,31 @@
   programs.delta = {
     enable = true;
     enableGitIntegration = true;
+  };
+
+  # ===========================================================================
+  # GitHub CLI設定
+  # ===========================================================================
+  programs.gh = {
+    enable = true;
+    settings = {
+      git_protocol = "https";
+      prompt = "enabled";
+    };
+    gitCredentialHelper.enable = true;
+  };
+
+  # ===========================================================================
+  # htop設定
+  # ===========================================================================
+  programs.htop = {
+    enable = true;
+    settings = {
+      hide_kernel_threads = true;
+      highlight_megabytes = true;
+      highlight_threads = true;
+      show_program_path = true;
+      tree_view = false;
+    };
   };
 }
