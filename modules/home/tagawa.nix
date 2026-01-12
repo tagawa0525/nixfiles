@@ -257,10 +257,12 @@
         "window.customMenuBarAltFocus" = false; # Alキー単押しでMenu Barにフォーカスしない
         "git.autofetch" = true;
         "accessibility.voice.speechLanguage" = "ja-JP"; # 音声認識で使用する言語
-	      "remote.SSH.useExecServer" = true;
+	      "remote.SSH.useExecServer" = false;
 	      "remote.SSH.enableRemoteCommand" = true;
 	      "remote.SSH.enableDynamicForwarding" = false;
 	      "workbench.startupEditor" = "none";
+        # NixOSでは署名検証に必要なライブラリがないため無効化
+        "extensions.verifySignature" = false;
       };
     };
   };
