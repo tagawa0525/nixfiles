@@ -260,6 +260,7 @@
   # ログイン時に自動でアンロックされる
   services.gnome.gnome-keyring.enable = true;
   security.pam.services.login.enableGnomeKeyring = true;
+  security.pam.services.cosmic-greeter.enableGnomeKeyring = true;
 
   # ===========================================================================
   # SSH
