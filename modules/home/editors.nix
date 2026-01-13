@@ -33,6 +33,7 @@
         "remote.SSH.enableRemoteCommand" = true;
         "remote.SSH.enableDynamicForwarding" = false;
         "workbench.startupEditor" = "none";
+        "editor.lineNumbers" = "relative"; # 相対行番号を表示
         # NixOSでは署名検証に必要なライブラリがないため無効化
         "extensions.verifySignature" = false;
         # Nix IDE設定
@@ -57,6 +58,10 @@
     defaultEditor = true; # $EDITORに設定
     viAlias = true; # viコマンドでneovimを起動
     vimAlias = true; # vimコマンドでneovimを起動
+    extraConfig = ''
+      set number         " 行番号を表示
+      set relativenumber " 相対行番号を表示
+    '';
   };
 
   # ===========================================================================
@@ -83,6 +88,7 @@
       },
       "base_keymap": "VSCode",
       "vim_mode": true,
+      "relative_line_numbers": true,
       "ui_font_size": 20.0,
       "buffer_font_size": 14.0,
       "theme": {
