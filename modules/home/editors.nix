@@ -37,7 +37,7 @@
         "extensions.verifySignature" = false;
         # Nix IDE設定
         "nix.enableLanguageServer" = true;
-        "nix.serverPath" = "nil"; # nilをLSPとして使用
+        "nix.serverPath" = "nixd"; # nixdをLSPとして使用
       };
     };
   };
