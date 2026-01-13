@@ -63,6 +63,10 @@
   # Zedエディタ設定
   # ===========================================================================
   # Rust製の高速エディタ。VSCodeライクなUIでVimモードをサポート
+  home.packages = with pkgs; [
+    zed-editor
+  ];
+
   xdg.configFile."zed/settings.json".text = ''
     {
       "terminal": {
