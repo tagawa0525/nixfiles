@@ -46,7 +46,42 @@
   programs.git = {
     enable = true;
     ignores = [
-      "**/.claude/settings.local.json" # Claude Code のローカル設定を除外
+      # Claude Code
+      "**/.claude/settings.local.json"
+
+      # direnv
+      ".envrc"
+      ".direnv/"
+
+      # Python
+      "__pycache__/"
+      "*.pyc"
+      "*.pyo"
+      ".venv/"
+      ".mypy_cache/"
+      ".pytest_cache/"
+      ".ruff_cache/"
+
+      # Node.js
+      "node_modules/"
+
+      # エディタ/IDE
+      ".idea/"
+      "*.swp"
+      "*.swo"
+      "*~"
+
+      # OS
+      ".DS_Store"
+      "Thumbs.db"
+
+      # 環境変数（機密情報）
+      ".env"
+      ".env.local"
+      ".env*.local"
+
+      # ログ
+      "*.log"
     ];
     settings = {
       user.name = "Hiroaki Tagawa";
