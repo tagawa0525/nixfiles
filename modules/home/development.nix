@@ -65,6 +65,15 @@
       # Node.js
       "node_modules/"
 
+      # Rust
+      "target/"
+      "*.rs.bk"
+
+      # Ruby
+      "vendor/bundle/"
+      ".bundle/"
+      "*.gem"
+
       # エディタ/IDE
       ".idea/"
       "*.swp"
