@@ -7,6 +7,12 @@
 
 {
   # ===========================================================================
+  # 開発ツールパッケージ
+  # ===========================================================================
+  home.packages = with pkgs; [
+    bun # JavaScript/TypeScriptランタイム（Node.js互換）
+  ];
+  # ===========================================================================
   # アクティベーションスクリプト
   # ===========================================================================
   # nixos-rebuildまたはhome-manager switch時に実行されるスクリプト
@@ -34,11 +40,37 @@
     fi
   '';
 
+  # Open Code（オープンソースAIコーディングアシスタント）のインストール
+  # npmGlobalDirの後に実行される
+  # postinstallスクリプトがnodeを必要とするためPATHを設定
+  home.activation.openCode = lib.hm.dag.entryAfter [ "npmGlobalDir" ] ''
+    if ! command -v opencode &> /dev/null; then
+      PATH="${pkgs.nodejs}/bin:$PATH" ${pkgs.nodejs}/bin/npm install -g opencode-ai@latest
+    fi
+  '';
+
   # ===========================================================================
   # パス設定
   # ===========================================================================
   # npmグローバルパッケージへのパスを追加
   home.sessionPath = [ "$HOME/.npm-global/bin" ];
+
+  # ===========================================================================
+  # OpenCode設定
+  # ===========================================================================
+  # グローバル設定ファイル（~/.config/opencode/opencode.json）
+  xdg.configFile."opencode/opencode.json".text = builtins.toJSON {
+    "$schema" = "https://opencode.ai/config.json";
+    
+    # Web Search機能の許可設定
+    permission = {
+      webfetch = "allow";    # URLからコンテンツを取得
+      websearch = "allow";   # Web検索を実行
+      codesearch = "allow";  # コード検索を実行
+    };
+    
+    autoupdate = true;       # 自動アップデート有効化
+  };
 
   # ===========================================================================
   # Git設定
