@@ -3,7 +3,7 @@
 , fetchurl
 , makeWrapper
 , autoPatchelfHook
-, wrapGAppsHook
+, wrapGAppsHook3
 , alsa-lib
 , at-spi2-atk
 , cairo
@@ -42,7 +42,7 @@ let
 
   # 最新版の情報（GitHub Actionsで自動更新される）
   version = "1.96.4";
-  sha256 = "0000000000000000000000000000000000000000000000000000";
+  sha256 = "sha256-Nq/HHgetDZS6Ty5K4XMgnTlyfzPArcMPa1W1WZIgNz8=";
 
 in
 stdenv.mkDerivation rec {
@@ -58,7 +58,7 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [
     makeWrapper
     autoPatchelfHook
-    wrapGAppsHook
+    wrapGAppsHook3
   ];
 
   buildInputs = [

@@ -184,6 +184,22 @@
         "type": "github"
       }
     },
+    "nur-tagawa": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "path": "./nur-packages",
+        "type": "path"
+      },
+      "original": {
+        "path": "./nur-packages",
+        "type": "path"
+      },
+      "parent": []
+    },
     "pre-commit-hooks-nix": {
       "inputs": {
         "flake-compat": [
@@ -216,6 +232,7 @@
         "home-manager": "home-manager",
         "lanzaboote": "lanzaboote",
         "nixpkgs": "nixpkgs_2",
+        "nur-tagawa": "nur-tagawa",
         "vscode-server": "vscode-server"
       }
     },
