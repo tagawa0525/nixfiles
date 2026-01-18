@@ -9,15 +9,20 @@
   # ===========================================================================
   # VSCode設定
   # ===========================================================================
-  # Home Managerで拡張機能を宣言的に管理
+  # VSCode拡張機能と設定（Home Manager経由、nur-tagawa.vscodeを使用）
   programs.vscode = {
     enable = true;
+    package = pkgs.nur-tagawa.vscode;
     profiles.default = {
       extensions = with pkgs.vscode-extensions; [
         github.copilot-chat # AIペアプログラミング
+        github.vscode-github-actions
+        fill-labs.dependi
         jnoortheen.nix-ide # Nix言語サポート（シンタックスハイライト、補完、フォーマット）
         mhutchie.git-graph # Gitの履歴をグラフ表示
         ms-ceintl.vscode-language-pack-ja # 日本語UI
+        ms-vscode-remote.vscode-remote-extensionpack
+        ms-vscode.vscode-speech
         rust-lang.rust-analyzer # Rust言語サポート
         vscodevim.vim # Vimキーバインド
       ];
@@ -42,13 +47,6 @@
       };
     };
   };
-
-  # ===========================================================================
-  # VS Code Server（リモート接続用）
-  # ===========================================================================
-  # NixOSでVS Code Remote SSHを動作させるためのサービス
-  # ダウンロードされたサーバーバイナリを自動でパッチする
-  services.vscode-server.enable = true;
 
   # ===========================================================================
   # Neovim設定

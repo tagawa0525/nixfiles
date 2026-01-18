@@ -31,12 +31,6 @@
       # Rustバージョンの非互換を避けるためnixpkgsをフォローしない
     };
 
-    # nixos-vscode-server: VS Code Remote SSH用のサーバーを自動パッチ
-    vscode-server = {
-      url = "github:nix-community/nixos-vscode-server";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # 個人NUR: VSCode最新版
     nur-tagawa = {
       url = "github:tagawa0525/nur-tagawa";
@@ -58,7 +52,6 @@
       nixpkgs,
       home-manager,
       lanzaboote,
-      vscode-server,
       nur-tagawa,
       llm-agents,
       ...
@@ -85,11 +78,11 @@
             {
               # オーバーレイを追加
               nixpkgs.overlays = [
-                # 個人NUR: VSCode最新版
-                (final: prev: {
-                  nur-tagawa = nur-tagawa.packages.${prev.system};
-                })
-                nur-tagawa.overlays.vscode-overlay
+              # 個人NUR: VSCode最新版
+              (final: prev: {
+                nur-tagawa = nur-tagawa.packages.${prev.system};
+              })
+              nur-tagawa.overlays.vscode-overlay
                 # AI Coding Agents
                 (final: prev: {
                   llm-agents = llm-agents.packages.${prev.system};
@@ -101,7 +94,6 @@
               home-manager.backupFileExtension = "backup"; # 既存ファイルのバックアップ拡張子
               # ホスト固有のディスプレイ設定をHome Managerに渡す
               home-manager.extraSpecialArgs = import ./hosts/${hostName}/niri-output.nix;
-              home-manager.sharedModules = [ vscode-server.homeModules.default ];
               home-manager.users.tagawa = import ./modules/home/tagawa.nix;
             }
           ];

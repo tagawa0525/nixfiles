@@ -82,8 +82,6 @@
   environment.sessionVariables = {
     # Electron/ChromiumアプリをWaylandネイティブで動作させる
     NIXOS_OZONE_WL = "1";
-    # npmグローバルパッケージ用のパス（Claude Code等）
-    PATH = [ "$HOME/.npm-global/bin" ];
   };
 
   # ===========================================================================
@@ -184,14 +182,11 @@
     # ─────────────────────────────────────────────────────────────
     neovim # Vimの後継。Luaで拡張可能
     neovide # Neovim用GUI。アニメーションやIME対応が優秀
-    nur-tagawa.vscode # 拡張機能が豊富。デバッグやGit統合が便利(毎日自動更新の個人NUR)
-    zed-editor # Rust製高速エディタ。VSCodeライクなUIでVimモード対応
     alacritty # Rust製GPU加速ターミナル。設定はYAML
 
     # ─────────────────────────────────────────────────────────────
     # 言語・ランタイム
     # ─────────────────────────────────────────────────────────────
-    nodejs # JS/TSランタイム。Claude Codeのインストールに必要
     clang # C/C++コンパイラ。GCCより高速でエラーメッセージが分かりやすい
     rustup # Rustツールチェーン管理。rustc, cargo, rustfmt等を管理
     mise # 多言語バージョン管理。Node, Python, Go等を切り替え
