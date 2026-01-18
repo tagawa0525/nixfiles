@@ -37,9 +37,15 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # 個人NUR: VSCode最新版など
+    # 個人NUR: VSCode最新版
     nur-tagawa = {
       url = "github:tagawa0525/nur-tagawa";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # AI Coding Agents: claude-code, opencodeなど
+    llm-agents = {
+      url = "github:numtide/llm-agents.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -54,6 +60,7 @@
       lanzaboote,
       vscode-server,
       nur-tagawa,
+      llm-agents,
       ...
     }:
     let
@@ -76,13 +83,17 @@
             lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
             home-manager.nixosModules.home-manager
             {
-              # 個人NURのオーバーレイを追加
+              # オーバーレイを追加
               nixpkgs.overlays = [
+                # 個人NUR: VSCode最新版
                 (final: prev: {
                   nur-tagawa = nur-tagawa.packages.${prev.system};
                 })
-                # VSCodeを最新版に置き換える
                 nur-tagawa.overlays.vscode-overlay
+                # AI Coding Agents
+                (final: prev: {
+                  llm-agents = llm-agents.packages.${prev.system};
+                })
               ];
               # Home Manager設定
               home-manager.useGlobalPkgs = true; # システムのnixpkgsを使用

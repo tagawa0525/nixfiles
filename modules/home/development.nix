@@ -11,8 +11,8 @@
   # ===========================================================================
   home.packages = with pkgs; [
     bun # JavaScript/TypeScriptランタイム（Node.js互換）
-    nur-tagawa.claude-code # Claude Code CLI（自動更新）
-    nur-tagawa.opencode # Open Code CLI（自動更新）
+    llm-agents.claude-code # Claude Code CLI（自動更新）
+    llm-agents.opencode # Open Code CLI（自動更新）
   ];
   # ===========================================================================
   # アクティベーションスクリプト
