@@ -191,14 +191,18 @@
         ]
       },
       "locked": {
-        "path": "./nur-packages",
-        "type": "path"
+        "lastModified": 1768728541,
+        "narHash": "sha256-KRkbPlTph8W/q0PLX1j2mPypjmnRPQ7JvGqpOcLHggQ=",
+        "owner": "tagawa0525",
+        "repo": "nur-tagawa",
+        "rev": "fa1254a626ace89427966b506e74f792315749a2",
+        "type": "github"
       },
       "original": {
-        "path": "./nur-packages",
-        "type": "path"
-      },
-      "parent": []
+        "owner": "tagawa0525",
+        "repo": "nur-tagawa",
+        "type": "github"
+      }
     },
     "pre-commit-hooks-nix": {
       "inputs": {
