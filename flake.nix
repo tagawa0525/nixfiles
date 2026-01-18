@@ -81,6 +81,8 @@
                 (final: prev: {
                   nur-tagawa = nur-tagawa.packages.${prev.system};
                 })
+                # VSCodeを最新版に置き換える
+                nur-tagawa.overlays.vscode-overlay
               ];
               # Home Manager設定
               home-manager.useGlobalPkgs = true; # システムのnixpkgsを使用
