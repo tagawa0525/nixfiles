@@ -39,7 +39,7 @@
 
     # 個人NUR: VSCode最新版など
     nur-tagawa = {
-      url = "path:./nur-packages";
+      url = "github:tagawa0525/nur-tagawa";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
