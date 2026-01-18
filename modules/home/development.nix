@@ -11,6 +11,8 @@
   # ===========================================================================
   home.packages = with pkgs; [
     bun # JavaScript/TypeScriptランタイム（Node.js互換）
+    nur-tagawa.claude-code # Claude Code CLI（自動更新）
+    nur-tagawa.opencode # Open Code CLI（自動更新）
   ];
   # ===========================================================================
   # アクティベーションスクリプト
@@ -24,36 +26,6 @@
       ${pkgs.rustup}/bin/rustup default stable
     fi
   '';
-
-  # npmグローバルパッケージ用ディレクトリの設定
-  # デフォルトの/usr/libはNixOSでは書き込み不可のため、ホームに変更
-  home.activation.npmGlobalDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "$HOME/.npm-global"
-    ${pkgs.nodejs}/bin/npm config set prefix "$HOME/.npm-global"
-  '';
-
-  # Claude Code（Anthropic製AIコーディングアシスタント）のインストール
-  # npmGlobalDirの後に実行される
-  home.activation.claudeCode = lib.hm.dag.entryAfter [ "npmGlobalDir" ] ''
-    if ! command -v claude &> /dev/null; then
-      ${pkgs.nodejs}/bin/npm install -g @anthropic-ai/claude-code
-    fi
-  '';
-
-  # Open Code（オープンソースAIコーディングアシスタント）のインストール
-  # npmGlobalDirの後に実行される
-  # postinstallスクリプトがnodeを必要とするためPATHを設定
-  home.activation.openCode = lib.hm.dag.entryAfter [ "npmGlobalDir" ] ''
-    if ! command -v opencode &> /dev/null; then
-      PATH="${pkgs.nodejs}/bin:$PATH" ${pkgs.nodejs}/bin/npm install -g opencode-ai@latest
-    fi
-  '';
-
-  # ===========================================================================
-  # パス設定
-  # ===========================================================================
-  # npmグローバルパッケージへのパスを追加
-  home.sessionPath = [ "$HOME/.npm-global/bin" ];
 
   # ===========================================================================
   # OpenCode設定
