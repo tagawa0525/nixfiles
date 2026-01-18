@@ -184,7 +184,7 @@
     # ─────────────────────────────────────────────────────────────
     neovim # Vimの後継。Luaで拡張可能
     neovide # Neovim用GUI。アニメーションやIME対応が優秀
-    vscode # 拡張機能が豊富。デバッグやGit統合が便利
+    nur-tagawa.vscode # 拡張機能が豊富。デバッグやGit統合が便利(毎日自動更新の個人NUR)
     zed-editor # Rust製高速エディタ。VSCodeライクなUIでVimモード対応
     alacritty # Rust製GPU加速ターミナル。設定はYAML
 

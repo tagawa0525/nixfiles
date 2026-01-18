@@ -36,6 +36,12 @@
       url = "github:nix-community/nixos-vscode-server";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # 個人NUR: VSCode最新版など
+    nur-tagawa = {
+      url = "path:./nur-packages";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # ===========================================================================
@@ -47,6 +53,7 @@
       home-manager,
       lanzaboote,
       vscode-server,
+      nur-tagawa,
       ...
     }:
     let
@@ -69,8 +76,12 @@
             lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
             home-manager.nixosModules.home-manager
             {
-              # VSCodeのバージョン固定オーバーレイ
-              nixpkgs.overlays = [ (import ./overlays/vscode.nix) ];
+              # 個人NURのオーバーレイを追加
+              nixpkgs.overlays = [
+                (final: prev: {
+                  nur-tagawa = nur-tagawa.packages.${prev.system};
+                })
+              ];
               # Home Manager設定
               home-manager.useGlobalPkgs = true; # システムのnixpkgsを使用
               home-manager.useUserPackages = true; # ユーザーパッケージをシステムに統合

@@ -1,0 +1,63 @@
+name: Update VSCode
+
+on:
+  schedule:
+    # 毎日UTC 0:00（日本時間9:00）に実行
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v26
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Get latest VSCode version
+        id: vscode
+        run: |
+          # Microsoft公式APIから最新版の情報を取得
+          VERSION=$(curl -fsSL 'https://update.code.visualstudio.com/api/releases/stable' | jq -r '.[0].version')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # ダウンロードURLを生成
+          URL="https://update.code.visualstudio.com/${VERSION}/linux-x64/stable"
+          
+          # SHA256ハッシュを計算
+          TEMP_FILE=$(mktemp)
+          curl -fsSL "$URL" -o "$TEMP_FILE"
+          SHA256=$(nix-hash --type sha256 --flat --base32 "$TEMP_FILE")
+          rm "$TEMP_FILE"
+          
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "Latest VSCode: $VERSION"
+          echo "SHA256: $SHA256"
+
+      - name: Update version in default.nix
+        run: |
+          sed -i 's/version = ".*";/version = "${{ steps.vscode.outputs.version }}";/' pkgs/vscode/default.nix
+          sed -i 's/sha256 = ".*";/sha256 = "${{ steps.vscode.outputs.sha256 }}";/' pkgs/vscode/default.nix
+
+      - name: Check if version changed
+        id: check
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes detected"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Changes detected"
+          fi
+
+      - name: Commit and push
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pkgs/vscode/default.nix
+          git commit -m "chore: update VSCode to ${{ steps.vscode.outputs.version }}"
+          git push
