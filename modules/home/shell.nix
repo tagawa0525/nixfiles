@@ -23,9 +23,9 @@
       la = "eza -a"; # 隠しファイル含む
       lt = "eza --tree"; # ツリー表示
       cat = "bat"; # シンタックスハイライト付きcat
-      # NixOS再構築用エイリアス（ホスト名を動的に取得）
-      rebuild = "sudo nixos-rebuild switch --flake ~/NixOS#$(hostname)";
-      update = "cd ~/NixOS && nix flake update && sudo nixos-rebuild switch --flake .#$(hostname)";
+      # NixOS再構築用エイリアス（ホスト名は自動解決）
+      rebuild = "sudo nixos-rebuild switch --flake ~/nix/nixfiles";
+      update = "cd ~/nix/nixfiles && nix flake update && sudo nixos-rebuild switch --flake .";
     };
   };
 
