@@ -80,12 +80,12 @@
               nixpkgs.overlays = [
               # 個人NUR: VSCode最新版
               (final: prev: {
-                nur-tagawa = nur-tagawa.packages.${prev.system};
+                nur-tagawa = nur-tagawa.packages.${prev.stdenv.hostPlatform.system};
               })
               nur-tagawa.overlays.vscode-overlay
                 # AI Coding Agents
                 (final: prev: {
-                  llm-agents = llm-agents.packages.${prev.system};
+                  llm-agents = llm-agents.packages.${prev.stdenv.hostPlatform.system};
                 })
               ];
               # Home Manager設定
