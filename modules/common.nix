@@ -51,10 +51,6 @@
         "Noto Sans CJK JP"
         "Noto Sans"
       ];
-      serif = [
-        "Noto Serif CJK JP"
-        "Noto Serif"
-      ];
       monospace = [
         "Noto Sans Mono CJK JP"
         "Noto Sans Mono"
