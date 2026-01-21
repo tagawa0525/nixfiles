@@ -18,6 +18,7 @@
     ./editors.nix # VSCode, Neovim, Zed, Alacritty
     ./desktop.nix # COSMIC, XDG, fcitx5, mimeApps
     ./development.nix # Git, activation scripts
+    ./mise.nix # mise（ランタイムバージョンマネージャー）
   ];
 
   # niriOutputConfigをniri.nixに渡す（ホスト固有のディスプレイ設定用）
