@@ -189,7 +189,8 @@
     # ─────────────────────────────────────────────────────────────
     clang # C/C++コンパイラ。GCCより高速でエラーメッセージが分かりやすい
     rustup # Rustツールチェーン管理。rustc, cargo, rustfmt等を管理
-    mise # 多言語バージョン管理。Node, Python, Go等を切り替え
+    ruby # Ruby言語の最新安定版
+    python3 # Python 3の最新安定版
     uv # Rust製Python環境管理。pip/venvより10-100倍高速
     nil # Nix言語サーバー。エディタでの補完・診断に使用
     nixd # Nix言語サーバー（VS Code Nix拡張機能が使用）
