@@ -70,32 +70,30 @@
     zed-editor
   ];
 
-  xdg.configFile."zed/settings.json".text = ''
-    {
-      "terminal": {
-        "font_weight": 400.0,
-        "font_size": 16.0
-      },
-      "buffer_font_weight": 500.0,
-      "ui_font_weight": 500.0,
-      "buffer_font_family": ".ZedMono",
-      "icon_theme": {
-        "mode": "dark",
-        "light": "Zed (Default)",
-        "dark": "Zed (Default)"
-      },
-      "base_keymap": "VSCode",
-      "vim_mode": true,
-      "relative_line_numbers": true,
-      "ui_font_size": 20.0,
-      "buffer_font_size": 14.0,
-      "theme": {
-        "mode": "dark",
-        "light": "One Light",
-        "dark": "Ayu Dark"
-      }
-    }
-  '';
+  xdg.configFile."zed/settings.json".text = builtins.toJSON {
+    terminal = {
+      font_weight = 400.0;
+      font_size = 16.0;
+    };
+    buffer_font_weight = 500.0;
+    ui_font_weight = 500.0;
+    buffer_font_family = ".ZedMono";
+    icon_theme = {
+      mode = "dark";
+      light = "Zed (Default)";
+      dark = "Zed (Default)";
+    };
+    base_keymap = "VSCode";
+    vim_mode = true;
+    relative_line_numbers = true;
+    ui_font_size = 20.0;
+    buffer_font_size = 14.0;
+    theme = {
+      mode = "dark";
+      light = "One Light";
+      dark = "Ayu Dark";
+    };
+  };
 
   # ===========================================================================
   # Alacritty設定（ターミナル）

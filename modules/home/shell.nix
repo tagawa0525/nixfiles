@@ -15,6 +15,8 @@
     # 起動時のグリーティングメッセージを無効化
     interactiveShellInit = ''
       set -g fish_greeting
+      # mise有効化（Fishシェルで自動補完とコマンドが使えるようになる）
+      mise activate fish | source
     '';
     # よく使うコマンドのエイリアス
     shellAliases = {
