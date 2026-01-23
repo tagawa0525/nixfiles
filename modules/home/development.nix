@@ -13,6 +13,7 @@
     llm-agents.claude-code # Claude Code CLI（自動更新）
     llm-agents.opencode # Open Code CLI（自動更新）
     llm-agents.copilot-cli # GitHub Copilot CLI（自動更新）
+    mold # 高速リンカー（Rustのコンパイル時間短縮）
   ];
   # ===========================================================================
   # アクティベーションスクリプト
@@ -25,6 +26,15 @@
     if [ ! -d "$HOME/.rustup/toolchains" ]; then
       ${pkgs.rustup}/bin/rustup default stable
     fi
+  '';
+
+  # ===========================================================================
+  # Cargo設定（moldリンカー使用）
+  # ===========================================================================
+  home.file.".cargo/config.toml".text = ''
+    [target.x86_64-unknown-linux-gnu]
+    linker = "clang"
+    rustflags = ["-C", "link-arg=-fuse-ld=mold"]
   '';
 
   # ===========================================================================
