@@ -13,6 +13,7 @@
   programs.vscode = {
     enable = true;
     package = pkgs.nur-tagawa.vscode;
+    mutableExtensionsDir = false; # 拡張機能ディレクトリをNixで完全管理
     profiles.default = {
       extensions = with pkgs.vscode-extensions; [
         github.copilot-chat # AIペアプログラミング
@@ -22,7 +23,7 @@
         mhutchie.git-graph # Gitの履歴をグラフ表示
         ms-ceintl.vscode-language-pack-ja # 日本語UI
         ms-vscode-remote.vscode-remote-extensionpack
-	ms-vscode-remote.remote-containers
+        ms-vscode-remote.remote-containers
         ms-vscode.vscode-speech
         rust-lang.rust-analyzer # Rust言語サポート
         vscodevim.vim # Vimキーバインド
@@ -38,7 +39,7 @@
         "remote.SSH.useExecServer" = false;
         "remote.SSH.enableRemoteCommand" = true;
         "remote.SSH.enableDynamicForwarding" = false;
-	"dev.containers.dockerPath" = "podman";
+        "dev.containers.dockerPath" = "podman";
         "workbench.startupEditor" = "none";
         "editor.lineNumbers" = "relative"; # 相対行番号を表示
         # NixOSでは署名検証に必要なライブラリがないため無効化
