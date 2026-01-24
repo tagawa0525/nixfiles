@@ -9,13 +9,13 @@
   # ===========================================================================
   # VSCode設定
   # ===========================================================================
-  # VSCode拡張機能と設定（Home Manager経由、nur-tagawa.vscodeを使用）
+  # VSCode拡張機能と設定（Home Manager経由、nix-vscode-extensionsを使用）
   programs.vscode = {
     enable = true;
     package = pkgs.nur-tagawa.vscode;
     mutableExtensionsDir = false; # 拡張機能ディレクトリをNixで完全管理
     profiles.default = {
-      extensions = with pkgs.vscode-extensions; [
+      extensions = with pkgs.vscode-marketplace; [
         github.copilot-chat # AIペアプログラミング
         github.vscode-github-actions
         fill-labs.dependi
@@ -26,10 +26,9 @@
         ms-vscode-remote.remote-ssh
         ms-vscode.remote-explorer
         ms-vscode.vscode-speech
+        ms-vscode.vscode-speech-language-pack-ja-jp # VS Code Speech 日本語言語パック
         rust-lang.rust-analyzer # Rust言語サポート
         vscodevim.vim # Vimキーバインド
-        # nur-tagawa提供のカスタム拡張機能（GitHub Actionsで自動更新）
-        vscode-speech-language-pack-ja-jp # VS Code Speech 日本語言語パック
       ];
       userSettings = {
         "locale" = "ja"; # VS Codeの表示言語を日本語に設定

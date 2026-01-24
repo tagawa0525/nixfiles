@@ -37,6 +37,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # VSCode拡張機能（マーケットプレイス + Open VSX）
+    nix-vscode-extensions = {
+      url = "github:nix-community/nix-vscode-extensions";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # AI Coding Agents: claude-code, opencodeなど
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
@@ -52,6 +58,7 @@
       nixpkgs,
       home-manager,
       lanzaboote,
+      nix-vscode-extensions,
       nur-tagawa,
       llm-agents,
       ...
@@ -78,12 +85,13 @@
             {
               # オーバーレイを追加
               nixpkgs.overlays = [
-              # 個人NUR: VSCode最新版と拡張機能
-              (final: prev: {
-                nur-tagawa = nur-tagawa.packages.${prev.stdenv.hostPlatform.system};
-              })
-              nur-tagawa.overlays.vscode-overlay
-              nur-tagawa.overlays.vscode-extensions-overlay
+                # 個人NUR: VSCode最新版（本体のみ）
+                (final: prev: {
+                  nur-tagawa = nur-tagawa.packages.${prev.stdenv.hostPlatform.system};
+                })
+                nur-tagawa.overlays.vscode-overlay
+                # VSCode拡張機能（nix-vscode-extensions）
+                nix-vscode-extensions.overlays.default
                 # AI Coding Agents
                 (final: prev: {
                   llm-agents = llm-agents.packages.${prev.stdenv.hostPlatform.system};
