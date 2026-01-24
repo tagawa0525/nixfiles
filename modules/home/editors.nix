@@ -31,12 +31,13 @@
         vscode-speech-language-pack-ja-jp # VS Code Speech 日本語言語パック
       ];
       userSettings = {
-        # VS Code Speechの音声認識言語を日本語に設定
+        "locale" = "ja"; # VS Codeの表示言語を日本語に設定
         "github.copilot.nextEditSuggestions.enabled" = true;
         "git.confirmSync" = false;
         "git.enableSmartCommit" = true;
         "window.customMenuBarAltFocus" = false; # Alキー単押しでMenu Barにフォーカスしない
         "git.autofetch" = true;
+        # VS Code Speechの音声認識言語を日本語に設定
         "accessibility.voice.speechLanguage" = "ja-JP"; # 音声認識で使用する言語
         "remote.SSH.useExecServer" = false;
         "remote.SSH.enableRemoteCommand" = true;
