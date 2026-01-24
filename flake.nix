@@ -78,11 +78,12 @@
             {
               # オーバーレイを追加
               nixpkgs.overlays = [
-              # 個人NUR: VSCode最新版
+              # 個人NUR: VSCode最新版と拡張機能
               (final: prev: {
                 nur-tagawa = nur-tagawa.packages.${prev.stdenv.hostPlatform.system};
               })
               nur-tagawa.overlays.vscode-overlay
+              nur-tagawa.overlays.vscode-extensions-overlay
                 # AI Coding Agents
                 (final: prev: {
                   llm-agents = llm-agents.packages.${prev.stdenv.hostPlatform.system};

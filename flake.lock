@@ -217,11 +217,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1769121657,
-        "narHash": "sha256-PRWfKhMp7r2683PX45XulXcBwvYERpAgUK99NfU1ICU=",
+        "lastModified": 1769220618,
+        "narHash": "sha256-X1xZ0+GE8nIf32F+LiC0Y2jRNtUzhXOUsNauOLl7Q2k=",
         "owner": "tagawa0525",
         "repo": "nur-tagawa",
-        "rev": "e707c7a1f20e429fa89699d32d8b787f7944ebd9",
+        "rev": "93629782f080be75990f1e5fa6a9e9dc85a0fa99",
         "type": "github"
       },
       "original": {
