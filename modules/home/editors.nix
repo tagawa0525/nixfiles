@@ -22,8 +22,9 @@
         jnoortheen.nix-ide # Nix言語サポート（シンタックスハイライト、補完、フォーマット）
         mhutchie.git-graph # Gitの履歴をグラフ表示
         ms-ceintl.vscode-language-pack-ja # 日本語UI
-        ms-vscode-remote.vscode-remote-extensionpack
         ms-vscode-remote.remote-containers
+        ms-vscode-remote.remote-ssh
+        ms-vscode.remote-explorer
         ms-vscode.vscode-speech
         rust-lang.rust-analyzer # Rust言語サポート
         vscodevim.vim # Vimキーバインド
