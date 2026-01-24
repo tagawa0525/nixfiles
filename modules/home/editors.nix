@@ -5,6 +5,10 @@
 # =============================================================================
 { pkgs, ... }:
 
+let
+  # カスタムVSCode拡張機能をインポート
+  customExtensions = import ./vscode-extensions.nix { inherit pkgs; };
+in
 {
   # ===========================================================================
   # VSCode設定
@@ -27,6 +31,9 @@
         ms-vscode.vscode-speech
         rust-lang.rust-analyzer # Rust言語サポート
         vscodevim.vim # Vimキーバインド
+      ] ++ [
+        # カスタム拡張機能
+        customExtensions.vscode-speech-language-pack-ja-jp # VS Code Speech 日本語言語パック
       ];
       userSettings = {
         # VS Code Speechの音声認識言語を日本語に設定
