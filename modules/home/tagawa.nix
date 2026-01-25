@@ -18,6 +18,7 @@
     ./desktop.nix # COSMIC, XDG, fcitx5, mimeApps
     ./development.nix # Git, activation scripts
     ./mise.nix # mise（ランタイムバージョンマネージャー）
+    ./vscode-server.nix # VS Code Server自動パッチ（NixOS用）
   ];
 
   # niriOutputConfigをniri.nixに渡す（ホスト固有のディスプレイ設定用）

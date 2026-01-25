@@ -88,7 +88,6 @@
             ./hosts/${hostName} # ホスト固有設定（ブート、ホスト名等）
             ./modules/common.nix # 共通システム設定
             lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
-            nixos-vscode-server.nixosModules.default # VS Code Server自動パッチ
             home-manager.nixosModules.home-manager
             {
               # オーバーレイを追加
@@ -111,6 +110,7 @@
               # ホスト固有のディスプレイ設定とflakeソースをHome Managerに渡す
               home-manager.extraSpecialArgs = (import ./hosts/${hostName}/niri-output.nix) // {
                 claudeCodeSource = self; # flakeルートを渡す（Claude Code設定用）
+                vscode-server = nixos-vscode-server; # VS Code Server自動パッチモジュール
               };
               home-manager.users.tagawa = import ./modules/home/tagawa.nix;
             }
