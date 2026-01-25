@@ -39,7 +39,7 @@
         "git.autofetch" = true;
         # VS Code Speechの音声認識言語を日本語に設定
         "accessibility.voice.speechLanguage" = "ja-JP"; # 音声認識で使用する言語
-        "remote.SSH.useExecServer" = false;
+        "remote.SSH.useExecServer" = true;
         "remote.SSH.enableRemoteCommand" = true;
         "remote.SSH.enableDynamicForwarding" = false;
         "dev.containers.dockerPath" = "podman";
