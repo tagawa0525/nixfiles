@@ -11,10 +11,18 @@
   # Nix設定
   # ===========================================================================
   # flakesとnix commandを有効化（従来のnix-buildに代わる新しいCLI）
-  nix.settings.experimental-features = [
-    "nix-command"
-    "flakes"
-  ];
+  nix.settings = {
+    experimental-features = [
+      "nix-command"
+      "flakes"
+    ];
+    # wheelグループのユーザーを信頼されたユーザーに設定
+    # これにより、ユーザーレベルの設定（extra-trusted-public-keysなど）が有効になる
+    trusted-users = [
+      "root"
+      "@wheel"
+    ];
+  };
   # プロプライエタリソフトウェア（Chrome、VSCode等）のインストールを許可
   nixpkgs.config.allowUnfree = true;
 
