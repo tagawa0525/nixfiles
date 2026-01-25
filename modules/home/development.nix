@@ -222,13 +222,23 @@
         fi
       fi
 
-      # Rust ファイルのチェック（Cargo.toml がある場合のみ）
+      # Rust ファイルのチェック
       RS_FILES=$(echo "$STAGED_FILES" | grep '\.rs$' || true)
-      if [ -n "$RS_FILES" ] && [ -f "Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
-        echo "🔍 Checking Rust format..."
-        if ! cargo fmt --check 2>/dev/null; then
-          echo "❌ Rust format check failed. Run: cargo fmt"
-          check_failed=1
+      if [ -n "$RS_FILES" ]; then
+        if command -v cargo >/dev/null 2>&1 && cargo locate-project &>/dev/null; then
+          # Cargo プロジェクト内: cargo fmt を使用（edition は Cargo.toml から取得）
+          echo "🔍 Checking Rust format..."
+          if ! cargo fmt --check 2>/dev/null; then
+            echo "❌ Rust format check failed. Run: cargo fmt"
+            check_failed=1
+          fi
+        elif command -v rustfmt >/dev/null 2>&1; then
+          # Cargo プロジェクト外: rustfmt を直接使用（edition 2024）
+          echo "🔍 Checking Rust format..."
+          if ! echo "$RS_FILES" | xargs rustfmt --edition 2024 --check 2>/dev/null; then
+            echo "❌ Rust format check failed. Run: rustfmt --edition 2024 <files>"
+            check_failed=1
+          fi
         fi
       fi
 
