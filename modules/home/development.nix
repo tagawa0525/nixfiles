@@ -36,6 +36,33 @@
     fi
   '';
 
+  # Claude Code グローバル設定の同期
+  # nixfilesの .claude を ~/.claude にコピー（既存ファイルは上書きしない）
+  # これにより、Nixで管理された初期設定を提供しつつ、ユーザーが自由に追加・編集可能
+  home.activation.claudeCodeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    CLAUDE_DIR="$HOME/.claude"
+    SOURCE_DIR="/home/tagawa/nix/nixfiles/.claude"
+
+    # .claude ディレクトリを作成
+    mkdir -p "$CLAUDE_DIR"
+
+    # commands と skills を再帰的にコピー（既存ファイルは上書きしない）
+    # -n: 既存ファイルを上書きしない（ユーザーのカスタマイズを保護）
+    # -r: 再帰的にコピー
+    if [ -d "$SOURCE_DIR/commands" ]; then
+      ${pkgs.rsync}/bin/rsync -a --ignore-existing "$SOURCE_DIR/commands/" "$CLAUDE_DIR/commands/"
+      $DRY_RUN_CMD echo "Claude Code: commands synced to ~/.claude/"
+    fi
+
+    if [ -d "$SOURCE_DIR/skills" ]; then
+      ${pkgs.rsync}/bin/rsync -a --ignore-existing "$SOURCE_DIR/skills/" "$CLAUDE_DIR/skills/"
+      $DRY_RUN_CMD echo "Claude Code: skills synced to ~/.claude/"
+    fi
+
+    # ファイルの書き込み権限を確保
+    $DRY_RUN_CMD chmod -R u+w "$CLAUDE_DIR/commands" "$CLAUDE_DIR/skills" 2>/dev/null || true
+  '';
+
   # ===========================================================================
   # Cargo設定（moldリンカー使用）
   # ===========================================================================
@@ -139,14 +166,6 @@
     };
     gitCredentialHelper.enable = true;
   };
-
-  # ===========================================================================
-  # Claude Code グローバル設定
-  # ===========================================================================
-  # nixfilesリポジトリの .claude をホームディレクトリにリンク
-  # これにより、システム全体で /commit コマンドとスキルが利用可能になる
-  home.file.".claude/commands".source = /home/tagawa/nix/nixfiles/.claude/commands;
-  home.file.".claude/skills".source = /home/tagawa/nix/nixfiles/.claude/skills;
 
   # ===========================================================================
   # htop設定
