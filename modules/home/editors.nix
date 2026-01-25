@@ -12,7 +12,7 @@
   # VSCode拡張機能と設定（Home Manager経由、nix-vscode-extensionsを使用）
   programs.vscode = {
     enable = true;
-    package = pkgs.nur-tagawa.vscode;
+    package = pkgs.nur-tagawa.vscode-insiders; # Insiders版を使用してGitHub Copilot Chatを有効化
     mutableExtensionsDir = false; # 拡張機能ディレクトリをNixで完全管理
     profiles.default = {
       extensions = with pkgs.vscode-marketplace; [
@@ -29,7 +29,7 @@
         ms-vscode.vscode-speech-language-pack-ja-jp # VS Code Speech 日本語言語パック
         rust-lang.rust-analyzer # Rust言語サポート
         vscodevim.vim # Vimキーバインド
-      ];
+        ];
       userSettings = {
         "locale" = "ja"; # VS Codeの表示言語を日本語に設定
         "github.copilot.nextEditSuggestions.enabled" = true;
