@@ -54,14 +54,14 @@
   # 出力（システム設定）
   # ===========================================================================
   outputs =
-    {
-      nixpkgs,
-      home-manager,
-      lanzaboote,
-      nix-vscode-extensions,
-      nur-vscode-latest,
-      llm-agents,
-      ...
+    { self
+    , nixpkgs
+    , home-manager
+    , lanzaboote
+    , nix-vscode-extensions
+    , nur-vscode-latest
+    , llm-agents
+    , ...
     }:
     let
       # ─────────────────────────────────────────────────────────────────────────
@@ -100,8 +100,10 @@
               home-manager.useGlobalPkgs = true; # システムのnixpkgsを使用
               home-manager.useUserPackages = true; # ユーザーパッケージをシステムに統合
               home-manager.backupFileExtension = "backup"; # 既存ファイルのバックアップ拡張子
-              # ホスト固有のディスプレイ設定をHome Managerに渡す
-              home-manager.extraSpecialArgs = import ./hosts/${hostName}/niri-output.nix;
+              # ホスト固有のディスプレイ設定とflakeソースをHome Managerに渡す
+              home-manager.extraSpecialArgs = (import ./hosts/${hostName}/niri-output.nix) // {
+                claudeCodeSource = self; # flakeルートを渡す（Claude Code設定用）
+              };
               home-manager.users.tagawa = import ./modules/home/tagawa.nix;
             }
           ];

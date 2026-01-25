@@ -3,7 +3,7 @@
 # =============================================================================
 # Git, activation scripts (rustup, npm, claude) など開発ツールの設定
 # =============================================================================
-{ pkgs, lib, ... }:
+{ pkgs, lib, claudeCodeSource ? null, ... }:
 
 {
   # ===========================================================================
@@ -37,30 +37,34 @@
   '';
 
   # Claude Code グローバル設定の同期
-  # nixfilesの .claude を ~/.claude にコピー（既存ファイルは上書きしない）
+  # flakeソースの .claude を ~/.claude にコピー（既存ファイルは上書きしない）
   # これにより、Nixで管理された初期設定を提供しつつ、ユーザーが自由に追加・編集可能
+  # claudeCodeSourceがnullの場合は何もしない（オプトイン）
   home.activation.claudeCodeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     CLAUDE_DIR="$HOME/.claude"
-    SOURCE_DIR="/home/tagawa/nix/nixfiles/.claude"
 
     # .claude ディレクトリを作成
     mkdir -p "$CLAUDE_DIR"
 
-    # commands と skills を再帰的にコピー（既存ファイルは上書きしない）
-    # -n: 既存ファイルを上書きしない（ユーザーのカスタマイズを保護）
-    # -r: 再帰的にコピー
-    if [ -d "$SOURCE_DIR/commands" ]; then
-      ${pkgs.rsync}/bin/rsync -a --ignore-existing "$SOURCE_DIR/commands/" "$CLAUDE_DIR/commands/"
-      $DRY_RUN_CMD echo "Claude Code: commands synced to ~/.claude/"
-    fi
+    ${lib.optionalString (claudeCodeSource != null) ''
+      SOURCE_DIR="${claudeCodeSource}/.claude"
 
-    if [ -d "$SOURCE_DIR/skills" ]; then
-      ${pkgs.rsync}/bin/rsync -a --ignore-existing "$SOURCE_DIR/skills/" "$CLAUDE_DIR/skills/"
-      $DRY_RUN_CMD echo "Claude Code: skills synced to ~/.claude/"
-    fi
+      # commands と skills を再帰的にコピー（既存ファイルは上書きしない）
+      # --ignore-existing: 既存ファイルを上書きしない（ユーザーのカスタマイズを保護）
+      # -a: アーカイブモード（パーミッション等を保持）
+      if [ -d "$SOURCE_DIR/commands" ]; then
+        ${pkgs.rsync}/bin/rsync -a --ignore-existing "$SOURCE_DIR/commands/" "$CLAUDE_DIR/commands/"
+        $DRY_RUN_CMD echo "Claude Code: commands synced to ~/.claude/"
+      fi
 
-    # ファイルの書き込み権限を確保
-    $DRY_RUN_CMD chmod -R u+w "$CLAUDE_DIR/commands" "$CLAUDE_DIR/skills" 2>/dev/null || true
+      if [ -d "$SOURCE_DIR/skills" ]; then
+        ${pkgs.rsync}/bin/rsync -a --ignore-existing "$SOURCE_DIR/skills/" "$CLAUDE_DIR/skills/"
+        $DRY_RUN_CMD echo "Claude Code: skills synced to ~/.claude/"
+      fi
+
+      # ファイルの書き込み権限を確保（Nix storeからコピーしたファイルは読み取り専用のため）
+      $DRY_RUN_CMD chmod -R u+w "$CLAUDE_DIR/commands" "$CLAUDE_DIR/skills" 2>/dev/null || true
+    ''}
   '';
 
   # ===========================================================================
@@ -78,15 +82,15 @@
   # グローバル設定ファイル（~/.config/opencode/opencode.json）
   xdg.configFile."opencode/opencode.json".text = builtins.toJSON {
     "$schema" = "https://opencode.ai/config.json";
-    
+
     # Web Search機能の許可設定
     permission = {
-      webfetch = "allow";    # URLからコンテンツを取得
-      websearch = "allow";   # Web検索を実行
-      codesearch = "allow";  # コード検索を実行
+      webfetch = "allow"; # URLからコンテンツを取得
+      websearch = "allow"; # Web検索を実行
+      codesearch = "allow"; # コード検索を実行
     };
-    
-    autoupdate = true;       # 自動アップデート有効化
+
+    autoupdate = true; # 自動アップデート有効化
   };
 
   # ===========================================================================
