@@ -255,6 +255,7 @@
     # システムユーティリティ
     # ─────────────────────────────────────────────────────────────
     wl-clipboard # Wayland用クリップボード操作（wl-copy, wl-paste）
+    waypipe # WaylandアプリをSSH経由で転送。リモートGUIアプリの実行に使用
     sbctl # Secure Boot鍵管理。自己署名鍵の作成・登録
   ];
 
