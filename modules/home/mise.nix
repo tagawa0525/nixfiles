@@ -70,6 +70,39 @@
     OPENSSL_DIR = "${pkgs.openssl.dev}";
     OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
     OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
-    PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+
+    # pkg-config パス（複数ライブラリ対応）
+    PKG_CONFIG_PATH = builtins.concatStringsSep ":" [
+      "${pkgs.openssl.dev}/lib/pkgconfig"
+      "${pkgs.libffi.dev}/lib/pkgconfig"
+      "${pkgs.libyaml.dev}/lib/pkgconfig"
+      "${pkgs.zlib.dev}/lib/pkgconfig"
+      "${pkgs.readline.dev}/lib/pkgconfig"
+    ];
+
+    # Ruby ビルド用: ヘッダーファイルのパス
+    C_INCLUDE_PATH = builtins.concatStringsSep ":" [
+      "${pkgs.openssl.dev}/include"
+      "${pkgs.libffi.dev}/include"
+      "${pkgs.libyaml.dev}/include"
+      "${pkgs.zlib.dev}/include"
+      "${pkgs.readline.dev}/include"
+    ];
+
+    # Ruby ビルド用: ライブラリファイルのパス
+    LIBRARY_PATH = builtins.concatStringsSep ":" [
+      "${pkgs.openssl.out}/lib"
+      "${pkgs.libffi.out}/lib"
+      "${pkgs.libyaml.out}/lib"
+      "${pkgs.zlib.out}/lib"
+      "${pkgs.readline.out}/lib"
+    ];
+
+    # Ruby configure オプション
+    RUBY_CONFIGURE_OPTS = builtins.concatStringsSep " " [
+      "--with-openssl-dir=${pkgs.openssl.dev}"
+      "--with-readline-dir=${pkgs.readline.dev}"
+      "--with-libyaml-dir=${pkgs.libyaml.dev}"
+    ];
   };
 }
