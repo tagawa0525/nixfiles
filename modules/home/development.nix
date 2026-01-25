@@ -22,6 +22,9 @@
     # Nix品質チェックツール
     nixpkgs-fmt # Formatter（Nixpkgs公式）
     statix # Linter（静的解析）
+
+    # Markdown品質チェックツール
+    markdownlint-cli # Linter（スタイルチェック）
   ];
   # ===========================================================================
   # アクティベーションスクリプト
