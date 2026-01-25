@@ -48,6 +48,12 @@
       url = "github:numtide/llm-agents.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # VS Code Server for NixOS: リモートSSH接続時のNode.jsバイナリ自動パッチ
+    nixos-vscode-server = {
+      url = "github:nix-community/nixos-vscode-server";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # ===========================================================================
@@ -61,6 +67,7 @@
     , nix-vscode-extensions
     , nur-vscode-latest
     , llm-agents
+    , nixos-vscode-server
     , ...
     }:
     let
@@ -81,6 +88,7 @@
             ./hosts/${hostName} # ホスト固有設定（ブート、ホスト名等）
             ./modules/common.nix # 共通システム設定
             lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
+            nixos-vscode-server.nixosModules.default # VS Code Server自動パッチ
             home-manager.nixosModules.home-manager
             {
               # オーバーレイを追加
