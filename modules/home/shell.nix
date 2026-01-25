@@ -42,6 +42,7 @@
         end
         echo "🔨 Rebuilding NixOS..."
         sudo nixos-rebuild switch --flake .
+        cd -
       '';
       # update: flake更新後に自動コミット＆プッシュ
       update = ''
@@ -63,6 +64,7 @@
         git add flake.lock
         git commit -m "flake: update" 2>/dev/null; or echo "No changes to commit"
         git push
+        cd -
       '';
     };
   };
