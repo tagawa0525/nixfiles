@@ -25,9 +25,45 @@
       la = "eza -a"; # 隠しファイル含む
       lt = "eza --tree"; # ツリー表示
       cat = "bat"; # シンタックスハイライト付きcat
-      # NixOS再構築用エイリアス（ホスト名は自動解決）
-      rebuild = "sudo nixos-rebuild switch --flake ~/nix/nixfiles";
-      update = "cd ~/nix/nixfiles && nix flake update && sudo nixos-rebuild switch --flake .";
+    };
+    # NixOS再構築用コマンド（flake.lockの自動同期付き）
+    functions = {
+      # rebuild: リモートのflake.lockを取得してからrebuild
+      rebuild = ''
+        set -l nixdir ~/nix/nixfiles
+        cd $nixdir
+        echo "📥 Pulling flake.lock from remote..."
+        git fetch origin main
+        # ローカルに未コミットの変更がなければリモート版を取得
+        if not git diff --quiet flake.lock 2>/dev/null
+          echo "⚠️  flake.lock has local changes, skipping pull"
+        else
+          git checkout origin/main -- flake.lock 2>/dev/null; or echo "No remote changes to flake.lock"
+        end
+        echo "🔨 Rebuilding NixOS..."
+        sudo nixos-rebuild switch --flake .
+      '';
+      # update: flake更新後に自動コミット＆プッシュ
+      update = ''
+        set -l nixdir ~/nix/nixfiles
+        cd $nixdir
+        echo "📥 Pulling flake.lock from remote..."
+        git fetch origin main
+        # ローカルに未コミットの変更がなければリモート版を取得
+        if not git diff --quiet flake.lock 2>/dev/null
+          echo "⚠️  flake.lock has local changes, skipping pull"
+        else
+          git checkout origin/main -- flake.lock 2>/dev/null; or echo "No remote changes to flake.lock"
+        end
+        echo "⬆️  Updating flake..."
+        nix flake update
+        echo "🔨 Rebuilding NixOS..."
+        sudo nixos-rebuild switch --flake .
+        echo "📤 Pushing flake.lock to remote..."
+        git add flake.lock
+        git commit -m "flake: update" 2>/dev/null; or echo "No changes to commit"
+        git push
+      '';
     };
   };
 
