@@ -14,6 +14,14 @@
     llm-agents.opencode # Open Code CLI（自動更新）
     llm-agents.copilot-cli # GitHub Copilot CLI（自動更新）
     mold # 高速リンカー（Rustのコンパイル時間短縮）
+
+    # Python品質チェックツール
+    ruff # Linter & Formatter（Flake8、Black、isortの代替）
+    python3Packages.pytest # テストフレームワーク
+
+    # Nix品質チェックツール
+    nixpkgs-fmt # Formatter（Nixpkgs公式）
+    statix # Linter（静的解析）
   ];
   # ===========================================================================
   # アクティベーションスクリプト
