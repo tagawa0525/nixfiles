@@ -32,8 +32,8 @@
     };
 
     # 個人NUR: VSCode最新版
-    nur-tagawa = {
-      url = "github:tagawa0525/nur-tagawa";
+    nur-vscode-latest = {
+      url = "github:tagawa0525/nur-vscode-latest";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -59,7 +59,7 @@
       home-manager,
       lanzaboote,
       nix-vscode-extensions,
-      nur-tagawa,
+      nur-vscode-latest,
       llm-agents,
       ...
     }:
@@ -87,9 +87,8 @@
               nixpkgs.overlays = [
                 # 個人NUR: VSCode最新版（本体のみ）
                 (final: prev: {
-                  nur-tagawa = nur-tagawa.packages.${prev.stdenv.hostPlatform.system};
+                  nur-vscode-latest = nur-vscode-latest.packages.${prev.stdenv.hostPlatform.system};
                 })
-                nur-tagawa.overlays.vscode-overlay
                 # VSCode拡張機能（nix-vscode-extensions）
                 nix-vscode-extensions.overlays.default
                 # AI Coding Agents

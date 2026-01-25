@@ -12,7 +12,7 @@
   # VSCode拡張機能と設定（Home Manager経由、nix-vscode-extensionsを使用）
   programs.vscode = {
     enable = true;
-    package = pkgs.nur-tagawa.vscode-insiders; # Insiders版を使用してGitHub Copilot Chatを有効化
+    package = pkgs.nur-vscode-latest.vscode-insiders; # Insiders版を使用してGitHub Copilot Chatを有効化
     mutableExtensionsDir = false; # 拡張機能ディレクトリをNixで完全管理
     profiles.default = {
       extensions = with pkgs.vscode-marketplace; [

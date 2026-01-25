@@ -230,23 +230,23 @@
         "type": "github"
       }
     },
-    "nur-tagawa": {
+    "nur-vscode-latest": {
       "inputs": {
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1769304726,
-        "narHash": "sha256-76Dj3KqUZjhxT4xY8L5Y5B8yZ5aiO/amZ3hdA9xz+gI=",
+        "lastModified": 1769305585,
+        "narHash": "sha256-C5Q9b6sfLU5lIihH7gRrAa1Lx7AvIoC7DajsFRo4Fj0=",
         "owner": "tagawa0525",
-        "repo": "nur-tagawa",
-        "rev": "5bbefc521f56703ae1b47878200aef90df590922",
+        "repo": "nur-vscode-latest",
+        "rev": "24323c1febcb8ce98648e12846c983d54392c366",
         "type": "github"
       },
       "original": {
         "owner": "tagawa0525",
-        "repo": "nur-tagawa",
+        "repo": "nur-vscode-latest",
         "type": "github"
       }
     },
@@ -284,7 +284,7 @@
         "llm-agents": "llm-agents",
         "nix-vscode-extensions": "nix-vscode-extensions",
         "nixpkgs": "nixpkgs_2",
-        "nur-tagawa": "nur-tagawa"
+        "nur-vscode-latest": "nur-vscode-latest"
       }
     },
     "rust-overlay": {
