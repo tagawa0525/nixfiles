@@ -29,7 +29,7 @@
         ms-vscode.vscode-speech-language-pack-ja-jp # VS Code Speech 日本語言語パック
         rust-lang.rust-analyzer # Rust言語サポート
         vscodevim.vim # Vimキーバインド
-        ];
+      ];
       userSettings = {
         "locale" = "ja"; # VS Codeの表示言語を日本語に設定
         "github.copilot.nextEditSuggestions.enabled" = true;
@@ -50,6 +50,7 @@
         # Nix IDE設定
         "nix.enableLanguageServer" = true;
         "nix.serverPath" = "nixd"; # nixdをLSPとして使用
+        "chat.tools.terminal.outputLocation" = "chat";
       };
     };
   };
