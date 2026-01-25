@@ -153,7 +153,87 @@
       user.email = "tagawa0525@gmail.com";
       init.defaultBranch = "main"; # 新規リポジトリのデフォルトブランチ
       pull.rebase = true; # pull時にrebaseを使用（マージコミットを避ける）
+      core.hooksPath = "~/.config/git/hooks"; # グローバルhooksを使用
     };
+  };
+
+  # ===========================================================================
+  # Git Hooks（グローバル）
+  # ===========================================================================
+  # プロジェクトローカルの .git/hooks/ があれば優先、なければデフォルトチェック
+  xdg.configFile."git/hooks/pre-commit" = {
+    executable = true;
+    text = ''
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      # プロジェクトローカルの pre-commit があれば優先実行
+      GIT_DIR="$(git rev-parse --git-dir 2>/dev/null)" || exit 0
+      LOCAL_HOOK="$GIT_DIR/hooks/pre-commit"
+      if [ -x "$LOCAL_HOOK" ]; then
+        exec "$LOCAL_HOOK" "$@"
+      fi
+
+      # pre-commit フレームワークの設定があれば使用
+      if [ -f ".pre-commit-config.yaml" ] && command -v pre-commit >/dev/null 2>&1; then
+        exec pre-commit run --hook-stage pre-commit "$@"
+      fi
+
+      # ========================================
+      # デフォルト: ステージされたファイルをチェック
+      # ========================================
+      STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+      [ -z "$STAGED_FILES" ] && exit 0
+
+      check_failed=0
+
+      # Nix ファイルのチェック
+      NIX_FILES=$(echo "$STAGED_FILES" | grep '\.nix$' || true)
+      if [ -n "$NIX_FILES" ] && command -v nixpkgs-fmt >/dev/null 2>&1; then
+        echo "🔍 Checking Nix format..."
+        if ! echo "$NIX_FILES" | xargs nixpkgs-fmt --check 2>/dev/null; then
+          echo "❌ Nix format check failed. Run: nixpkgs-fmt <files>"
+          check_failed=1
+        fi
+      fi
+
+      # Markdown ファイルのチェック
+      MD_FILES=$(echo "$STAGED_FILES" | grep '\.md$' || true)
+      if [ -n "$MD_FILES" ] && command -v markdownlint >/dev/null 2>&1; then
+        echo "🔍 Checking Markdown style..."
+        if ! echo "$MD_FILES" | xargs markdownlint 2>/dev/null; then
+          echo "❌ Markdown lint failed. Run: markdownlint --fix <files>"
+          check_failed=1
+        fi
+      fi
+
+      # Python ファイルのチェック
+      PY_FILES=$(echo "$STAGED_FILES" | grep '\.py$' || true)
+      if [ -n "$PY_FILES" ] && command -v ruff >/dev/null 2>&1; then
+        echo "🔍 Checking Python format..."
+        if ! ruff format --check $PY_FILES 2>/dev/null; then
+          echo "❌ Python format check failed. Run: ruff format <files>"
+          check_failed=1
+        fi
+        echo "🔍 Checking Python lint..."
+        if ! ruff check $PY_FILES 2>/dev/null; then
+          echo "❌ Python lint failed. Run: ruff check --fix <files>"
+          check_failed=1
+        fi
+      fi
+
+      # Rust ファイルのチェック（Cargo.toml がある場合のみ）
+      RS_FILES=$(echo "$STAGED_FILES" | grep '\.rs$' || true)
+      if [ -n "$RS_FILES" ] && [ -f "Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
+        echo "🔍 Checking Rust format..."
+        if ! cargo fmt --check 2>/dev/null; then
+          echo "❌ Rust format check failed. Run: cargo fmt"
+          check_failed=1
+        fi
+      fi
+
+      exit $check_failed
+    '';
   };
 
   # deltaでdiffを見やすく表示
