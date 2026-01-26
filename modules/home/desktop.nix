@@ -40,6 +40,8 @@
       "x-scheme-handler/unknown" = "google-chrome.desktop";
       # テキストファイル
       "text/plain" = "neovide.desktop";
+      # qmpo（ディレクトリURIハンドラ）
+      "x-scheme-handler/directory" = "qmpo.desktop";
     };
   };
 
