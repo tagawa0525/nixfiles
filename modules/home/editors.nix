@@ -23,6 +23,7 @@ let
     # 言語サポート
     jnoortheen.nix-ide # Nix
     rust-lang.rust-analyzer # Rust
+    vadimcn.vscode-lldb # Rustデバッガー
     ms-python.python # Python
     ms-python.vscode-pylance # Python型チェック・補完
     charliermarsh.ruff # Python フォーマット・lint
@@ -92,6 +93,17 @@ in
             "source.organizeImports" = "explicit"; # import整理
           };
         };
+        # Rust設定（rust-analyzer）
+        "[rust]" = {
+          "editor.defaultFormatter" = "rust-lang.rust-analyzer";
+          "editor.formatOnSave" = true;
+        };
+        "rust-analyzer.check.command" = "clippy"; # 保存時にclippyでlint
+        "rust-analyzer.inlayHints.parameterHints.enable" = true; # パラメータ名ヒント
+        "rust-analyzer.inlayHints.typeHints.enable" = true; # 型ヒント
+        "rust-analyzer.inlayHints.chainingHints.enable" = true; # メソッドチェーンの型ヒント
+        "rust-analyzer.procMacro.enable" = true; # プロシージャルマクロサポート
+        "rust-analyzer.cargo.features" = "all"; # 全featureを有効化
         # リモート接続時に自動インストールする拡張機能
         "remote.SSH.defaultExtensions" = map getExtensionId workspaceExtensions;
       };

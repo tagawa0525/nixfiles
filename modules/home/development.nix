@@ -14,6 +14,9 @@
     llm-agents.opencode # Open Code CLI（自動更新）
     llm-agents.copilot-cli # GitHub Copilot CLI（自動更新）
     mold # 高速リンカー（Rustのコンパイル時間短縮）
+    bacon # ファイル監視＆自動ビルド（cargo-watchの代替）
+    cargo-nextest # 高速テストランナー
+    cargo-expand # マクロ展開確認
 
     # Python開発ツール
     uv # 高速パッケージマネージャー（pip/venv代替）
