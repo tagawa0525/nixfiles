@@ -23,14 +23,31 @@
       "@wheel"
     ];
   };
+  # 自動ガベージコレクション: 30日以上古い世代を週次で削除
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 30d";
+  };
   # プロプライエタリソフトウェア（Chrome、VSCode等）のインストールを許可
   nixpkgs.config.allowUnfree = true;
+
+  # ===========================================================================
+  # ハードウェア
+  # ===========================================================================
+  # AMD/Intel CPUのマイクロコード更新、WiFi/Bluetoothファームウェア等を有効化
+  hardware.enableRedistributableFirmware = true;
 
   # ===========================================================================
   # ネットワーク
   # ===========================================================================
   # NetworkManagerでWi-Fi/有線を管理（GUIからも設定可能）
   networking.networkmanager.enable = true;
+  # DNSサーバーを明示指定（プライマリ: Cloudflare、フォールバック: Google）
+  networking.nameservers = [
+    "1.1.1.1"
+    "8.8.8.8"
+  ];
 
   # ===========================================================================
   # タイムゾーンとロケール
@@ -289,6 +306,12 @@
   services.gnome.gnome-keyring.enable = true;
   security.pam.services.login.enableGnomeKeyring = true;
   security.pam.services.cosmic-greeter.enableGnomeKeyring = true;
+
+  # ===========================================================================
+  # システムログ (journald)
+  # ===========================================================================
+  # ログサイズを500MBに制限（Btrfsサブボリュームが同一パーティションを共有するため）
+  services.journald.extraConfig = "SystemMaxUse=500M";
 
   # ===========================================================================
   # SSH

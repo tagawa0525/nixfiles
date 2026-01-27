@@ -15,27 +15,29 @@
 {
   niriOutputConfig = ''
     // r995 デスクトップのディスプレイ設定
-    // niri msg outputs で接続中のモニターを確認後、コメント解除して調整
-
-    // シングルモニター設定例
-    // output "DP-1" {
-    //     mode "2560x1440@144"
-    //     scale 1.0
-    //     transform "normal"
-    //     position x=0 y=0
-    // }
+    // EIZO FlexScan EV3895: 38インチ ウルトラワイド (3840x1600)
+    // `niri msg outputs` でモニター名を確認し、必要に応じて調整
+    output "DP-1" {
+        mode "3840x1600@60"
+        scale 1.0
+        transform "normal"
+        position x=0 y=0
+    }
 
     // トリプルモニター構成例（将来用）
-    // output "DP-1" {
+    // 左モニター
+    // output "DP-2" {
     //     mode "2560x1440@144"
     //     scale 1.0
     //     position x=0 y=0
     // }
-    // output "DP-2" {
+    // 中央モニター（メイン）
+    // output "DP-1" {
     //     mode "2560x1440@144"
     //     scale 1.0
     //     position x=2560 y=0
     // }
+    // 右モニター
     // output "DP-3" {
     //     mode "2560x1440@144"
     //     scale 1.0

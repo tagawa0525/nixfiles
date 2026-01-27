@@ -23,7 +23,6 @@ let
     # 言語サポート
     jnoortheen.nix-ide # Nix
     rust-lang.rust-analyzer # Rust
-    vadimcn.vscode-lldb # Rustデバッガー
     ms-python.python # Python
     ms-python.vscode-pylance # Python型チェック・補完
     charliermarsh.ruff # Python フォーマット・lint
@@ -62,7 +61,9 @@ in
     package = pkgs.nur-vscode-latest.vscode-insiders; # Insiders版を使用してGitHub Copilot Chatを有効化
     mutableExtensionsDir = false; # 拡張機能ディレクトリをNixで完全管理
     profiles.default = {
-      extensions = workspaceExtensions ++ localOnlyExtensions;
+      extensions = workspaceExtensions ++ localOnlyExtensions ++ [
+        pkgs.vscode-marketplace-universal.vadimcn.vscode-lldb # Rustデバッガー（universalビルド）
+      ];
       userSettings = {
         "locale" = "ja"; # VS Codeの表示言語を日本語に設定
         "github.copilot.nextEditSuggestions.enabled" = true;

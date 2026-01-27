@@ -17,12 +17,13 @@
 {
   niriOutputConfig = ''
     // xc8ノートPCのディスプレイ設定
-    // niri使用時にコメント解除して調整
-    // output "eDP-1" {
-    //     mode "1920x1080@120.030"
-    //     scale 2
-    //     transform "normal"
-    //     position x=1280 y=0
-    // }
+    // ThinkPad X1 Carbon 8th Gen: 14インチ FHD (1920x1080)
+    // HiDPI設定: 1.5x スケーリングで読みやすさとスペースのバランスを取る
+    output "eDP-1" {
+        mode "1920x1080@60"
+        scale 1.5
+        transform "normal"
+        position x=0 y=0
+    }
   '';
 }
