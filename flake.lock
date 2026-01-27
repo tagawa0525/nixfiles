@@ -316,6 +316,22 @@
         "type": "github"
       }
     },
+    "qmpo": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1769516216,
+        "narHash": "sha256-38y2i/vhis0+sJtVIK65hHIe6KZNc252KQJ987EYNok=",
+        "owner": "tagawa0525",
+        "repo": "qmpo",
+        "rev": "ff56d27ae807d9ac102f79fea429f75e3fae34ac",
+        "type": "github"
+      },
+      "original": {
+        "owner": "tagawa0525",
+        "repo": "qmpo",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "home-manager": "home-manager",
@@ -324,7 +340,8 @@
         "nix-vscode-extensions": "nix-vscode-extensions",
         "nixos-vscode-server": "nixos-vscode-server",
         "nixpkgs": "nixpkgs_2",
-        "nur-vscode-latest": "nur-vscode-latest"
+        "nur-vscode-latest": "nur-vscode-latest",
+        "qmpo": "qmpo"
       }
     },
     "rust-overlay": {
