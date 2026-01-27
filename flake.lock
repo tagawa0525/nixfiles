@@ -317,13 +317,17 @@
       }
     },
     "qmpo": {
-      "flake": false,
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
       "locked": {
-        "lastModified": 1769516216,
-        "narHash": "sha256-38y2i/vhis0+sJtVIK65hHIe6KZNc252KQJ987EYNok=",
+        "lastModified": 1769550728,
+        "narHash": "sha256-M0kgMzPKAbENRQTZwKw4Gq9uUPrsjoKe1YwTOdHfj/g=",
         "owner": "tagawa0525",
         "repo": "qmpo",
-        "rev": "ff56d27ae807d9ac102f79fea429f75e3fae34ac",
+        "rev": "88f5acead7308cb60374ebd73ee357176b6ab468",
         "type": "github"
       },
       "original": {
