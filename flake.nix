@@ -54,6 +54,12 @@
       url = "github:nix-community/nixos-vscode-server";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # qmpo: directory:// URIハンドラ
+    qmpo = {
+      url = "github:tagawa0525/qmpo";
+      flake = false; # Rustプロジェクトなので flake = false で参照
+    };
   };
 
   # ===========================================================================
@@ -68,6 +74,7 @@
     , nur-vscode-latest
     , llm-agents
     , nixos-vscode-server
+    , qmpo
     , ...
     }:
     let
@@ -101,6 +108,19 @@
                 # AI Coding Agents
                 (final: prev: {
                   llm-agents = llm-agents.packages.${prev.stdenv.hostPlatform.system};
+                })
+                # qmpo: directory:// URIハンドラ
+                (final: prev: {
+                  qmpo = prev.rustPlatform.buildRustPackage {
+                    pname = "qmpo";
+                    version = "0.1.0";
+                    src = qmpo;
+                    cargoLock.lockFile = "${qmpo}/Cargo.lock";
+                    meta = {
+                      description = "directory:// URI handler";
+                      homepage = "https://github.com/tagawa0525/qmpo";
+                    };
+                  };
                 })
               ];
               # Home Manager設定

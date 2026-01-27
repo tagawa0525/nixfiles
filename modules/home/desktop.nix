@@ -4,6 +4,7 @@
 # COSMIC DE, XDG, fcitx5, mimeApps などデスクトップ関連の設定
 # =============================================================================
 
+{ pkgs, ... }:
 {
   # ===========================================================================
   # XDGユーザーディレクトリ
@@ -42,6 +43,21 @@
       "text/plain" = "neovide.desktop";
       # qmpo（ディレクトリURIハンドラ）
       "x-scheme-handler/directory" = "qmpo.desktop";
+    };
+  };
+
+  # ===========================================================================
+  # デスクトップエントリ
+  # ===========================================================================
+  xdg.desktopEntries = {
+    # qmpo: directory:// URIハンドラ
+    qmpo = {
+      name = "qmpo";
+      comment = "Directory URI Handler";
+      exec = "${pkgs.qmpo}/bin/qmpo %u";
+      terminal = false;
+      noDisplay = true;
+      mimeType = [ "x-scheme-handler/directory" ];
     };
   };
 
