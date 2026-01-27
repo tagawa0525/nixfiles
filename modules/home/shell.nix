@@ -24,7 +24,7 @@
       ll = "eza -la"; # 詳細表示
       la = "eza -a"; # 隠しファイル含む
       lt = "eza --tree"; # ツリー表示
-      cat = "bat"; # シンタックスハイライト付きcat
+      cat = "bat"; # シンタックスハイライト付きcat（programs.batで設定管理）
     };
     # NixOS再構築用コマンド（flake.lockの自動同期付き）
     functions = {
@@ -100,6 +100,32 @@
   programs.direnv = {
     enable = true;
     nix-direnv.enable = true; # use flake で nix develop 環境を自動ロード
+  };
+
+  # ===========================================================================
+  # fzf（ファジーファインダー）
+  # ===========================================================================
+  # ファイル選択、履歴検索、ディレクトリジャンプに使用
+  programs.fzf = {
+    enable = true;
+    enableFishIntegration = true; # Ctrl+R（履歴）, Ctrl+T（ファイル）, Alt+C（ディレクトリ）
+    defaultOptions = [
+      "--height 40%"
+      "--reverse"
+      "--border"
+    ];
+  };
+
+  # ===========================================================================
+  # bat（cat代替）
+  # ===========================================================================
+  # シンタックスハイライト、行番号、Git統合を備えたcat
+  programs.bat = {
+    enable = true;
+    config = {
+      theme = "gruvbox-dark";
+      style = "numbers,changes"; # 行番号とGit変更マーカーを表示
+    };
   };
 
 }

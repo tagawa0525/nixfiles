@@ -12,11 +12,12 @@
 {
   imports = [
     ./niri.nix # Niriウィンドウマネージャの設定
-    ./shell.nix # Fish, Starship, Zoxide, Direnv
+    ./shell.nix # Fish, Starship, Zoxide, Direnv, fzf, bat
     ./tmux.nix # Tmux設定と接続スクリプト
     ./editors.nix # VSCode, Neovim, Zed, Alacritty
     ./desktop.nix # COSMIC, XDG, fcitx5, mimeApps
-    ./development.nix # Git, activation scripts
+    ./git.nix # Git, Git Hooks, delta, GitHub CLI
+    ./development.nix # 開発ツール, activation scripts
     ./mise.nix # mise（ランタイムバージョンマネージャー）
     ./vscode-server.nix # VS Code Server自動パッチ（NixOS用）
   ];
