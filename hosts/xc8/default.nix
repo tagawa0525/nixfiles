@@ -22,6 +22,9 @@
   # TLP: ラップトップ向けの電源管理。バッテリー寿命を最適化
   # CPU周波数、ディスクスピンダウン、USB省電力などを自動調整
   services.tlp.enable = true;
+  # COSMIC DEはデフォルトでpower-profiles-daemonを有効にするため、
+  # TLPと競合しないよう明示的に無効化
+  services.power-profiles-daemon.enable = false;
 
   # ===========================================================================
   # システムバージョン
