@@ -15,7 +15,8 @@
     llm-agents.copilot-cli # GitHub Copilot CLI（自動更新）
     mold # 高速リンカー（Rustのコンパイル時間短縮）
 
-    # Python品質チェックツール
+    # Python開発ツール
+    uv # 高速パッケージマネージャー（pip/venv代替）
     ruff # Linter & Formatter（Flake8、Black、isortの代替）
     python3Packages.pytest # テストフレームワーク
 

@@ -11,23 +11,44 @@ let
 
   # リモートにもインストールする拡張機能（ワークスペース拡張機能）
   workspaceExtensions = with pkgs.vscode-marketplace; [
+    # AI/コーディング支援
     github.copilot-chat # AIペアプログラミング
-    github.vscode-github-actions # GitHub Actionsワークフロー編集
-    fill-labs.dependi # 依存関係のバージョン管理
-    jnoortheen.nix-ide # Nix言語サポート
+    anthropic.claude-code # Claude Code CLI連携（diff view）
+
+    # Git
+    eamodio.gitlens # Git機能強化（blame、履歴、比較）
     mhutchie.git-graph # Gitの履歴をグラフ表示
-    rust-lang.rust-analyzer # Rust言語サポート
+    github.vscode-github-actions # GitHub Actionsワークフロー編集
+
+    # 言語サポート
+    jnoortheen.nix-ide # Nix
+    rust-lang.rust-analyzer # Rust
+    ms-python.python # Python
+    ms-python.vscode-pylance # Python型チェック・補完
+    charliermarsh.ruff # Python フォーマット・lint
+    redhat.vscode-yaml # YAML
+    tamasfe.even-better-toml # TOML
+
+    # エディタ機能強化
     vscodevim.vim # Vimキーバインド
+    usernamehw.errorlens # エラー・警告をインライン表示
+    gruntfuggly.todo-tree # TODO/FIXMEコメント一覧表示
+    fill-labs.dependi # 依存関係のバージョン管理
   ];
 
   # ローカルのみの拡張機能（UI拡張機能）
   localOnlyExtensions = with pkgs.vscode-marketplace; [
+    # UI/ローカライズ
     ms-ceintl.vscode-language-pack-ja # 日本語UI
-    ms-vscode-remote.remote-containers # Dev Containers対応
+
+    # リモート開発
     ms-vscode-remote.remote-ssh # リモートSSH接続
+    ms-vscode-remote.remote-containers # Dev Containers対応
     ms-vscode.remote-explorer # リモート接続管理
+
+    # 音声入力
     ms-vscode.vscode-speech # 音声入力
-    ms-vscode.vscode-speech-language-pack-ja-jp # VS Code Speech 日本語言語パック
+    ms-vscode.vscode-speech-language-pack-ja-jp # 日本語言語パック
   ];
 in
 {
@@ -62,6 +83,15 @@ in
         "nix.enableLanguageServer" = true;
         "nix.serverPath" = "nixd"; # nixdをLSPとして使用
         "chat.tools.terminal.outputLocation" = "chat";
+        # Python設定（Ruff + Pylance）
+        "[python]" = {
+          "editor.defaultFormatter" = "charliermarsh.ruff";
+          "editor.formatOnSave" = true;
+          "editor.codeActionsOnSave" = {
+            "source.fixAll" = "explicit"; # Ruffの自動修正
+            "source.organizeImports" = "explicit"; # import整理
+          };
+        };
         # リモート接続時に自動インストールする拡張機能
         "remote.SSH.defaultExtensions" = map getExtensionId workspaceExtensions;
       };
