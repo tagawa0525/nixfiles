@@ -5,6 +5,31 @@
 # =============================================================================
 { pkgs, ... }:
 
+let
+  # パッケージから拡張機能IDを抽出
+  getExtensionId = ext: "${ext.vscodeExtPublisher}.${ext.vscodeExtName}";
+
+  # リモートにもインストールする拡張機能（ワークスペース拡張機能）
+  workspaceExtensions = with pkgs.vscode-marketplace; [
+    github.copilot-chat # AIペアプログラミング
+    github.vscode-github-actions # GitHub Actionsワークフロー編集
+    fill-labs.dependi # 依存関係のバージョン管理
+    jnoortheen.nix-ide # Nix言語サポート
+    mhutchie.git-graph # Gitの履歴をグラフ表示
+    rust-lang.rust-analyzer # Rust言語サポート
+    vscodevim.vim # Vimキーバインド
+  ];
+
+  # ローカルのみの拡張機能（UI拡張機能）
+  localOnlyExtensions = with pkgs.vscode-marketplace; [
+    ms-ceintl.vscode-language-pack-ja # 日本語UI
+    ms-vscode-remote.remote-containers # Dev Containers対応
+    ms-vscode-remote.remote-ssh # リモートSSH接続
+    ms-vscode.remote-explorer # リモート接続管理
+    ms-vscode.vscode-speech # 音声入力
+    ms-vscode.vscode-speech-language-pack-ja-jp # VS Code Speech 日本語言語パック
+  ];
+in
 {
   # ===========================================================================
   # VSCode設定
@@ -15,21 +40,7 @@
     package = pkgs.nur-vscode-latest.vscode-insiders; # Insiders版を使用してGitHub Copilot Chatを有効化
     mutableExtensionsDir = false; # 拡張機能ディレクトリをNixで完全管理
     profiles.default = {
-      extensions = with pkgs.vscode-marketplace; [
-        github.copilot-chat # AIペアプログラミング
-        github.vscode-github-actions
-        fill-labs.dependi
-        jnoortheen.nix-ide # Nix言語サポート（シンタックスハイライト、補完、フォーマット）
-        mhutchie.git-graph # Gitの履歴をグラフ表示
-        ms-ceintl.vscode-language-pack-ja # 日本語UI
-        ms-vscode-remote.remote-containers
-        ms-vscode-remote.remote-ssh
-        ms-vscode.remote-explorer
-        ms-vscode.vscode-speech
-        ms-vscode.vscode-speech-language-pack-ja-jp # VS Code Speech 日本語言語パック
-        rust-lang.rust-analyzer # Rust言語サポート
-        vscodevim.vim # Vimキーバインド
-      ];
+      extensions = workspaceExtensions ++ localOnlyExtensions;
       userSettings = {
         "locale" = "ja"; # VS Codeの表示言語を日本語に設定
         "github.copilot.nextEditSuggestions.enabled" = true;
@@ -51,6 +62,8 @@
         "nix.enableLanguageServer" = true;
         "nix.serverPath" = "nixd"; # nixdをLSPとして使用
         "chat.tools.terminal.outputLocation" = "chat";
+        # リモート接続時に自動インストールする拡張機能
+        "remote.SSH.defaultExtensions" = map getExtensionId workspaceExtensions;
       };
     };
   };
