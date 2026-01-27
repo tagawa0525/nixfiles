@@ -58,7 +58,7 @@
     # qmpo: directory:// URIハンドラ
     qmpo = {
       url = "github:tagawa0525/qmpo";
-      flake = false; # Rustプロジェクトなので flake = false で参照
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
@@ -110,18 +110,7 @@
                   llm-agents = llm-agents.packages.${prev.stdenv.hostPlatform.system};
                 })
                 # qmpo: directory:// URIハンドラ
-                (final: prev: {
-                  qmpo = prev.rustPlatform.buildRustPackage {
-                    pname = "qmpo";
-                    version = "0.1.0";
-                    src = qmpo;
-                    cargoLock.lockFile = "${qmpo}/Cargo.lock";
-                    meta = {
-                      description = "directory:// URI handler";
-                      homepage = "https://github.com/tagawa0525/qmpo";
-                    };
-                  };
-                })
+                qmpo.overlays.default
               ];
               # Home Manager設定
               home-manager.useGlobalPkgs = true; # システムのnixpkgsを使用

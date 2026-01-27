@@ -317,7 +317,11 @@
       }
     },
     "qmpo": {
-      "flake": false,
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
       "locked": {
         "lastModified": 1769550728,
         "narHash": "sha256-M0kgMzPKAbENRQTZwKw4Gq9uUPrsjoKe1YwTOdHfj/g=",
