@@ -7,6 +7,14 @@
 
 {
   # ===========================================================================
+  # 共通スクリプトのインストール
+  # ===========================================================================
+  # NixOS再構築用スクリプトを~/.local/bin/にインストール
+  home.file.".local/bin/nix-rebuild" = {
+    source = ./scripts/nix-rebuild.sh;
+    executable = true;
+  };
+  # ===========================================================================
   # Fishシェル
   # ===========================================================================
   # モダンなシェル。強力な補完、シンタックスハイライト、履歴検索
@@ -26,47 +34,38 @@
       lt = "eza --tree"; # ツリー表示
       cat = "bat"; # シンタックスハイライト付きcat（programs.batで設定管理）
     };
-    # NixOS再構築用コマンド（flake.lockの自動同期付き）
+    # NixOS再構築用コマンド（共通スクリプトのラッパー）
     functions = {
-      # rebuild: リモートのflake.lockを取得してからrebuild
-      rebuild = ''
-        set -l nixdir ~/nix/nixfiles
-        cd $nixdir
-        echo "📥 Pulling flake.lock from remote..."
-        git fetch origin main
-        # ローカルに未コミットの変更がなければリモート版を取得
-        if not git diff --quiet flake.lock 2>/dev/null
-          echo "⚠️  flake.lock has local changes, skipping pull"
-        else
-          git checkout origin/main -- flake.lock 2>/dev/null; or echo "No remote changes to flake.lock"
-        end
-        echo "🔨 Rebuilding NixOS..."
-        sudo nixos-rebuild switch --flake .
-        cd -
-      '';
-      # update: flake更新後に自動コミット＆プッシュ
-      update = ''
-        set -l nixdir ~/nix/nixfiles
-        cd $nixdir
-        echo "📥 Pulling flake.lock from remote..."
-        git fetch origin main
-        # ローカルに未コミットの変更がなければリモート版を取得
-        if not git diff --quiet flake.lock 2>/dev/null
-          echo "⚠️  flake.lock has local changes, skipping pull"
-        else
-          git checkout origin/main -- flake.lock 2>/dev/null; or echo "No remote changes to flake.lock"
-        end
-        echo "⬆️  Updating flake..."
-        nix flake update
-        echo "🔨 Rebuilding NixOS..."
-        sudo nixos-rebuild switch --flake .
-        echo "📤 Pushing flake.lock to remote..."
-        git add flake.lock
-        git commit -m "flake: update" 2>/dev/null; or echo "No changes to commit"
-        git push
-        cd -
-      '';
+      rebuild = "nix-rebuild rebuild";
+      update = "nix-rebuild update";
     };
+  };
+
+  # ===========================================================================
+  # Bashシェル
+  # ===========================================================================
+  # デフォルトシェル。fish関数と同じ機能をbashでも提供
+  programs.bash = {
+    enable = true;
+    enableCompletion = true;
+    # よく使うコマンドのエイリアス（fishと同じ）
+    shellAliases = {
+      ls = "eza";
+      ll = "eza -la";
+      la = "eza -a";
+      lt = "eza --tree";
+      cat = "bat";
+    };
+    # NixOS再構築用関数（共通スクリプトのラッパー）
+    bashrcExtra = ''
+      rebuild() { nix-rebuild rebuild; }
+      update() { nix-rebuild update; }
+
+      # mise有効化（Bashシェルで自動補完とコマンドが使えるようになる）
+      if command -v mise &> /dev/null; then
+        eval "$(mise activate bash)"
+      fi
+    '';
   };
 
   # ===========================================================================
@@ -77,6 +76,7 @@
   programs.starship = {
     enable = true;
     enableFishIntegration = true;
+    enableBashIntegration = true;
     settings = {
       add_newline = false; # プロンプト前の空行を無効化
     };
@@ -90,6 +90,7 @@
   programs.zoxide = {
     enable = true;
     enableFishIntegration = true;
+    enableBashIntegration = true;
   };
 
   # ===========================================================================
@@ -99,6 +100,7 @@
   # nix-direnv: flake.nixを使った開発環境の自動切り替え
   programs.direnv = {
     enable = true;
+    enableBashIntegration = true;
     nix-direnv.enable = true; # use flake で nix develop 環境を自動ロード
   };
 
@@ -109,6 +111,7 @@
   programs.fzf = {
     enable = true;
     enableFishIntegration = true; # Ctrl+R（履歴）, Ctrl+T（ファイル）, Alt+C（ディレクトリ）
+    enableBashIntegration = true;
     defaultOptions = [
       "--height 40%"
       "--reverse"
