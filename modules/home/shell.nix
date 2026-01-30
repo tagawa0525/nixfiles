@@ -32,38 +32,74 @@
       rebuild = ''
         set -l nixdir ~/nix/nixfiles
         cd $nixdir
-        echo "📥 Pulling flake.lock from remote..."
+        echo "📥 Pulling latest changes from remote..."
+        # flake.lockのみをpull（他のファイルに影響しない）
         git fetch origin main
-        # ローカルに未コミットの変更がなければリモート版を取得
-        if not git diff --quiet flake.lock 2>/dev/null
-          echo "⚠️  flake.lock has local changes, skipping pull"
+        if git diff --quiet flake.lock 2>/dev/null
+          # ローカルに変更がない場合のみリモート版を取得
+          git checkout origin/main -- flake.lock 2>/dev/null
+          or echo "ℹ️  No remote changes to flake.lock"
         else
-          git checkout origin/main -- flake.lock 2>/dev/null; or echo "No remote changes to flake.lock"
+          echo "⚠️  Local changes detected in flake.lock"
+          echo "   Run 'git diff flake.lock' to review changes"
+          echo "   Consider running 'update' instead to sync properly"
         end
         echo "🔨 Rebuilding NixOS..."
         sudo nixos-rebuild switch --flake .
         cd -
       '';
-      # update: flake更新後に自動コミット＆プッシュ
+      # update: flake更新後に自動コミット＆プッシュ（競合時は自動リトライ）
       update = ''
         set -l nixdir ~/nix/nixfiles
+        set -l hostname (hostname)
         cd $nixdir
-        echo "📥 Pulling flake.lock from remote..."
+        echo "📥 Syncing with remote..."
         git fetch origin main
-        # ローカルに未コミットの変更がなければリモート版を取得
-        if not git diff --quiet flake.lock 2>/dev/null
-          echo "⚠️  flake.lock has local changes, skipping pull"
-        else
-          git checkout origin/main -- flake.lock 2>/dev/null; or echo "No remote changes to flake.lock"
+        # flake.lock以外にローカル変更がある場合は警告
+        if not git diff --quiet --diff-filter=M -- . ':!flake.lock' 2>/dev/null
+          echo "⚠️  Warning: You have local changes besides flake.lock"
+          git status --short
+        end
+        # リモートの変更を取り込む（rebaseでflake.lockの競合を回避）
+        git pull --rebase origin main
+        or begin
+          echo "⚠️  Pull failed, attempting to resolve..."
+          # flake.lockの競合はリモート版を優先
+          if test -f flake.lock
+            git checkout --theirs flake.lock 2>/dev/null
+            git add flake.lock
+            git rebase --continue 2>/dev/null
+          end
         end
         echo "⬆️  Updating flake..."
         nix flake update
         echo "🔨 Rebuilding NixOS..."
         sudo nixos-rebuild switch --flake .
-        echo "📤 Pushing flake.lock to remote..."
-        git add flake.lock
-        git commit -m "flake: update" 2>/dev/null; or echo "No changes to commit"
-        git push
+        or begin
+          echo "❌ Rebuild failed, not pushing changes"
+          cd -
+          return 1
+        end
+        # 変更がある場合のみコミット＆プッシュ
+        if not git diff --quiet flake.lock 2>/dev/null
+          echo "📤 Committing and pushing flake.lock..."
+          git add flake.lock
+          git commit -m "flake: update ($hostname)"
+          # プッシュ失敗時は一度だけリトライ
+          if not git push
+            echo "⚠️  Push failed, pulling and retrying..."
+            git pull --rebase origin main
+            and git push
+            or begin
+              echo "❌ Push failed again, please resolve manually"
+              cd -
+              return 1
+            end
+          end
+          echo "✅ Successfully updated and pushed from $hostname"
+        else
+          echo "ℹ️  No changes to commit"
+        end
         cd -
       '';
     };
