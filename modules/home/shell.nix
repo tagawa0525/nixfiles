@@ -7,6 +7,14 @@
 
 {
   # ===========================================================================
+  # 共通スクリプトのインストール
+  # ===========================================================================
+  # NixOS再構築用スクリプトを~/.local/bin/にインストール
+  home.file.".local/bin/nix-rebuild" = {
+    source = ./scripts/nix-rebuild.sh;
+    executable = true;
+  };
+  # ===========================================================================
   # Fishシェル
   # ===========================================================================
   # モダンなシェル。強力な補完、シンタックスハイライト、履歴検索
@@ -26,82 +34,10 @@
       lt = "eza --tree"; # ツリー表示
       cat = "bat"; # シンタックスハイライト付きcat（programs.batで設定管理）
     };
-    # NixOS再構築用コマンド（flake.lockの自動同期付き）
+    # NixOS再構築用コマンド（共通スクリプトのラッパー）
     functions = {
-      # rebuild: リモートのflake.lockを取得してからrebuild
-      rebuild = ''
-        set -l nixdir ~/nix/nixfiles
-        cd $nixdir
-        echo "📥 Pulling latest changes from remote..."
-        # flake.lockのみをpull（他のファイルに影響しない）
-        git fetch origin main
-        if git diff --quiet flake.lock 2>/dev/null
-          # ローカルに変更がない場合のみリモート版を取得
-          git checkout origin/main -- flake.lock 2>/dev/null
-          or echo "ℹ️  No remote changes to flake.lock"
-        else
-          echo "⚠️  Local changes detected in flake.lock"
-          echo "   Run 'git diff flake.lock' to review changes"
-          echo "   Consider running 'update' instead to sync properly"
-        end
-        echo "🔨 Rebuilding NixOS..."
-        sudo nixos-rebuild switch --flake .
-        cd -
-      '';
-      # update: flake更新後に自動コミット＆プッシュ（競合時は自動リトライ）
-      update = ''
-        set -l nixdir ~/nix/nixfiles
-        set -l hostname (hostname)
-        cd $nixdir
-        echo "📥 Syncing with remote..."
-        git fetch origin main
-        # flake.lock以外にローカル変更がある場合は警告
-        if not git diff --quiet --diff-filter=M -- . ':!flake.lock' 2>/dev/null
-          echo "⚠️  Warning: You have local changes besides flake.lock"
-          git status --short
-        end
-        # リモートの変更を取り込む（rebaseでflake.lockの競合を回避）
-        git pull --rebase origin main
-        or begin
-          echo "⚠️  Pull failed, attempting to resolve..."
-          # flake.lockの競合はリモート版を優先
-          if test -f flake.lock
-            git checkout --theirs flake.lock 2>/dev/null
-            git add flake.lock
-            git rebase --continue 2>/dev/null
-          end
-        end
-        echo "⬆️  Updating flake..."
-        nix flake update
-        echo "🔨 Rebuilding NixOS..."
-        sudo nixos-rebuild switch --flake .
-        or begin
-          echo "❌ Rebuild failed, not pushing changes"
-          cd -
-          return 1
-        end
-        # 変更がある場合のみコミット＆プッシュ
-        if not git diff --quiet flake.lock 2>/dev/null
-          echo "📤 Committing and pushing flake.lock..."
-          git add flake.lock
-          git commit -m "flake: update ($hostname)"
-          # プッシュ失敗時は一度だけリトライ
-          if not git push
-            echo "⚠️  Push failed, pulling and retrying..."
-            git pull --rebase origin main
-            and git push
-            or begin
-              echo "❌ Push failed again, please resolve manually"
-              cd -
-              return 1
-            end
-          end
-          echo "✅ Successfully updated and pushed from $hostname"
-        else
-          echo "ℹ️  No changes to commit"
-        end
-        cd -
-      '';
+      rebuild = "nix-rebuild rebuild";
+      update = "nix-rebuild update";
     };
   };
 
@@ -120,81 +56,10 @@
       lt = "eza --tree";
       cat = "bat";
     };
-    # NixOS再構築用関数（fish関数と同等）
+    # NixOS再構築用関数（共通スクリプトのラッパー）
     bashrcExtra = ''
-      # rebuild: リモートのflake.lockを取得してからrebuild
-      rebuild() {
-        local nixdir=~/nix/nixfiles
-        cd "$nixdir" || return 1
-        echo "📥 Pulling latest changes from remote..."
-        # flake.lockのみをpull（他のファイルに影響しない）
-        git fetch origin main
-        if git diff --quiet flake.lock 2>/dev/null; then
-          # ローカルに変更がない場合のみリモート版を取得
-          git checkout origin/main -- flake.lock 2>/dev/null || echo "ℹ️  No remote changes to flake.lock"
-        else
-          echo "⚠️  Local changes detected in flake.lock"
-          echo "   Run 'git diff flake.lock' to review changes"
-          echo "   Consider running 'update' instead to sync properly"
-        fi
-        echo "🔨 Rebuilding NixOS..."
-        sudo nixos-rebuild switch --flake .
-        cd - > /dev/null
-      }
-
-      # update: flake更新後に自動コミット＆プッシュ（競合時は自動リトライ）
-      update() {
-        local nixdir=~/nix/nixfiles
-        local hostname=$(hostname)
-        cd "$nixdir" || return 1
-        echo "📥 Syncing with remote..."
-        git fetch origin main
-        # flake.lock以外にローカル変更がある場合は警告
-        if ! git diff --quiet --diff-filter=M -- . ':!flake.lock' 2>/dev/null; then
-          echo "⚠️  Warning: You have local changes besides flake.lock"
-          git status --short
-        fi
-        # リモートの変更を取り込む（rebaseでflake.lockの競合を回避）
-        if ! git pull --rebase origin main; then
-          echo "⚠️  Pull failed, attempting to resolve..."
-          # flake.lockの競合はリモート版を優先
-          if [[ -f flake.lock ]]; then
-            git checkout --theirs flake.lock 2>/dev/null
-            git add flake.lock
-            git rebase --continue 2>/dev/null
-          fi
-        fi
-        echo "⬆️  Updating flake..."
-        nix flake update
-        echo "🔨 Rebuilding NixOS..."
-        if ! sudo nixos-rebuild switch --flake .; then
-          echo "❌ Rebuild failed, not pushing changes"
-          cd - > /dev/null
-          return 1
-        fi
-        # 変更がある場合のみコミット＆プッシュ
-        if ! git diff --quiet flake.lock 2>/dev/null; then
-          echo "📤 Committing and pushing flake.lock..."
-          git add flake.lock
-          git commit -m "flake: update ($hostname)"
-          # プッシュ失敗時は一度だけリトライ
-          if ! git push; then
-            echo "⚠️  Push failed, pulling and retrying..."
-            if git pull --rebase origin main && git push; then
-              echo "✅ Successfully updated and pushed from $hostname"
-            else
-              echo "❌ Push failed again, please resolve manually"
-              cd - > /dev/null
-              return 1
-            fi
-          else
-            echo "✅ Successfully updated and pushed from $hostname"
-          fi
-        else
-          echo "ℹ️  No changes to commit"
-        fi
-        cd - > /dev/null
-      }
+      rebuild() { nix-rebuild rebuild; }
+      update() { nix-rebuild update; }
 
       # mise有効化（Bashシェルで自動補完とコマンドが使えるようになる）
       if command -v mise &> /dev/null; then
