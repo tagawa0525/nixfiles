@@ -10,45 +10,45 @@ let
   getExtensionId = ext: "${ext.vscodeExtPublisher}.${ext.vscodeExtName}";
 
   # リモートにもインストールする拡張機能（ワークスペース拡張機能）
-  workspaceExtensions = with pkgs.vscode-marketplace; [
+  workspaceExtensions = [
     # AI/コーディング支援
-    github.copilot-chat # AIペアプログラミング
-    anthropic.claude-code # Claude Code CLI連携（diff view）
+    pkgs.vscode-marketplace.github.copilot-chat # AIペアプログラミング
+    pkgs.vscode-marketplace.anthropic.claude-code # Claude Code CLI連携（diff view）
 
     # Git
-    eamodio.gitlens # Git機能強化（blame、履歴、比較）
-    mhutchie.git-graph # Gitの履歴をグラフ表示
-    github.vscode-github-actions # GitHub Actionsワークフロー編集
+    pkgs.vscode-extensions.eamodio.gitlens # Git機能強化（blame、履歴、比較）
+    pkgs.vscode-marketplace.mhutchie.git-graph # Gitの履歴をグラフ表示
+    pkgs.vscode-marketplace.github.vscode-github-actions # GitHub Actionsワークフロー編集
 
     # 言語サポート
-    jnoortheen.nix-ide # Nix
-    rust-lang.rust-analyzer # Rust
-    ms-python.python # Python
-    ms-python.vscode-pylance # Python型チェック・補完
-    charliermarsh.ruff # Python フォーマット・lint
-    redhat.vscode-yaml # YAML
-    tamasfe.even-better-toml # TOML
+    pkgs.vscode-extensions.jnoortheen.nix-ide # Nix
+    pkgs.vscode-extensions.rust-lang.rust-analyzer # Rust
+    pkgs.vscode-extensions.ms-python.python # Python
+    pkgs.vscode-extensions.ms-python.vscode-pylance # Python型チェック・補完
+    pkgs.vscode-marketplace.charliermarsh.ruff # Python フォーマット・lint
+    pkgs.vscode-extensions.redhat.vscode-yaml # YAML
+    pkgs.vscode-extensions.tamasfe.even-better-toml # TOML
 
     # エディタ機能強化
-    vscodevim.vim # Vimキーバインド
-    usernamehw.errorlens # エラー・警告をインライン表示
-    gruntfuggly.todo-tree # TODO/FIXMEコメント一覧表示
-    fill-labs.dependi # 依存関係のバージョン管理
+    pkgs.vscode-extensions.vscodevim.vim # Vimキーバインド
+    pkgs.vscode-extensions.usernamehw.errorlens # エラー・警告をインライン表示
+    pkgs.vscode-extensions.gruntfuggly.todo-tree # TODO/FIXMEコメント一覧表示
+    pkgs.vscode-marketplace.fill-labs.dependi # 依存関係のバージョン管理
   ];
 
   # ローカルのみの拡張機能（UI拡張機能）
-  localOnlyExtensions = with pkgs.vscode-marketplace; [
+  localOnlyExtensions = [
     # UI/ローカライズ
-    ms-ceintl.vscode-language-pack-ja # 日本語UI
+    pkgs.vscode-extensions.ms-ceintl.vscode-language-pack-ja # 日本語UI
 
     # リモート開発
-    ms-vscode-remote.remote-ssh # リモートSSH接続
-    ms-vscode-remote.remote-containers # Dev Containers対応
-    ms-vscode.remote-explorer # リモート接続管理
+    pkgs.vscode-extensions.ms-vscode-remote.remote-ssh # リモートSSH接続
+    pkgs.vscode-extensions.ms-vscode-remote.remote-containers # Dev Containers対応
+    pkgs.vscode-extensions.ms-vscode.remote-explorer # リモート接続管理
 
     # 音声入力
-    ms-vscode.vscode-speech # 音声入力
-    ms-vscode.vscode-speech-language-pack-ja-jp # 日本語言語パック
+    pkgs.vscode-marketplace.ms-vscode.vscode-speech # 音声入力
+    pkgs.vscode-marketplace.ms-vscode.vscode-speech-language-pack-ja-jp # 日本語言語パック
   ];
 in
 {
@@ -58,7 +58,8 @@ in
   # VSCode拡張機能と設定（Home Manager経由、nix-vscode-extensionsを使用）
   programs.vscode = {
     enable = true;
-    package = pkgs.nur-vscode-latest.vscode-insiders; # Insiders版を使用してGitHub Copilot Chatを有効化
+    # package = pkgs.nur-vscode-latest.vscode-insiders; # Insiders版を使用してGitHub Copilot Chatを有効化
+    package = pkgs.nur-vscode-latest.vscode; # Stable版を使用してGitHub Copilot Chatを有効化
     mutableExtensionsDir = false; # 拡張機能ディレクトリをNixで完全管理
     profiles.default = {
       extensions = workspaceExtensions ++ localOnlyExtensions ++ [
