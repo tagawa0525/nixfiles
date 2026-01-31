@@ -29,6 +29,8 @@
     # 起動時のグリーティングメッセージを無効化
     interactiveShellInit = ''
       set -g fish_greeting
+      # ~/.local/bin をPATHに追加（カスタムスクリプト用）
+      fish_add_path --path ~/.local/bin
       # mise有効化（Fishシェルで自動補完とコマンドが使えるようになる）
       mise activate fish | source
     '';
