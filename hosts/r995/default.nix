@@ -10,6 +10,7 @@
   imports = [
     ./hardware-configuration.nix # nixos-generate-config で生成されたハードウェア設定
     ../../modules/boot-lanzaboote.nix # Secure Boot共通設定
+    ../../modules/github-runner.nix # GitHub Actions セルフホステッドランナー
   ];
 
   # ===========================================================================
