@@ -60,6 +60,12 @@
       url = "github:tagawa0525/qmpo";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # sops-nix: シークレット管理（age暗号化）
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # ===========================================================================
@@ -75,6 +81,7 @@
     , llm-agents
     , nixos-vscode-server
     , qmpo
+    , sops-nix
     , ...
     }:
     let
@@ -95,6 +102,7 @@
             ./hosts/${hostName} # ホスト固有設定（ブート、ホスト名等）
             ./modules/common.nix # 共通システム設定
             lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
+            sops-nix.nixosModules.sops # シークレット管理
             home-manager.nixosModules.home-manager
             {
               # オーバーレイを追加
