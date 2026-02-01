@@ -76,6 +76,19 @@
     ''}
   '';
 
+  # GitHub CLI 拡張のインストール（gh-pr-review）
+  # gh auth が完了している場合のみ実行
+  home.activation.ghExtensions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    # gh auth が完了しているか確認
+    if ${pkgs.gh}/bin/gh auth status &>/dev/null; then
+      # gh-pr-review がインストールされていない場合のみインストール
+      if ! ${pkgs.gh}/bin/gh extension list 2>/dev/null | grep -q "agynio/gh-pr-review"; then
+        $DRY_RUN_CMD ${pkgs.gh}/bin/gh extension install agynio/gh-pr-review
+        $DRY_RUN_CMD echo "gh-pr-review extension installed"
+      fi
+    fi
+  '';
+
   # ===========================================================================
   # Cargo設定（moldリンカー使用）
   # ===========================================================================
