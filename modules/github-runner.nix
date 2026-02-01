@@ -3,29 +3,30 @@
 # =============================================================================
 # NixOS 公式モジュールを使用した自動セルフホステッドランナー設定
 #
-# セットアップ手順:
-#   1. PAT トークンをファイルに保存（改行なし）:
-#      set PAT (gh auth token)
-#      echo -n "$PAT" | sudo tee /run/secrets/github-runner-token
-#      sudo chmod 600 /run/secrets/github-runner-token
+# トークン管理:
+#   sops-nix で管理。secrets/<hostname>.yaml の github-runner-token に設定。
+#   再起動時に自動で /run/secrets/github-runner-token に復号される。
 #
-#   2. NixOS を再ビルド:
-#      rebuild
+# トークン更新手順:
+#   1. 新しい PAT を取得:
+#      gh auth token
 #
-#   3. サービス状態を確認:
-#      systemctl status github-runner-pleasanter-rs.service
-#      journalctl -u github-runner-pleasanter-rs.service -n 50 -f
+#   2. secrets/<hostname>.yaml を編集:
+#      nix-shell -p sops --run "sops secrets/<hostname>.yaml"
+#
+#   3. サービスを再起動:
+#      systemctl restart github-runner-pleasanter-rs
+#
+# サービス確認:
+#   systemctl status github-runner-pleasanter-rs.service
+#   journalctl -u github-runner-pleasanter-rs.service -n 50 -f
 #
 # 特徴:
 #   - NixOS 公式モジュール (services.github-runners) を使用
-#   - PAT (Personal Access Token) で認証
+#   - sops-nix で PAT (Personal Access Token) を管理
 #   - DynamicUser を無効化し、専用 github-runner ユーザーで実行
 #   - systemd.tmpfiles.rules でディレクトリを宣言的に管理
 #   - TimeoutStartSec で IPv6 接続タイムアウトに対応
-#
-# トークン更新:
-#   トークン期限切れ時は `/run/secrets/github-runner-token` を更新してから
-#   `systemctl restart github-runner-pleasanter-rs` で再起動
 # =============================================================================
 { config, pkgs, ... }:
 
