@@ -45,6 +45,7 @@
       url = "https://github.com/tagawa0525/pleasanter-rs";
       name = config.networking.hostName;
       tokenFile = "/run/secrets/github-runner-token";
+      replace = true; # 同名ランナーを自動置換
 
       # DynamicUser を無効化
       user = "github-runner";
