@@ -29,6 +29,9 @@ let
     pkgs.vscode-extensions.redhat.vscode-yaml # YAML
     pkgs.vscode-extensions.tamasfe.even-better-toml # TOML
 
+    # 開発環境
+    pkgs.vscode-extensions.mkhl.direnv # direnv環境変数の自動読み込み
+
     # エディタ機能強化
     pkgs.vscode-extensions.vscodevim.vim # Vimキーバインド
     pkgs.vscode-extensions.usernamehw.errorlens # エラー・警告をインライン表示
