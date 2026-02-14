@@ -80,6 +80,11 @@
   # nixos-rebuild 時にスクリプトのパスを最新のNixストアパスに更新
   home.activation.ccBarSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     SETTINGS="$HOME/.claude/settings.json"
+    # Create settings file if it doesn't exist
+    if [ ! -f "$SETTINGS" ]; then
+      mkdir -p "$(dirname "$SETTINGS")"
+      echo '{}' > "$SETTINGS"
+    fi
     if [ -f "$SETTINGS" ]; then
       if [ "''${DRY_RUN:-0}" != "1" ]; then
         RELAY="${pkgs.cc-bar}/bin/cc-bar-relay.sh"
