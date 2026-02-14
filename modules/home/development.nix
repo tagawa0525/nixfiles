@@ -81,16 +81,20 @@
   home.activation.ccBarSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     SETTINGS="$HOME/.claude/settings.json"
     if [ -f "$SETTINGS" ]; then
-      RELAY="${pkgs.cc-bar}/bin/cc-bar-relay.sh"
-      HOOK="${pkgs.cc-bar}/bin/cc-bar-subagent-hook.sh"
-      $DRY_RUN_CMD ${pkgs.jq}/bin/jq \
-        --arg relay "$RELAY" \
-        --arg hook "$HOOK" \
-        '.statusLine = {"type": "command", "command": $relay} |
-         .hooks //= {} |
-         .hooks.SubagentStop = [{"hooks": [{"type": "command", "command": $hook}]}]' \
-        "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
-      $DRY_RUN_CMD echo "cc-bar: Claude Code settings updated"
+      if [ "''${DRY_RUN:-0}" != "1" ]; then
+        RELAY="${pkgs.cc-bar}/bin/cc-bar-relay.sh"
+        HOOK="${pkgs.cc-bar}/bin/cc-bar-subagent-hook.sh"
+        ${pkgs.jq}/bin/jq \
+          --arg relay "$RELAY" \
+          --arg hook "$HOOK" \
+          '.statusLine = {"type": "command", "command": $relay} |
+           .hooks //= {} |
+           .hooks.SubagentStop = [{"hooks": [{"type": "command", "command": $hook}]}]' \
+          "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
+        echo "cc-bar: Claude Code settings updated"
+      else
+        $DRY_RUN_CMD echo "cc-bar: (dry run) Claude Code settings would be updated"
+      fi
     fi
   '';
 
