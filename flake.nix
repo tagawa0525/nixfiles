@@ -66,6 +66,12 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # cc-bar: Claude Code Context Window Monitor（COSMICパネルアプレット）
+    cc-bar = {
+      url = "github:tagawa0525/cc-bar";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # ===========================================================================
@@ -82,6 +88,7 @@
     , nixos-vscode-server
     , qmpo
     , sops-nix
+    , cc-bar
     , ...
     }:
     let
@@ -119,6 +126,8 @@
                 })
                 # qmpo: directory:// URIハンドラ
                 qmpo.overlays.default
+                # cc-bar: Claude Code Context Window Monitor
+                cc-bar.overlays.default
               ];
               # Home Manager設定
               home-manager.useGlobalPkgs = true; # システムのnixpkgsを使用

@@ -76,6 +76,64 @@
     ''}
   '';
 
+  # cc-bar: Claude Code settings.json に statusLine と hooks を設定
+  # nixos-rebuild 時にスクリプトのパスを最新のNixストアパスに更新
+  home.activation.ccBarSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    SETTINGS="$HOME/.claude/settings.json"
+    # Create settings file if it doesn't exist
+    if [ ! -f "$SETTINGS" ]; then
+      mkdir -p "$(dirname "$SETTINGS")"
+      echo '{}' > "$SETTINGS"
+    fi
+    if [ -f "$SETTINGS" ]; then
+      if [ "''${DRY_RUN:-0}" != "1" ]; then
+        RELAY="${pkgs.cc-bar}/bin/cc-bar-relay.sh"
+        HOOK="${pkgs.cc-bar}/bin/cc-bar-subagent-hook.sh"
+        ${pkgs.jq}/bin/jq \
+          --arg relay "$RELAY" \
+          --arg hook "$HOOK" \
+          '.statusLine |= (
+             if (. == null or (.type == "command" and (.command | tostring | contains("cc-bar-relay.sh")))) then
+               {"type": "command", "command": $relay}
+             else
+               .
+             end
+           ) |
+           .hooks |= (
+             . // {} |
+             .SubagentStop |= (
+               ( . // [] ) as $arr
+               | ( any( $arr[]?.hooks[]?; .type == "command" and (.command | tostring | contains("cc-bar-subagent-hook.sh")) ) ) as $hasCcBar
+               | if $hasCcBar then
+                   [ $arr[] |
+                     if any(.hooks[]?; .type == "command" and (.command | tostring | contains("cc-bar-subagent-hook.sh"))) then
+                       .hooks |= (
+                         (.hooks // []) |
+                         map(
+                           if .type == "command" and (.command | tostring | contains("cc-bar-subagent-hook.sh")) then
+                             .command = $hook
+                           else
+                             .
+                           end
+                         )
+                       )
+                     else
+                       .
+                     end
+                   ]
+                 else
+                   $arr + [ { "hooks": [ { "type": "command", "command": $hook } ] } ]
+                 end
+             )
+           )' \
+          "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
+        echo "cc-bar: Claude Code settings updated"
+      else
+        $DRY_RUN_CMD echo "cc-bar: (dry run) Claude Code settings would be updated"
+      fi
+    fi
+  '';
+
   # GitHub CLI 拡張のインストール（gh-pr-review）
   # gh auth が完了している場合のみ実行
   home.activation.ghExtensions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
