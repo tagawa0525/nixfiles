@@ -87,9 +87,40 @@
         ${pkgs.jq}/bin/jq \
           --arg relay "$RELAY" \
           --arg hook "$HOOK" \
-          '.statusLine = {"type": "command", "command": $relay} |
-           .hooks //= {} |
-           .hooks.SubagentStop = [{"hooks": [{"type": "command", "command": $hook}]}]' \
+          '.statusLine |= (
+             if (. == null or (.type == "command" and (.command | tostring | contains("cc-bar-relay.sh")))) then
+               {"type": "command", "command": $relay}
+             else
+               .
+             end
+           ) |
+           .hooks |= (
+             . // {} |
+             .SubagentStop |= (
+               ( . // [] ) as $arr
+               | ( any( $arr[]?.hooks[]?; .type == "command" and (.command | tostring | contains("cc-bar-subagent-hook.sh")) ) ) as $hasCcBar
+               | if $hasCcBar then
+                   [ $arr[] |
+                     if any(.hooks[]?; .type == "command" and (.command | tostring | contains("cc-bar-subagent-hook.sh"))) then
+                       .hooks |= (
+                         (.hooks // []) |
+                         map(
+                           if .type == "command" and (.command | tostring | contains("cc-bar-subagent-hook.sh")) then
+                             .command = $hook
+                           else
+                             .
+                           end
+                         )
+                       )
+                     else
+                       .
+                     end
+                   ]
+                 else
+                   $arr + [ { "hooks": [ { "type": "command", "command": $hook } ] } ]
+                 end
+             )
+           )' \
           "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
         echo "cc-bar: Claude Code settings updated"
       else
