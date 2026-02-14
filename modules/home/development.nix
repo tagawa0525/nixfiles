@@ -76,6 +76,24 @@
     ''}
   '';
 
+  # cc-bar: Claude Code settings.json に statusLine と hooks を設定
+  # nixos-rebuild 時にスクリプトのパスを最新のNixストアパスに更新
+  home.activation.ccBarSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    SETTINGS="$HOME/.claude/settings.json"
+    if [ -f "$SETTINGS" ]; then
+      RELAY="${pkgs.cc-bar}/bin/cc-bar-relay.sh"
+      HOOK="${pkgs.cc-bar}/bin/cc-bar-subagent-hook.sh"
+      $DRY_RUN_CMD ${pkgs.jq}/bin/jq \
+        --arg relay "$RELAY" \
+        --arg hook "$HOOK" \
+        '.statusLine = {"type": "command", "command": $relay} |
+         .hooks //= {} |
+         .hooks.SubagentStop = [{"hooks": [{"type": "command", "command": $hook}]}]' \
+        "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
+      $DRY_RUN_CMD echo "cc-bar: Claude Code settings updated"
+    fi
+  '';
+
   # GitHub CLI 拡張のインストール（gh-pr-review）
   # gh auth が完了している場合のみ実行
   home.activation.ghExtensions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
