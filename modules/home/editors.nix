@@ -9,10 +9,28 @@ let
   # パッケージから拡張機能IDを抽出
   getExtensionId = ext: "${ext.vscodeExtPublisher}.${ext.vscodeExtName}";
 
+  # Copilot Chat: 上流が0.37.6以上になればこの固定は不要になり自動で上流版に切り替わる
+  copilotChat =
+    let
+      upstream = pkgs.vscode-marketplace-release.github.copilot-chat;
+      minVersion = "0.37.6";
+    in
+    if builtins.compareVersions upstream.version minVersion >= 0
+    then upstream
+    else
+      pkgs.vscode-utils.buildVscodeMarketplaceExtension {
+        mktplcRef = {
+          publisher = "GitHub";
+          name = "copilot-chat";
+          version = minVersion;
+          sha256 = "sha256-tCrrF2Emr/rNJola58ExWKfLuAyOvPqszPLd5SRVcac=";
+        };
+      };
+
   # リモートにもインストールする拡張機能（ワークスペース拡張機能）
   workspaceExtensions = [
     # AI/コーディング支援
-    pkgs.vscode-marketplace-release.github.copilot-chat # AIペアプログラミング（マーケットプレイスの最新リリース版）
+    copilotChat # AIペアプログラミング
     pkgs.vscode-extensions.anthropic.claude-code # Claude Code CLI連携（diff view）
 
     # Git
