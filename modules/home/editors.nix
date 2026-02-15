@@ -12,7 +12,7 @@ let
   # リモートにもインストールする拡張機能（ワークスペース拡張機能）
   workspaceExtensions = [
     # AI/コーディング支援
-    pkgs.vscode-marketplace-release.github.copilot-chat # AIペアプログラミング（マーケットプレイスの最新リリース版）
+    pkgs.vscode-marketplace.github.copilot-chat # AIペアプログラミング（マーケットプレイスの最新版）
     pkgs.vscode-extensions.anthropic.claude-code # Claude Code CLI連携（diff view）
 
     # Git
