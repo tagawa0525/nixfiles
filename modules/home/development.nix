@@ -6,6 +6,14 @@
 # =============================================================================
 { pkgs, lib, claudeCodeSource ? null, ... }:
 
+let
+  # グローバルに登録する Claude Code hooks
+  # nixos-rebuild 時に ~/.claude/settings.json へ自動登録される
+  claudeGlobalHooks = [
+    { file = "block-main-commit.sh"; matcher = "Bash"; timeout = 10000; }
+    { file = "pre-merge-check.sh"; matcher = "Bash"; timeout = 30000; }
+  ];
+in
 {
   # ===========================================================================
   # 開発ツールパッケージ
@@ -71,8 +79,46 @@
         $DRY_RUN_CMD echo "Claude Code: skills synced to ~/.claude/"
       fi
 
+      if [ -d "$SOURCE_DIR/hooks" ]; then
+        ${pkgs.rsync}/bin/rsync -a --ignore-existing "$SOURCE_DIR/hooks/" "$CLAUDE_DIR/hooks/"
+        $DRY_RUN_CMD echo "Claude Code: hooks synced to ~/.claude/"
+      fi
+
       # ファイルの書き込み権限を確保（Nix storeからコピーしたファイルは読み取り専用のため）
-      $DRY_RUN_CMD chmod -R u+w "$CLAUDE_DIR/commands" "$CLAUDE_DIR/skills" 2>/dev/null || true
+      $DRY_RUN_CMD chmod -R u+w "$CLAUDE_DIR/commands" "$CLAUDE_DIR/skills" "$CLAUDE_DIR/hooks" 2>/dev/null || true
+
+      # hooks をグローバル settings.json に登録
+      # 既存エントリはパスを更新、未登録のhookは追加
+      SETTINGS="$CLAUDE_DIR/settings.json"
+      if [ ! -f "$SETTINGS" ]; then
+        echo '{}' > "$SETTINGS"
+      fi
+      if [ "''${DRY_RUN:-0}" != "1" ]; then
+        ${pkgs.jq}/bin/jq \
+          --argjson managed '${builtins.toJSON claudeGlobalHooks}' \
+          --arg hooks_dir "$CLAUDE_DIR/hooks" \
+          '.hooks.PreToolUse |= (
+            (. // []) as $existing |
+            reduce ($managed | .[]) as $hook ($existing;
+              ($hooks_dir + "/" + $hook.file) as $cmd |
+              if any(.[]; any(.hooks[]?; .command | tostring | endswith($hook.file))) then
+                map(
+                  if any(.hooks[]?; .command | tostring | endswith($hook.file)) then
+                    .hooks |= map(
+                      if .command | tostring | endswith($hook.file) then .command = $cmd else . end
+                    )
+                  else . end
+                )
+              else
+                . + [{"matcher": $hook.matcher, "hooks": [{"type": "command", "command": $cmd, "timeout": $hook.timeout}]}]
+              end
+            )
+          )' \
+          "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
+        echo "Claude Code: hooks registered in settings.json"
+      else
+        $DRY_RUN_CMD echo "Claude Code: (dry run) hooks would be registered in settings.json"
+      fi
     ''}
   '';
 
