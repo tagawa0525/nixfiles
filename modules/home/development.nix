@@ -97,7 +97,8 @@ in
         ${pkgs.jq}/bin/jq \
           --argjson managed '${builtins.toJSON claudeGlobalHooks}' \
           --arg hooks_dir "$CLAUDE_DIR/hooks" \
-          '.hooks.PreToolUse |= (
+          '.skipDangerousModePermissionPrompt = true |
+          .hooks.PreToolUse |= (
             (. // []) as $existing |
             reduce ($managed | .[]) as $hook ($existing;
               ($hooks_dir + "/" + $hook.file) as $cmd |
