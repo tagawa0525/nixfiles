@@ -13,6 +13,141 @@ let
     { file = "block-main-commit.sh"; matcher = "Bash"; timeout = 10000; }
     { file = "pre-merge-check.sh"; matcher = "Bash"; timeout = 30000; }
   ];
+
+  # Claude Code settings.json の静的設定
+  # nixos-rebuild 時に ~/.claude/settings.json へ自動反映される
+  # hooks, statusLine, skipDangerousModePermissionPrompt は別途管理
+  claudeCodeStaticSettings = {
+    permissions = {
+      allow = [
+        # Skills
+        "Skill(git-commit)"
+        "Skill(git-branch)"
+        "Skill(git-worktree)"
+        "Skill(git-push)"
+        "Skill(git-tidy)"
+        "Skill(git-cherry-pick)"
+        "Skill(git-info)"
+        "Skill(gh-pr-merge)"
+        "Skill(gh-pr-create)"
+        "Skill(gh-pr-review)"
+        "Skill(gh-actions-check)"
+        # Git
+        "Bash(git add:*)"
+        "Bash(git branch:*)"
+        "Bash(git checkout:*)"
+        "Bash(git cherry-pick:*)"
+        "Bash(git clean:*)"
+        "Bash(git clone:*)"
+        "Bash(git commit:*)"
+        "Bash(git config:*)"
+        "Bash(git diff:*)"
+        "Bash(git diff-tree:*)"
+        "Bash(git fetch:*)"
+        "Bash(git log:*)"
+        "Bash(git merge:*)"
+        "Bash(git mv:*)"
+        "Bash(git pull:*)"
+        "Bash(git push:*)"
+        "Bash(git rebase:*)"
+        "Bash(git remote:*)"
+        "Bash(git reset:*)"
+        "Bash(git restore:*)"
+        "Bash(git rev-list:*)"
+        "Bash(git rm:*)"
+        "Bash(git show:*)"
+        "Bash(git stash:*)"
+        "Bash(git status:*)"
+        "Bash(git submodule:*)"
+        "Bash(git switch:*)"
+        "Bash(git symbolic-ref:*)"
+        "Bash(git tag:*)"
+        "Bash(git worktree:*)"
+        # GitHub CLI
+        "Bash(gh api:*)"
+        "Bash(gh auth:*)"
+        "Bash(gh pr:*)"
+        "Bash(gh release:*)"
+        "Bash(gh repo:*)"
+        "Bash(gh run:*)"
+        "Bash(gh workflow:*)"
+        # Nix
+        "Bash(nix search:*)"
+        "Bash(nix build:*)"
+        "Bash(nix eval:*)"
+        "Bash(nix flake:*)"
+        "Bash(nix-build:*)"
+        "Bash(nix-instantiate:*)"
+        "Bash(nix-prefetch-url:*)"
+        "Bash(nixpkgs-fmt:*)"
+        "Bash(statix:*)"
+        # 言語ツール
+        "Bash(cargo:*)"
+        "Bash(rustc:*)"
+        "Bash(rustup:*)"
+        "Bash(markdownlint:*)"
+        "Bash(python3:*)"
+        "Bash(node:*)"
+        "Bash(npx:*)"
+        # システム
+        "Bash(systemctl:*)"
+        "Bash(journalctl:*)"
+        "Bash(mount:*)"
+        "Bash(chmod:*)"
+        "Bash(fish:*)"
+        "Bash(direnv:*)"
+        "Bash(podman:*)"
+        "Bash(podman-compose:*)"
+        # ユーティリティ
+        "Bash(sort:*)"
+        "Bash(echo:*)"
+        "Bash(cat:*)"
+        "Bash(file:*)"
+        "Bash(test:*)"
+        "Bash(grep:*)"
+        "Bash(ls:*)"
+        "Bash(tree:*)"
+        "Bash(find:*)"
+        "Bash(wc:*)"
+        "Bash(jq:*)"
+        "Bash(xargs:*)"
+        "Bash(curl:*)"
+        "Bash(hash:*)"
+        "Bash(env)"
+        # gh-pr-review スキルスクリプト
+        "Bash(/home/tagawa/.claude/skills/gh-pr-review/scripts/get-pr-info.sh:*)"
+        "Bash(/home/tagawa/.claude/skills/gh-pr-review/scripts/get-review-comments.sh:*)"
+        "Bash(/home/tagawa/.claude/skills/gh-pr-review/scripts/reply-to-comment.sh:*)"
+        "Bash(/home/tagawa/.claude/skills/gh-pr-review/scripts/resolve-thread.sh:*)"
+        # Web
+        "WebFetch(domain:api.github.com)"
+        "WebFetch(domain:claude.ai)"
+        "WebFetch(domain:code.visualstudio.com)"
+        "WebFetch(domain:crates.io)"
+        "WebFetch(domain:discourse.nixos.org)"
+        "WebFetch(domain:docs.rs)"
+        "WebFetch(domain:hub.docker.com)"
+        "WebFetch(domain:gist.github.com)"
+        "WebFetch(domain:github.com)"
+        "WebFetch(domain:lib.rs)"
+        "WebFetch(domain:mynixos.com)"
+        "WebFetch(domain:nix-community.github.io)"
+        "WebFetch(domain:raw.githubusercontent.com)"
+        "WebFetch(domain:search.nixos.org)"
+        "WebFetch(domain:www.anthropic.com)"
+        "WebSearch"
+      ];
+      deny = [ "Bash(sudo:*)" ];
+      defaultMode = "default";
+    };
+    enabledPlugins = {
+      "code-simplifier@claude-plugins-official" = true;
+      "rust-analyzer-lsp@claude-plugins-official" = true;
+    };
+    language = "Japanese";
+    autoUpdatesChannel = "stable";
+    plansDirectory = "docs/plans";
+  };
 in
 {
   # ===========================================================================
@@ -96,8 +231,10 @@ in
       if [ "''${DRY_RUN:-0}" != "1" ]; then
         ${pkgs.jq}/bin/jq \
           --argjson managed '${builtins.toJSON claudeGlobalHooks}' \
+          --argjson static '${builtins.toJSON claudeCodeStaticSettings}' \
           --arg hooks_dir "$CLAUDE_DIR/hooks" \
-          '.skipDangerousModePermissionPrompt = true |
+          '. + $static |
+          .skipDangerousModePermissionPrompt = true |
           .hooks.PreToolUse |= (
             (. // []) as $existing |
             reduce ($managed | .[]) as $hook ($existing;
