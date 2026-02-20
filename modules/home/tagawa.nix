@@ -17,6 +17,7 @@
     ./editors.nix # VSCode, Neovim, Zed, Alacritty
     ./desktop.nix # COSMIC, XDG, fcitx5, mimeApps
     ./git.nix # Git, Git Hooks, delta, GitHub CLI
+    ./claude-code.nix # Claude Code CLI, hooks/skills同期, settings管理
     ./development.nix # 開発ツール, activation scripts
     ./mise.nix # mise（ランタイムバージョンマネージャー）
     ./vscode-server.nix # VS Code Server自動パッチ（NixOS用）
