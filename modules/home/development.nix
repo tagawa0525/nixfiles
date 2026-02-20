@@ -18,6 +18,12 @@ let
   # nixos-rebuild 時に ~/.claude/settings.json へ自動反映される
   # hooks, statusLine, skipDangerousModePermissionPrompt は別途管理
   claudeCodeStaticSettings = {
+    autoUpdatesChannel = "stable";
+    enabledPlugins = {
+      "code-simplifier@claude-plugins-official" = true;
+      "rust-analyzer-lsp@claude-plugins-official" = true;
+    };
+    language = "Japanese";
     permissions = {
       allow = [
         # Skills
@@ -140,12 +146,6 @@ let
       deny = [ "Bash(sudo:*)" ];
       defaultMode = "default";
     };
-    enabledPlugins = {
-      "code-simplifier@claude-plugins-official" = true;
-      "rust-analyzer-lsp@claude-plugins-official" = true;
-    };
-    language = "Japanese";
-    autoUpdatesChannel = "stable";
     plansDirectory = "docs/plans";
   };
 in
