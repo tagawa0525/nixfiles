@@ -46,6 +46,7 @@ let
     pkgs.vscode-extensions.charliermarsh.ruff # Python フォーマット・lint
     pkgs.vscode-extensions.redhat.vscode-yaml # YAML
     pkgs.vscode-extensions.tamasfe.even-better-toml # TOML
+    pkgs.vscode-extensions.davidanson.vscode-markdownlint # Markdownリンター
 
     # 開発環境
     pkgs.vscode-extensions.mkhl.direnv # direnv環境変数の自動読み込み
