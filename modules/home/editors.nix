@@ -117,6 +117,12 @@ in
             "source.organizeImports" = "explicit"; # import整理
           };
         };
+        # Markdown設定（markdownlint）
+        "[markdown]" = {
+          "editor.codeActionsOnSave" = {
+            "source.fixAll.markdownlint" = "explicit";
+          };
+        };
         # Rust設定（rust-analyzer）
         "[rust]" = {
           "editor.defaultFormatter" = "rust-lang.rust-analyzer";
