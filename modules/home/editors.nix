@@ -123,6 +123,17 @@ in
             "source.fixAll.markdownlint" = "explicit";
           };
         };
+        "markdownlint.config" = {
+          default = true;
+          MD013 = false;
+          MD024 = { siblings_only = true; };
+          MD029 = false;
+          MD033 = false;
+          MD034 = false;
+          MD036 = false;
+          MD041 = false;
+          MD056 = true;
+        };
         # Rust設定（rust-analyzer）
         "[rust]" = {
           "editor.defaultFormatter" = "rust-lang.rust-analyzer";
