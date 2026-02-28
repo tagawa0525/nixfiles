@@ -46,6 +46,7 @@ let
     pkgs.vscode-extensions.charliermarsh.ruff # Python フォーマット・lint
     pkgs.vscode-extensions.redhat.vscode-yaml # YAML
     pkgs.vscode-extensions.tamasfe.even-better-toml # TOML
+    pkgs.vscode-extensions.davidanson.vscode-markdownlint # Markdownリンター
 
     # 開発環境
     pkgs.vscode-extensions.mkhl.direnv # direnv環境変数の自動読み込み
@@ -115,6 +116,23 @@ in
             "source.fixAll" = "explicit"; # Ruffの自動修正
             "source.organizeImports" = "explicit"; # import整理
           };
+        };
+        # Markdown設定（markdownlint）
+        "[markdown]" = {
+          "editor.codeActionsOnSave" = {
+            "source.fixAll.markdownlint" = "explicit";
+          };
+        };
+        "markdownlint.config" = {
+          default = true;
+          MD013 = false;
+          MD024 = { siblings_only = true; };
+          MD029 = false;
+          MD033 = false;
+          MD034 = false;
+          MD036 = false;
+          MD041 = false;
+          MD056 = true;
         };
         # Rust設定（rust-analyzer）
         "[rust]" = {
