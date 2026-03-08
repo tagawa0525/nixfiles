@@ -12,7 +12,7 @@
 #   - noatime: アクセス時刻の更新を無効化（SSD寿命・パフォーマンス改善）
 #
 # =============================================================================
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
 {
   # ===========================================================================
@@ -140,6 +140,17 @@
   # Windows VM、開発環境の分離などに使用
   virtualisation.libvirtd.enable = true;
   programs.virt-manager.enable = true; # VM管理用GUI
+  # libvirt 12.1.0のサービスが/usr/bin/shをハードコードしているため上書き
+  # https://github.com/NixOS/nixpkgs/issues/ — NixOSではFHSパスが存在しない
+  systemd.services.virt-secret-init-encryption.serviceConfig.ExecStart =
+    let
+      script = pkgs.writeShellScript "virt-secret-init-encryption" ''
+        umask 0077
+        dd if=/dev/random status=none bs=32 count=1 \
+          | ${pkgs.systemd}/bin/systemd-creds encrypt --name=secrets-encryption-key - /var/lib/libvirt/secrets/secrets-encryption-key
+      '';
+    in
+    lib.mkForce "${script}";
 
   # ===========================================================================
   # ユーザーアカウント
