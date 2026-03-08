@@ -140,8 +140,8 @@
   # Windows VM、開発環境の分離などに使用
   virtualisation.libvirtd.enable = true;
   programs.virt-manager.enable = true; # VM管理用GUI
-  # libvirt 12.1.0のサービスが/usr/bin/shをハードコードしているため上書き
-  # https://github.com/NixOS/nixpkgs/issues/ — NixOSではFHSパスが存在しない
+  # NixOSではFHS準拠の/usr/binが存在しないため、このサービスを明示的に上書きする
+  # ExecStartはリスト型なので空文字で既存エントリをクリアしてから置換する
   systemd.services.virt-secret-init-encryption.serviceConfig.ExecStart =
     let
       script = pkgs.writeShellScript "virt-secret-init-encryption" ''
@@ -150,7 +150,7 @@
           | ${pkgs.systemd}/bin/systemd-creds encrypt --name=secrets-encryption-key - /var/lib/libvirt/secrets/secrets-encryption-key
       '';
     in
-    lib.mkForce "${script}";
+    lib.mkForce [ "" "${script}" ];
 
   # ===========================================================================
   # ユーザーアカウント
