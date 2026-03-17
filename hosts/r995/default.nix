@@ -38,6 +38,12 @@
   hardware.bluetooth.enable = true;
   hardware.bluetooth.powerOnBoot = true;
 
+  # MT7925のファームウェアはUSB autosuspendのremote wakeupを正しく処理できず、
+  # BT USBインターフェースが応答しなくなる既知の不具合がある。
+  # デスクトップPCではautosuspendの省電力効果は不要なので無効化する。
+  # https://bugzilla.redhat.com/show_bug.cgi?id=2372880
+  boot.kernelParams = [ "usbcore.autosuspend=-1" ];
+
   # ===========================================================================
   # ネットワーク
   # ===========================================================================
