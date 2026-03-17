@@ -316,7 +316,9 @@
     # ─────────────────────────────────────────────────────────────
     # GUIツール - 開発
     # ─────────────────────────────────────────────────────────────
-    podman-desktop # コンテナ管理GUI。Docker Desktopの代替
+    # podman-desktop # コンテナ管理GUI。Docker Desktopの代替
+    # TODO: electron_39の39-angle-patchdir.patchが修正されたら再有効化
+    # https://github.com/NixOS/nixpkgs/issues/476669
     meld # ファイル/ディレクトリの差分比較・マージ
     dbeaver-bin # 多数のDBに対応したGUIクライアント
 
