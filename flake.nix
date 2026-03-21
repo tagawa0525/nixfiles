@@ -61,12 +61,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # sops-nix: シークレット管理（age暗号化）
-    sops-nix = {
-      url = "github:Mic92/sops-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # cc-bar: Claude Code Context Window Monitor（COSMICパネルアプレット）
     cc-bar = {
       url = "github:tagawa0525/cc-bar";
@@ -87,7 +81,6 @@
     , llm-agents
     , nixos-vscode-server
     , qmpo
-    , sops-nix
     , cc-bar
     , ...
     }:
@@ -109,7 +102,6 @@
             ./hosts/${hostName} # ホスト固有設定（ブート、ホスト名等）
             ./modules/common.nix # 共通システム設定
             lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
-            sops-nix.nixosModules.sops # シークレット管理
             home-manager.nixosModules.home-manager
             {
               # オーバーレイを追加
