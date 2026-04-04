@@ -33,7 +33,7 @@ let
     copilotChat # AIペアプログラミング
     # Claude Code CLI連携（diff view）
     # nixpkgsのclaude-codeはnpm 404になりやすいため、llm-agents版のCLIを使用
-    (pkgs.vscode-marketplace.anthropic.claude-code.overrideAttrs (old: {
+    (pkgs.vscode-marketplace.anthropic.claude-code.overrideAttrs (_: {
       postInstall = ''
         mkdir -p "$out/$installPrefix/resources/native-binary"
         rm -f "$out/$installPrefix/resources/native-binary/claude"*
