@@ -31,15 +31,7 @@ let
   workspaceExtensions = [
     # AI/コーディング支援
     copilotChat # AIペアプログラミング
-    # Claude Code CLI連携（diff view）
-    # nixpkgsのclaude-codeはnpm 404になりやすいため、llm-agents版のCLIを使用
-    (pkgs.vscode-marketplace.anthropic.claude-code.overrideAttrs (_: {
-      postInstall = ''
-        mkdir -p "$out/$installPrefix/resources/native-binary"
-        rm -f "$out/$installPrefix/resources/native-binary/claude"*
-        ln -s "${pkgs.llm-agents.claude-code}/bin/claude" "$out/$installPrefix/resources/native-binary/claude"
-      '';
-    }))
+    pkgs.vscode-marketplace.anthropic.claude-code # Claude Code CLI連携（diff view）
 
     # Git
     pkgs.vscode-extensions.eamodio.gitlens # Git機能強化（blame、履歴、比較）
