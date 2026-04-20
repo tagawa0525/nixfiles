@@ -170,9 +170,10 @@
         count = 65536;
       }
     ];
-    # wheel: sudo権限, podman: コンテナ操作, libvirtd: VM操作
+    # wheel: sudo権限, networkmanager: WiFi操作, podman: コンテナ操作, libvirtd: VM操作
     extraGroups = [
       "wheel"
+      "networkmanager"
       "podman"
       "libvirtd"
     ];
