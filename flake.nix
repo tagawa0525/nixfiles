@@ -38,8 +38,13 @@
     };
 
     # VSCode拡張機能（マーケットプレイス + Open VSX）
+    # TODO: vadimcn.vscode-lldb の supportedVersion が 1.12.2 に追従したらpinを外す
+    #   - 症状: 1.12.2 がキャッシュに入ったが default.nix の supportedVersion="1.12.1" が
+    #           assertionで不一致を起こしビルド失敗（universalに切り替えても回避不可）
+    #   - 復旧条件: upstream で supportedVersion が更新されたら下記の rev 指定を削除する
+    #   - 参考: extensions/vadimcn/vscode-lldb/latest/default.nix:23
     nix-vscode-extensions = {
-      url = "github:nix-community/nix-vscode-extensions";
+      url = "github:nix-community/nix-vscode-extensions/3dfd035bedf934bf8bd42ca1297db34a87e0c31d";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

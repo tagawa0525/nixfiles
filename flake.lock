@@ -295,6 +295,7 @@
       "original": {
         "owner": "nix-community",
         "repo": "nix-vscode-extensions",
+        "rev": "3dfd035bedf934bf8bd42ca1297db34a87e0c31d",
         "type": "github"
       }
     },
