@@ -68,7 +68,11 @@ in
     enable = true;
     # package = pkgs.nur-vscode-latest.vscode-insiders; # Insiders版を使用してGitHub Copilot Chatを有効化
     package = pkgs.nur-vscode-latest.vscode; # Stable版を使用してGitHub Copilot Chatを有効化
-    mutableExtensionsDir = false; # 拡張機能ディレクトリをNixで完全管理
+    # VS Code 1.117+ の builtin copilot-chat は autoUpdate 設定に関わらず
+    # 特別ルートで自動更新を試みる。extensions dir を完全read-onlyにすると
+    # mkdir '.xxx' が ENOENT で失敗するため、書き込み可能にしている。
+    # Nix 管理の各拡張は依然 /nix/store への symlink として配置される。
+    mutableExtensionsDir = true;
     profiles.default = {
       extensions = workspaceExtensions ++ localOnlyExtensions ++ [
         # Rustデバッガー。nix-vscode-extensions 側は supportedVersion 固定の
@@ -92,12 +96,6 @@ in
         "editor.lineNumbers" = "relative"; # 相対行番号を表示
         # NixOSでは署名検証に必要なライブラリがないため無効化
         "extensions.verifySignature" = false;
-        # 拡張機能は Nix で管理するため自動適用は無効化（有効のままだと
-        # 読み取り専用の extensions dir に .xxx 隠しディレクトリを作ろうとして
-        # ENOENT になる）。ただし更新の有無を検知するためチェック自体は有効。
-        # 更新があれば UI で通知され、flake update → nixos-rebuild で反映する。
-        "extensions.autoUpdate" = false;
-        "extensions.autoCheckUpdates" = true;
         # Nix IDE設定
         "nix.enableLanguageServer" = true;
         "nix.serverPath" = "nixd"; # nixdをLSPとして使用
