@@ -141,7 +141,7 @@ in
     lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       target="$HOME/.config/Code/User/globalStorage/github.copilot-chat"
       if [ -d "$target" ]; then
-        chmod -R u+w "$target" || true
+        $DRY_RUN_CMD chmod -R u+w "$target" 2>/dev/null || true
       fi
     '';
 
