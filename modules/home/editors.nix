@@ -12,7 +12,9 @@ let
   # リモートにもインストールする拡張機能（ワークスペース拡張機能）
   workspaceExtensions = [
     # AI/コーディング支援
-    pkgs.vscode-marketplace-release.github.copilot-chat # AIペアプログラミング
+    # github.copilot-chat は VS Code 1.117+ 以降 builtin 化されているため明示インストール不要。
+    # 明示インストールすると VS Code 側で skip され、かつ auto-update が extensions dir に
+    # 書き込めず ENOENT を起こす。
     pkgs.vscode-marketplace.anthropic.claude-code # Claude Code CLI連携（diff view）
 
     # Git
@@ -90,6 +92,12 @@ in
         "editor.lineNumbers" = "relative"; # 相対行番号を表示
         # NixOSでは署名検証に必要なライブラリがないため無効化
         "extensions.verifySignature" = false;
+        # 拡張機能は Nix で管理するため自動適用は無効化（有効のままだと
+        # 読み取り専用の extensions dir に .xxx 隠しディレクトリを作ろうとして
+        # ENOENT になる）。ただし更新の有無を検知するためチェック自体は有効。
+        # 更新があれば UI で通知され、flake update → nixos-rebuild で反映する。
+        "extensions.autoUpdate" = false;
+        "extensions.autoCheckUpdates" = true;
         # Nix IDE設定
         "nix.enableLanguageServer" = true;
         "nix.serverPath" = "nixd"; # nixdをLSPとして使用
