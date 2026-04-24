@@ -9,38 +9,22 @@ let
   # パッケージから拡張機能IDを抽出
   getExtensionId = ext: "${ext.vscodeExtPublisher}.${ext.vscodeExtName}";
 
-  # Copilot Chat: 上流が0.37.6以上になればこの固定は不要になり自動で上流版に切り替わる
-  copilotChat =
-    let
-      upstream = pkgs.vscode-marketplace-release.github.copilot-chat;
-      minVersion = "0.37.6";
-    in
-    if builtins.compareVersions upstream.version minVersion >= 0
-    then upstream
-    else
-      pkgs.vscode-utils.buildVscodeMarketplaceExtension {
-        mktplcRef = {
-          publisher = "GitHub";
-          name = "copilot-chat";
-          version = minVersion;
-          sha256 = "sha256-tCrrF2Emr/rNJola58ExWKfLuAyOvPqszPLd5SRVcac=";
-        };
-      };
-
   # リモートにもインストールする拡張機能（ワークスペース拡張機能）
   workspaceExtensions = [
     # AI/コーディング支援
-    copilotChat # AIペアプログラミング
+    pkgs.vscode-marketplace-release.github.copilot-chat # AIペアプログラミング
     pkgs.vscode-marketplace.anthropic.claude-code # Claude Code CLI連携（diff view）
 
     # Git
-    pkgs.vscode-extensions.eamodio.gitlens # Git機能強化（blame、履歴、比較）
+    # gitlensはnixpkgs側が更新追従していないためmarketplace-releaseを使用
+    pkgs.vscode-marketplace-release.eamodio.gitlens # Git機能強化（blame、履歴、比較）
     pkgs.vscode-extensions.mhutchie.git-graph # Gitの履歴をグラフ表示
     pkgs.vscode-extensions.github.vscode-github-actions # GitHub Actionsワークフロー編集
 
     # 言語サポート
     pkgs.vscode-extensions.jnoortheen.nix-ide # Nix
-    pkgs.vscode-extensions.rust-lang.rust-analyzer # Rust
+    # rust-analyzerもnixpkgs側が古いためmarketplace-releaseを使用
+    pkgs.vscode-marketplace-release.rust-lang.rust-analyzer # Rust
     pkgs.vscode-extensions.ms-python.python # Python
     pkgs.vscode-extensions.ms-python.vscode-pylance # Python型チェック・補完
     pkgs.vscode-extensions.charliermarsh.ruff # Python フォーマット・lint
@@ -85,7 +69,9 @@ in
     mutableExtensionsDir = false; # 拡張機能ディレクトリをNixで完全管理
     profiles.default = {
       extensions = workspaceExtensions ++ localOnlyExtensions ++ [
-        pkgs.vscode-marketplace-universal.vadimcn.vscode-lldb # Rustデバッガー（universalビルド）
+        # Rustデバッガー。nix-vscode-extensions 側は supportedVersion 固定の
+        # assertion を持ち新バージョンで落ちるため、nixpkgs 本家版を使用する。
+        pkgs.vscode-extensions.vadimcn.vscode-lldb
       ];
       userSettings = {
         "locale" = "ja"; # VS Codeの表示言語を日本語に設定
