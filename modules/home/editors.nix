@@ -3,7 +3,7 @@
 # =============================================================================
 # VSCode, Neovim, Zed, Alacritty などエディタ・ターミナルの設定
 # =============================================================================
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 
 let
   # パッケージから拡張機能IDを抽出
@@ -126,6 +126,18 @@ in
       };
     };
   };
+
+  # Copilot Chat は VS Code 同梱の copilot 拡張 (/nix/store 配下、mode 444) から
+  # copilotCLIShim.js / copilotDebugCommand.js 等を globalStorage にコピーする。
+  # 初回コピーで読み取り専用権限が保持され、バージョン更新時の再コピーが
+  # EACCES で失敗するため、activation 時に書き込み権限を付与しておく。
+  home.activation.fixCopilotChatGlobalStoragePerms =
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      target="$HOME/.config/Code/User/globalStorage/github.copilot-chat"
+      if [ -d "$target" ]; then
+        chmod -R u+w "$target" || true
+      fi
+    '';
 
   # ===========================================================================
   # Neovim設定
