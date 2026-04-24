@@ -149,7 +149,7 @@ in
   # renderer プロセスで `spawn linux ENOENT` を出し、Settings Sync のアカウントが
   # unavailable のまま固まる。libsecret/gnome-keyring は導入済みなので、
   # 明示的に gnome-libsecret を指定して検出フォールバックを回避する。
-  home.file.".config/Code/argv.json".text = builtins.toJSON {
+  xdg.configFile."Code/argv.json".text = builtins.toJSON {
     "password-store" = "gnome-libsecret";
   };
 
