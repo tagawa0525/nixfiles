@@ -145,6 +145,14 @@ in
       fi
     '';
 
+  # VS Code (Electron) の safeStorage は Linux 上でキーリング実装の検出に失敗すると
+  # renderer プロセスで `spawn linux ENOENT` を出し、Settings Sync のアカウントが
+  # unavailable のまま固まる。libsecret/gnome-keyring は導入済みなので、
+  # 明示的に gnome-libsecret を指定して検出フォールバックを回避する。
+  home.file.".config/Code/argv.json".text = builtins.toJSON {
+    "password-store" = "gnome-libsecret";
+  };
+
   # ===========================================================================
   # Neovim設定
   # ===========================================================================
