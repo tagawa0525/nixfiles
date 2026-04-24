@@ -3,44 +3,30 @@
 # =============================================================================
 # VSCode, Neovim, Zed, Alacritty などエディタ・ターミナルの設定
 # =============================================================================
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 
 let
   # パッケージから拡張機能IDを抽出
   getExtensionId = ext: "${ext.vscodeExtPublisher}.${ext.vscodeExtName}";
 
-  # Copilot Chat: 上流が0.37.6以上になればこの固定は不要になり自動で上流版に切り替わる
-  copilotChat =
-    let
-      upstream = pkgs.vscode-marketplace-release.github.copilot-chat;
-      minVersion = "0.37.6";
-    in
-    if builtins.compareVersions upstream.version minVersion >= 0
-    then upstream
-    else
-      pkgs.vscode-utils.buildVscodeMarketplaceExtension {
-        mktplcRef = {
-          publisher = "GitHub";
-          name = "copilot-chat";
-          version = minVersion;
-          sha256 = "sha256-tCrrF2Emr/rNJola58ExWKfLuAyOvPqszPLd5SRVcac=";
-        };
-      };
-
   # リモートにもインストールする拡張機能（ワークスペース拡張機能）
   workspaceExtensions = [
     # AI/コーディング支援
-    copilotChat # AIペアプログラミング
+    # github.copilot-chat は VS Code 1.117+ 以降 builtin 化されているため明示インストール不要。
+    # 明示インストールすると VS Code 側で skip され、かつ auto-update が extensions dir に
+    # 書き込めず ENOENT を起こす。
     pkgs.vscode-marketplace.anthropic.claude-code # Claude Code CLI連携（diff view）
 
     # Git
-    pkgs.vscode-extensions.eamodio.gitlens # Git機能強化（blame、履歴、比較）
+    # gitlensはnixpkgs側が更新追従していないためmarketplace-releaseを使用
+    pkgs.vscode-marketplace-release.eamodio.gitlens # Git機能強化（blame、履歴、比較）
     pkgs.vscode-extensions.mhutchie.git-graph # Gitの履歴をグラフ表示
     pkgs.vscode-extensions.github.vscode-github-actions # GitHub Actionsワークフロー編集
 
     # 言語サポート
     pkgs.vscode-extensions.jnoortheen.nix-ide # Nix
-    pkgs.vscode-extensions.rust-lang.rust-analyzer # Rust
+    # rust-analyzerもnixpkgs側が古いためmarketplace-releaseを使用
+    pkgs.vscode-marketplace-release.rust-lang.rust-analyzer # Rust
     pkgs.vscode-extensions.ms-python.python # Python
     pkgs.vscode-extensions.ms-python.vscode-pylance # Python型チェック・補完
     pkgs.vscode-extensions.charliermarsh.ruff # Python フォーマット・lint
@@ -82,10 +68,16 @@ in
     enable = true;
     # package = pkgs.nur-vscode-latest.vscode-insiders; # Insiders版を使用してGitHub Copilot Chatを有効化
     package = pkgs.nur-vscode-latest.vscode; # Stable版を使用してGitHub Copilot Chatを有効化
-    mutableExtensionsDir = false; # 拡張機能ディレクトリをNixで完全管理
+    # VS Code 1.117+ の builtin copilot-chat は autoUpdate 設定に関わらず
+    # 特別ルートで自動更新を試みる。extensions dir を完全read-onlyにすると
+    # mkdir '.xxx' が ENOENT で失敗するため、書き込み可能にしている。
+    # Nix 管理の各拡張は依然 /nix/store への symlink として配置される。
+    mutableExtensionsDir = true;
     profiles.default = {
       extensions = workspaceExtensions ++ localOnlyExtensions ++ [
-        pkgs.vscode-marketplace-universal.vadimcn.vscode-lldb # Rustデバッガー（universalビルド）
+        # Rustデバッガー。nix-vscode-extensions 側は supportedVersion 固定の
+        # assertion を持ち新バージョンで落ちるため、nixpkgs 本家版を使用する。
+        pkgs.vscode-extensions.vadimcn.vscode-lldb
       ];
       userSettings = {
         "locale" = "ja"; # VS Codeの表示言語を日本語に設定
@@ -140,6 +132,18 @@ in
       };
     };
   };
+
+  # Copilot Chat は VS Code 同梱の copilot 拡張 (/nix/store 配下、mode 444) から
+  # copilotCLIShim.js / copilotDebugCommand.js 等を globalStorage にコピーする。
+  # 初回コピーで読み取り専用権限が保持され、バージョン更新時の再コピーが
+  # EACCES で失敗するため、activation 時に書き込み権限を付与しておく。
+  home.activation.fixCopilotChatGlobalStoragePerms =
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      target="$HOME/.config/Code/User/globalStorage/github.copilot-chat"
+      if [ -d "$target" ]; then
+        $DRY_RUN_CMD chmod -R u+w "$target" 2>/dev/null || true
+      fi
+    '';
 
   # ===========================================================================
   # Neovim設定
