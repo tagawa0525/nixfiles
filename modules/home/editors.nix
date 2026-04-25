@@ -133,6 +133,22 @@ in
     };
   };
 
+  # mutableExtensionsDir = true では Home Manager が通常のディレクトリを作成し
+  # 個別の拡張を symlink で配置するが、旧 generation が extensions ディレクトリ
+  # ごと nix store への symlink として作成していると "would be clobbered" で
+  # 失敗する。linkGeneration の前に stale な symlink を除去して衝突を回避する。
+  home.activation.removeStaleVscodeExtensionLinks =
+    lib.hm.dag.entryBefore [ "linkGeneration" ] ''
+      extDir="$HOME/.vscode/extensions"
+      # extensions 自体が nix store への symlink なら削除（中身は nix store で安全）
+      if [ -L "$extDir" ]; then
+        $DRY_RUN_CMD rm "$extDir"
+      elif [ -d "$extDir" ]; then
+        # ディレクトリ内の root 所有 symlink を削除
+        find "$extDir" -maxdepth 1 -type l -user root -exec $DRY_RUN_CMD rm -f {} + 2>/dev/null || true
+      fi
+    '';
+
   # Copilot Chat は VS Code 同梱の copilot 拡張 (/nix/store 配下、mode 444) から
   # copilotCLIShim.js / copilotDebugCommand.js 等を globalStorage にコピーする。
   # 初回コピーで読み取り専用権限が保持され、バージョン更新時の再コピーが
