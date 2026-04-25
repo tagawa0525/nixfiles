@@ -145,7 +145,7 @@ in
         $DRY_RUN_CMD rm "$extDir"
       elif [ -d "$extDir" ]; then
         # ディレクトリ内の root 所有 symlink を削除
-        find "$extDir" -maxdepth 1 -type l ! -user "$USER" -delete 2>/dev/null || true
+        find "$extDir" -maxdepth 1 -type l -user root -exec $DRY_RUN_CMD rm -f {} + 2>/dev/null || true
       fi
     '';
 
