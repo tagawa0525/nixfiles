@@ -89,18 +89,28 @@
     }:
     let
       # ─────────────────────────────────────────────────────────────────────────
+      # ホスト一覧
+      # ─────────────────────────────────────────────────────────────────────────
+      hostList = [
+        "t14g4" # t14g4: ノートPC (ThinkPad T14 4th Gen)
+        "r995" # r995: デスクトップ (Ryzen 9950X + AMD GPU)
+      ];
+
+      # ─────────────────────────────────────────────────────────────────────────
       # mkHost: ホスト設定を生成するヘルパー関数
       # ─────────────────────────────────────────────────────────────────────────
       # 引数: ホスト名（hosts/<hostName>/配下に設定ファイルが必要）
       # 新しいホストを追加する場合:
-      #   1. hosts/<hostName>/default.nix と hardware-configuration.nix を作成
-      #   2. hosts/<hostName>/niri-output.nix を作成
-      #   3. nixosConfigurations に `<hostName> = mkHost "<hostName>";` を追加
+      #   1. hostList に追加
+      #   2. keys/<hostName>.pub を作成（SSH公開鍵）
+      #   3. hosts/<hostName>/default.nix と hardware-configuration.nix を作成
+      #   4. hosts/<hostName>/niri-output.nix を作成
       # ─────────────────────────────────────────────────────────────────────────
       mkHost =
         hostName:
         nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
+          specialArgs = { inherit self hostList; }; # flakeルートとホスト一覧をmodulesに渡す
           modules = [
             ./hosts/${hostName} # ホスト固有設定（ブート、ホスト名等）
             ./modules/common.nix # 共通システム設定
@@ -133,15 +143,17 @@
                 claudeCodeSource = self; # flakeルートを渡す（Claude Code設定用）
                 vscode-server = nixos-vscode-server; # VS Code Server自動パッチモジュール
               };
-              home-manager.users.tagawa = import ./modules/home/tagawa.nix;
+              home-manager.users.tagawa = import ./modules/home/users/tagawa/default.nix;
             }
           ];
         };
     in
     {
-      nixosConfigurations = {
-        t14g4 = mkHost "t14g4"; # ノートPC (ThinkPad T14 4th Gen)
-        r995 = mkHost "r995"; # デスクトップ (Ryzen 9950X + AMD GPU)
-      };
+      nixosConfigurations = builtins.listToAttrs (map
+        (hostName: {
+          name = hostName;
+          value = mkHost hostName;
+        })
+        hostList);
     };
 }

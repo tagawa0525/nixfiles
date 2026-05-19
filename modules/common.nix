@@ -180,11 +180,6 @@
     # mkpasswd -m sha-512 で生成したハッシュ
     hashedPassword = "$6$g8T1ZyjV8uoBKzcp$HPjF9mnYkkpEyY3NXeK1HXv.Y3vcUSN4bHkzktlzuSi9SHxBYcNbbhtfwYHMSw5gQ2spy8fF9MORT.oUOUboA.";
     shell = pkgs.bash; # デフォルトはbash（VSCode-Server等の互換性のため）
-    # SSH公開鍵認証。複数ホスト間の相互接続用（Tailscale経由）
-    openssh.authorizedKeys.keyFiles = [
-      ../keys/t14g4.pub # ThinkPad T14 Gen 4
-      ../keys/r995.pub # Ryzen 9950X デスクトップ
-    ];
   };
 
   # ===========================================================================
