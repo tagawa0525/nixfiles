@@ -141,6 +141,7 @@
     {
       nixosConfigurations = {
         xc8 = mkHost "xc8"; # ノートPC (ThinkPad X1 Carbon 8th Gen)
+        t14g4 = mkHost "t14g4"; # ノートPC (ThinkPad T14 4th Gen)
         r995 = mkHost "r995"; # デスクトップ (Ryzen 9950X + AMD GPU)
       };
     };
