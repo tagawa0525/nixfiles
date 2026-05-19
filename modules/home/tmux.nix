@@ -117,7 +117,6 @@ in
     (pkgs.writeShellScriptBin "local-tmux" tmuxConnectCmd)
     # リモートホストへのtmux接続
     (mkSshTmux "ssh-r995-tmux" "r995")
-    (mkSshTmux "ssh-xc8-tmux" "xc8")
   ];
 
   # ===========================================================================
@@ -138,11 +137,6 @@ in
       name = "SSH to r995 (tmux)";
       comment = "Tailscale経由でr995にSSH接続しtmuxにアタッチ";
       scriptName = "ssh-r995-tmux";
-    };
-    ssh-xc8 = mkSshTmuxEntry {
-      name = "SSH to xc8 (tmux)";
-      comment = "Tailscale経由でxc8にSSH接続しtmuxにアタッチ";
-      scriptName = "ssh-xc8-tmux";
     };
   };
 }

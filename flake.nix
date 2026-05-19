@@ -6,7 +6,7 @@
 #
 # 使い方:
 #   sudo nixos-rebuild switch --flake .#<hostname>
-#   例: sudo nixos-rebuild switch --flake .#xc8
+#   例: sudo nixos-rebuild switch --flake .#t14g4
 # =============================================================================
 {
   description = "NixOS configuration";
@@ -140,7 +140,6 @@
     in
     {
       nixosConfigurations = {
-        xc8 = mkHost "xc8"; # ノートPC (ThinkPad X1 Carbon 8th Gen)
         t14g4 = mkHost "t14g4"; # ノートPC (ThinkPad T14 4th Gen)
         r995 = mkHost "r995"; # デスクトップ (Ryzen 9950X + AMD GPU)
       };
