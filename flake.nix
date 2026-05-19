@@ -6,7 +6,7 @@
 #
 # 使い方:
 #   sudo nixos-rebuild switch --flake .#<hostname>
-#   例: sudo nixos-rebuild switch --flake .#xc8
+#   例: sudo nixos-rebuild switch --flake .#t14g4
 # =============================================================================
 {
   description = "NixOS configuration";
