@@ -17,7 +17,7 @@
 {
   niriOutputConfig = ''
     // t14g4ノートPCのディスプレイ設定
-    // ThinkPad X1 Carbon 8th Gen: 14インチ FHD (1920x1200)
+    // ThinkPad T14 Gen 4: 14インチ WUXGA (1920x1200, 16:10)
     // HiDPI設定: 1.5x スケーリングで読みやすさとスペースのバランスを取る
     output "eDP-1" {
         mode "1920x1200@60"
