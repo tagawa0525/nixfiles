@@ -102,7 +102,8 @@
       # 引数: ホスト名（hosts/<hostName>/配下に設定ファイルが必要）
       # 新しいホストを追加する場合:
       #   1. hostList に追加
-      #   2. keys/<hostName>.pub を作成（SSH公開鍵）
+      #   2. SSH公開鍵を該当ユーザーの個人設定に配置
+      #      （例：modules/home/users/<user>/keys/<hostName>.pub）
       #   3. hosts/<hostName>/default.nix と hardware-configuration.nix を作成
       #   4. hosts/<hostName>/niri-output.nix を作成
       # ─────────────────────────────────────────────────────────────────────────
@@ -110,7 +111,7 @@
         hostName:
         nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { inherit self hostList; }; # flakeルートとホスト一覧をmodulesに渡す
+          specialArgs = { inherit self; }; # flakeルートをmodulesに渡す
           modules = [
             ./hosts/${hostName} # ホスト固有設定（ブート、ホスト名等）
             ./modules/common.nix # 共通システム設定
