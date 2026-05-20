@@ -3,14 +3,33 @@
 # =============================================================================
 # Ryzen 9950X + AMD Radeon Graphics のハイエンドデスクトップ設定。
 # 共通設定は modules/common.nix、ブート設定は modules/boot-lanzaboote.nix を参照。
+#
+# SSH設定：
+#   複数ユーザーを想定し、各ユーザーの authorized_keys を システム設定で管理。
+#   ユーザー追加時に対応する authorized_keys.keyFiles を定義する。
 # =============================================================================
-{ pkgs, ... }:
+{ pkgs, self, ... }:
 
 {
   imports = [
     ./hardware-configuration.nix # nixos-generate-config で生成されたハードウェア設定
     ../../modules/boot-lanzaboote.nix # Secure Boot共通設定
   ];
+
+  # ===========================================================================
+  # ユーザー SSH設定（複数ユーザー想定）
+  # ===========================================================================
+  # tagawa: 複数ホスト間の相互接続用
+  # ユーザーの個人設定から公開鍵を参照
+  users.users.tagawa.openssh.authorizedKeys.keyFiles = [
+    "${self}/modules/home/users/tagawa/keys/t14g4.pub"
+    "${self}/modules/home/users/tagawa/keys/r995.pub"
+  ];
+
+  # 将来的なユーザー追加時のテンプレート：
+  # users.users.<newuser>.openssh.authorizedKeys.keyFiles = [
+  #   "${self}/modules/home/users/<newuser>/keys/<newuser>@r995.pub"
+  # ];
 
   # ===========================================================================
   # AMD GPU設定

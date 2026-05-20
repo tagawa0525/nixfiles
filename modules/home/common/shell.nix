@@ -17,7 +17,7 @@
   # ===========================================================================
   # NixOS再構築用スクリプトを~/.local/bin/にインストール
   home.file.".local/bin/nix-rebuild" = {
-    source = ./scripts/nix-rebuild.sh;
+    source = ../scripts/nix-rebuild.sh;
     executable = true;
   };
   # ===========================================================================

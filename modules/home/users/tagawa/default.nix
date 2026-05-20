@@ -1,8 +1,8 @@
 # =============================================================================
-# tagawa用のHome Manager設定
+# tagawa ユーザー設定（t14g4ラップトップ用）
 # =============================================================================
-# ユーザー固有の設定（ドットファイル、シェル設定、アプリ設定など）を定義
-# システム設定（common.nix）とは別に、ユーザー空間の設定を管理
+# tagawa ユーザー専用の個人設定。
+# 共通モジュールは ../common/ から import。
 # =============================================================================
 { pkgs
 , niriOutputConfig ? ""
@@ -11,16 +11,17 @@
 
 {
   imports = [
-    ./niri.nix # Niriウィンドウマネージャの設定
-    ./shell.nix # Fish, Starship, Zoxide, Direnv, fzf, bat
-    ./tmux.nix # Tmux設定と接続スクリプト
-    ./editors.nix # VSCode, Neovim, Zed, Alacritty
-    ./desktop.nix # COSMIC, XDG, fcitx5, mimeApps
-    ./git.nix # Git, Git Hooks, delta, GitHub CLI
-    ./claude-code.nix # Claude Code CLI, hooks/skills同期, settings管理
-    ./development.nix # 開発ツール, activation scripts
-    ./mise.nix # mise（ランタイムバージョンマネージャー）
-    ./vscode-server.nix # VS Code Server自動パッチ（NixOS用）
+    ../../common/niri.nix # Niriウィンドウマネージャの設定
+    ../../common/shell.nix # Fish, Starship, Zoxide, Direnv, fzf, bat
+    ./ssh.nix # SSH設定（authorized_keys等・tagawa専用）
+    ../../common/tmux.nix # Tmux設定と接続スクリプト
+    ../../common/editors.nix # VSCode, Neovim, Zed, Alacritty
+    ../../common/desktop.nix # COSMIC, XDG, fcitx5, mimeApps
+    ../../common/git.nix # Git, Git Hooks, delta, GitHub CLI
+    ../../common/claude-code.nix # Claude Code CLI, hooks/skills同期, settings管理
+    ../../common/development.nix # 開発ツール, activation scripts
+    ../../common/mise.nix # mise（ランタイムバージョンマネージャー）
+    ../../common/vscode-server.nix # VS Code Server自動パッチ（NixOS用）
   ];
 
   # niriOutputConfigをniri.nixに渡す（ホスト固有のディスプレイ設定用）
