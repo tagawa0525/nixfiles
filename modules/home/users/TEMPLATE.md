@@ -30,11 +30,13 @@
    ];
    ```
 
-6. SSH 公開鍵を配置
+6. SSH 公開鍵を配置（手順 3 でまだ配置していないホスト分があれば追加）
 
    ```bash
-   cp ~/.ssh/id_ed25519.pub keys/<username>@r995.pub
+   cp ~/.ssh/id_ed25519.pub modules/home/users/<username>/keys/<hostname>.pub
    ```
+
+   ファイル名は接続元ホスト名（例: `t14g4.pub`, `r995.pub`）を使う。
 
 ## ディレクトリ構造
 
