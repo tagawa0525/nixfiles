@@ -12,8 +12,9 @@
    - コメントを適切に更新
    - 必要に応じて import を追加・削除
 
-3. `modules/home/users/<username>/ssh.nix` を編集
-   - authorized_keys を設定
+3. `modules/home/users/<username>/keys/` に SSH 公開鍵を配置
+   - `ssh.nix` は `./keys/` 配下の `.pub` を自動で `~/.ssh/authorized_keys` に集約するため、通常は `ssh.nix` の編集は不要
+   - 例: `cp ~/.ssh/id_ed25519.pub modules/home/users/<username>/keys/<hostname>.pub`
 
 4. flake.nix を編集
 
