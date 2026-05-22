@@ -26,7 +26,7 @@
 
    ```nix
    users.users.<username>.openssh.authorizedKeys.keyFiles = [
-     "${self}/keys/<username>@r995.pub"
+     "${self}/modules/home/users/<username>/keys/<hostname>.pub"
    ];
    ```
 
