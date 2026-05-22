@@ -49,8 +49,13 @@ modules/home/
 └── users/
     ├── tagawa/
     │   ├── default.nix
-    │   └── ssh.nix
+    │   ├── ssh.nix
+    │   └── keys/
+    │       ├── t14g4.pub
+    │       └── r995.pub
     └── <username>/
         ├── default.nix
-        └── ssh.nix
+        ├── ssh.nix
+        └── keys/
+            └── <hostname>.pub
 ```
