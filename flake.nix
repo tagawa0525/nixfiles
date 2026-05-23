@@ -133,15 +133,13 @@
                 # `python313` を override することで、そこから派生する全エイリアス
                 # (python3, python3Packages, python313Packages) に修正が反映される。
                 (final: prev: {
-                  python313 = prev.python313.override (old: {
-                    packageOverrides = prev.lib.composeExtensions
-                      (old.packageOverrides or (_: _: { }))
-                      (pyfinal: pyprev: {
-                        jedi-language-server = pyprev.jedi-language-server.overrideAttrs (oldAttrs: {
-                          pythonRelaxDeps = (oldAttrs.pythonRelaxDeps or [ ]) ++ [ "jedi" ];
-                        });
+                  python313 = prev.python313.override {
+                    packageOverrides = pyfinal: pyprev: {
+                      jedi-language-server = pyprev.jedi-language-server.overrideAttrs (oldAttrs: {
+                        pythonRelaxDeps = (oldAttrs.pythonRelaxDeps or [ ]) ++ [ "jedi" ];
                       });
-                  });
+                    };
+                  };
                 })
                 # VSCode拡張機能（nix-vscode-extensions）
                 nix-vscode-extensions.overlays.default
