@@ -93,6 +93,7 @@
       # ─────────────────────────────────────────────────────────────────────────
       hostList = [
         "t14g4" # t14g4: ノートPC (ThinkPad T14 4th Gen)
+        "x1ng1" # x1ng1: ノートPC (ThinkPad X1 Nano 1st Gen)
         "r995" # r995: デスクトップ (Ryzen 9950X + AMD GPU)
       ];
 
