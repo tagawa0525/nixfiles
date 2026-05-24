@@ -9,10 +9,13 @@
 #   するだけで cc-bar 関連の全機能が無効になる。
 #   （flake input と specialArgs の cc-bar 受け渡しは残っても無害）
 # =============================================================================
-{ pkgs, cc-bar, ... }:
+{ pkgs, lib, cc-bar, ... }:
 {
-  # nixpkgs に cc-bar overlay を追加し pkgs.cc-bar として参照可能にする
-  nixpkgs.overlays = [ cc-bar.overlays.default ];
+  # nixpkgs に cc-bar overlay を追加し pkgs.cc-bar として参照可能にする。
+  # 元の flake.nix では overlays 配列の末尾に置かれていた（後勝ち）。
+  # 本モジュールが他の overlay より前に評価されても末尾相当の優先度を
+  # 維持できるよう lib.mkAfter を使う。
+  nixpkgs.overlays = lib.mkAfter [ cc-bar.overlays.default ];
 
   # COSMICパネル用 Claude Code コンテキストモニター本体
   environment.systemPackages = [ pkgs.cc-bar ];
