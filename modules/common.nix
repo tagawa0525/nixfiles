@@ -16,7 +16,7 @@
 
 {
   imports = [
-    ./ssh-authorized-keys.nix # tagawa の authorized_keys (NixOS system 側で管理)
+    ./ssh-authorized-keys.nix # modules/home/users/*/keys/*.pub を system 側 authorizedKeys に集約
   ];
 
   # ===========================================================================
