@@ -116,7 +116,7 @@
           modules = [
             ./hosts/${hostName} # ホスト固有設定（ブート、ホスト名等）
             ./modules/common.nix # 共通システム設定
-            ./modules/cc-bar.nix # cc-bar 統合（無効化するにはこの行をコメントアウト）
+            # ./modules/cc-bar.nix # cc-bar 統合（有効化するにはこの行のコメントを外す）
             lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
             home-manager.nixosModules.home-manager
             {
