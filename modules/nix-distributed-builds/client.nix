@@ -69,9 +69,11 @@ in
   # 投げた方が体感速い。max-jobs=0 でローカルジョブ実行を抑制し、ビルドを
   # 全て r995 にオフロードする。fixed-output derivation など一部はローカルで
   # 走るが、CPU バウンドな大物は完全に r995 行きになる。
-  # 鍵未登録時 (remoteBuilderReady=false) は mkIf が無効化され、デフォルト
-  # (auto) に戻るので初回 rebuild が詰まらない。
-  nix.settings.max-jobs = lib.mkIf remoteBuilderReady 0;
+  # 鍵未登録時 (remoteBuilderReady=false) は NixOS デフォルトの "auto" に
+  # 戻して初回 rebuild が詰まらないようにする。lib.mkIf は使わず if-then-else
+  # で書くのは、上の builders-use-substitutes と同様、option 値の型を維持し
+  # mkIf の attrset 返却による型不整合リスクを避けるため。
+  nix.settings.max-jobs = if remoteBuilderReady then 0 else "auto";
   nix.buildMachines = lib.optionals remoteBuilderReady [
     {
       hostName = builderHost;
