@@ -112,10 +112,11 @@
         hostName:
         nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { inherit self; }; # flakeルートをmodulesに渡す
+          specialArgs = { inherit self cc-bar; }; # flakeルートと cc-bar input を modules に渡す
           modules = [
             ./hosts/${hostName} # ホスト固有設定（ブート、ホスト名等）
             ./modules/common.nix # 共通システム設定
+            # ./modules/cc-bar.nix # cc-bar 統合（有効化するにはこの行のコメントを外す）
             lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
             home-manager.nixosModules.home-manager
             {
@@ -150,8 +151,7 @@
                 })
                 # qmpo: directory:// URIハンドラ
                 qmpo.overlays.default
-                # cc-bar: Claude Code Context Window Monitor
-                cc-bar.overlays.default
+                # cc-bar の overlay は ./modules/cc-bar.nix に集約済み
               ];
               # Home Manager設定
               home-manager.useGlobalPkgs = true; # システムのnixpkgsを使用
