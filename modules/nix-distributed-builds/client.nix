@@ -5,24 +5,33 @@
 #
 # 動作:
 #   1. /root/.ssh/nix-remote-builder (秘密鍵) を起動時に自動生成
-#   2. nix.distributedBuilds で r995 を nix.buildMachines に登録
-#   3. nix-build / nixos-rebuild が r995 でビルドを実行
-#      (maxJobs に達した derivation, supportedFeatures の一致など条件あり)
+#   2. このホストの公開鍵が
+#      modules/nix-distributed-builds/keys/<hostname>-builder.pub
+#      としてリポジトリに登録されたら、自動的に分散ビルドを有効化
+#      (鍵未登録 = r995 側で受け付けられない状態なので buildMachines を空にする
+#       ことで初回 rebuild の SSH ハングを回避)
 #
 # 接続先:
 #   r995 (Tailscale MagicDNS で Tailnet IP に解決)
 #   両ホストで services.tailscale.enable = true (modules/common.nix)
 #
 # 初回セットアップ:
-#   このモジュールを適用後、生成された /root/.ssh/nix-remote-builder.pub を
-#   このリポジトリの modules/nix-distributed-builds/keys/<host>-builder.pub
-#   に追加して r995 で nixos-rebuild する。
+#   1. このモジュールを適用 → /root/.ssh/nix-remote-builder.pub が生成される
+#      (この段階では buildMachines は空なのでローカルビルドのみで完了する)
+#   2. 生成された pub 鍵を keys/<hostname>-builder.pub にコミット
+#   3. r995 を nixos-rebuild → authorizedKeys に反映
+#   4. クライアントで再度 nixos-rebuild → 分散ビルドが有効化される
 #   詳細は docs/nix-distributed-builds.md を参照。
 # =============================================================================
-{ config, pkgs, ... }:
+{ config, lib, pkgs, self, ... }:
 let
   builderKey = "/root/.ssh/nix-remote-builder";
   builderHost = "r995";
+  # このホストの公開鍵が repo に登録されていれば、r995 側で受け付け可能と判断
+  # → 分散ビルドを有効化
+  # 登録されていなければ buildMachines を空にして初回 rebuild の詰まりを回避
+  thisHostKeyFile = "${self}/modules/nix-distributed-builds/keys/${config.networking.hostName}-builder.pub";
+  remoteBuilderReady = builtins.pathExists thisHostKeyFile;
 in
 {
   # r995 のホスト鍵を固定 (MITM 防止 & 初回プロンプトの抑止)
@@ -32,6 +41,7 @@ in
   };
 
   # nix-daemon (root 実行) 用の SSH 鍵を初回起動時に生成 (冪等)
+  # buildMachines の有効/無効に関わらず常に動作する
   system.activationScripts.nixRemoteBuilderKey.text = ''
     if [ ! -e ${builderKey} ]; then
       mkdir -p /root/.ssh
@@ -43,18 +53,17 @@ in
         -q
       echo "[nix-remote-builder] 新しい SSH 鍵を生成しました:"
       cat ${builderKey}.pub
-      echo "[nix-remote-builder] この pub 鍵を r995 のリポジトリに追加してください:"
+      echo "[nix-remote-builder] この pub 鍵を repo の以下に追加してください:"
       echo "[nix-remote-builder]   modules/nix-distributed-builds/keys/${config.networking.hostName}-builder.pub"
+      echo "[nix-remote-builder] その後 r995 と本ホストを再度 nixos-rebuild すれば分散ビルドが有効化されます"
     fi
   '';
 
-  # 分散ビルド設定
-  nix.distributedBuilds = true;
-  # ビルダー側で cache.nixos.org からの substitution を許可
-  # (依存をクライアントから転送する代わりにビルダーが自前で取得)
-  nix.settings.builders-use-substitutes = true;
-
-  nix.buildMachines = [
+  # 公開鍵が登録されている場合のみ分散ビルドを有効化
+  # (未登録のまま有効化すると認証失敗のリトライで rebuild が詰まるため)
+  nix.distributedBuilds = remoteBuilderReady;
+  nix.settings.builders-use-substitutes = lib.mkIf remoteBuilderReady true;
+  nix.buildMachines = lib.optionals remoteBuilderReady [
     {
       hostName = builderHost;
       sshUser = "nix-ssh";
