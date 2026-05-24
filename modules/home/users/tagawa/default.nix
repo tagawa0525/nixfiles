@@ -13,7 +13,6 @@
   imports = [
     ../../common/niri.nix # Niriウィンドウマネージャの設定
     ../../common/shell.nix # Fish, Starship, Zoxide, Direnv, fzf, bat
-    ./ssh.nix # SSH設定（authorized_keys等・tagawa専用）
     ../../common/tmux.nix # Tmux設定と接続スクリプト
     ../../common/editors.nix # VSCode, Neovim, Zed, Alacritty
     ../../common/desktop.nix # COSMIC, XDG, fcitx5, mimeApps
