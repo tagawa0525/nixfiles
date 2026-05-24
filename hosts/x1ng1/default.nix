@@ -7,6 +7,7 @@
 # Secure Boot を有効化する場合は modules/boot-lanzaboote.nix に切り替える。
 # =============================================================================
 
+{ lib, ... }:
 {
   imports = [
     ./hardware-configuration.nix # nixos-generate-config で生成されたハードウェア設定
@@ -26,7 +27,8 @@
   # nixpkgs の ModemManager 1.24.2 はこの RPC モードに未対応のため、
   # XMM7360 RPC サポートが入った dev tag 1.25.95-dev で上書きする。
   # 1.26.0 stable が nixpkgs に取り込まれたら overlay ごと削除する。
-  nixpkgs.overlays = [
+  # lib.mkAfter で末尾に積み、他 overlay による上書きを避ける。
+  nixpkgs.overlays = lib.mkAfter [
     (_final: prev: {
       modemmanager = prev.modemmanager.overrideAttrs (_oldAttrs: rec {
         version = "1.25.95-dev";
