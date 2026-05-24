@@ -9,6 +9,7 @@
   imports = [
     ./hardware-configuration.nix # nixos-generate-config で生成されたハードウェア設定
     ../../modules/boot-lanzaboote.nix # Secure Boot共通設定
+    ../../modules/nix-distributed-builds/client.nix # 重いビルドを r995 にオフロード
   ];
 
   # ===========================================================================
