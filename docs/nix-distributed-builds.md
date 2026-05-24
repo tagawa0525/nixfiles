@@ -15,7 +15,10 @@ r995 (Ryzen 9950X) に SSH 経由でオフロードする仕組み。
   - `nix-ssh` という専用ユーザーを作成 (システムユーザー、対話シェルは不要)
   - `nix.settings.trusted-users` に `nix-ssh` を追加
 - **t14g4 / x1ng1**: `modules/nix-distributed-builds/client.nix` を import
-  - `nix.distributedBuilds = true` + `nix.buildMachines` で r995 を登録
+  - 公開鍵が `keys/<hostname>-builder.pub` として repo に登録済みの場合のみ
+    `nix.distributedBuilds = true` + `nix.buildMachines` を有効化
+    (`builtins.pathExists` で判定。未登録時は空のまま = 初回 rebuild が
+    SSH 認証失敗のリトライで詰まらない)
   - `/root/.ssh/nix-remote-builder` を初回起動時に自動生成
   - r995 のホスト鍵を `programs.ssh.knownHosts` で固定
 

@@ -62,7 +62,9 @@ in
   # 公開鍵が登録されている場合のみ分散ビルドを有効化
   # (未登録のまま有効化すると認証失敗のリトライで rebuild が詰まるため)
   nix.distributedBuilds = remoteBuilderReady;
-  nix.settings.builders-use-substitutes = lib.mkIf remoteBuilderReady true;
+  # bool を直接代入。lib.mkIf は attrset を返すため bool プロパティに使うと
+  # 型不整合になる (false 時に {} となる)
+  nix.settings.builders-use-substitutes = remoteBuilderReady;
   nix.buildMachines = lib.optionals remoteBuilderReady [
     {
       hostName = builderHost;
