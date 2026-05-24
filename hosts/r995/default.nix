@@ -14,6 +14,7 @@
   imports = [
     ./hardware-configuration.nix # nixos-generate-config で生成されたハードウェア設定
     ../../modules/boot-lanzaboote.nix # Secure Boot共通設定
+    ../../modules/nix-distributed-builds/builder.nix # 他ホストからのリモートビルド受付
   ];
 
   # ===========================================================================
