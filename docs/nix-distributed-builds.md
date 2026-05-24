@@ -15,7 +15,10 @@ r995 (Ryzen 9950X) に SSH 経由でオフロードする仕組み。
   - `nix-ssh` という専用ユーザーを作成 (システムユーザー、対話シェルは不要)
   - `nix.settings.trusted-users` に `nix-ssh` を追加
 - **t14g4 / x1ng1**: `modules/nix-distributed-builds/client.nix` を import
-  - `nix.distributedBuilds = true` + `nix.buildMachines` で r995 を登録
+  - 公開鍵が `keys/<hostname>-builder.pub` として repo に登録済みの場合のみ
+    `nix.distributedBuilds = true` + `nix.buildMachines` を有効化
+    (`builtins.pathExists` で判定。未登録時は空のまま = 初回 rebuild が
+    SSH 認証失敗のリトライで詰まらない)
   - `/root/.ssh/nix-remote-builder` を初回起動時に自動生成
   - r995 のホスト鍵を `programs.ssh.knownHosts` で固定
 
@@ -25,6 +28,15 @@ r995 (Ryzen 9950X) に SSH 経由でオフロードする仕組み。
 
 3 ホストの flake が main にマージされている前提。
 
+### 設計: chicken-and-egg を避ける
+
+公開鍵が repo に未登録の間は `nix.buildMachines` を空にして
+ローカルビルドのみで進行する。鍵が repo の
+`modules/nix-distributed-builds/keys/<hostname>-builder.pub` として
+登録された瞬間に `builtins.pathExists` が `true` になり、自動的に
+分散ビルドが有効化される。これにより「鍵未登録の状態で SSH 認証失敗の
+リトライで rebuild が詰まる」現象を回避する。
+
 ### 1. クライアント側で鍵を生成 (各ノートPCで)
 
 ```sh
@@ -32,17 +44,18 @@ r995 (Ryzen 9950X) に SSH 経由でオフロードする仕組み。
 sudo nixos-rebuild switch --flake .#<hostname>
 ```
 
-activation script が `/root/.ssh/nix-remote-builder` を生成し、公開鍵を
-コンソールに表示する。出力例:
+この段階ではこのホストの pub 鍵がまだ repo に無いため `buildMachines` は
+空 = ローカルビルドのみで進行する。activation script が
+`/root/.ssh/nix-remote-builder` を生成し、公開鍵をコンソールに表示する:
 
 ```text
 [nix-remote-builder] 新しい SSH 鍵を生成しました:
 ssh-ed25519 AAAA... root@t14g4 nix-remote-builder
-[nix-remote-builder] この pub 鍵を r995 のリポジトリに追加してください:
+[nix-remote-builder] この pub 鍵を repo の以下に追加してください:
 [nix-remote-builder]   modules/nix-distributed-builds/keys/t14g4-builder.pub
 ```
 
-公開鍵の中身を控える:
+後で取り出すには:
 
 ```sh
 sudo cat /root/.ssh/nix-remote-builder.pub
@@ -53,32 +66,45 @@ sudo cat /root/.ssh/nix-remote-builder.pub
 r995 (もしくは作業ホスト) で:
 
 ```sh
-# t14g4 から
+# t14g4 で出力された pub 鍵を保存
 echo 'ssh-ed25519 AAAA... root@t14g4 nix-remote-builder' \
   > modules/nix-distributed-builds/keys/t14g4-builder.pub
 
-# x1ng1 から
+# x1ng1 で出力された pub 鍵を保存
 echo 'ssh-ed25519 AAAA... root@x1ng1 nix-remote-builder' \
   > modules/nix-distributed-builds/keys/x1ng1-builder.pub
 
 git add modules/nix-distributed-builds/keys/
 git commit -m "feat(nix-builder): t14g4 と x1ng1 の root 公開鍵を登録"
+git push
 ```
 
 ### 3. r995 に反映
 
 ```sh
 # r995 上で
+git pull
 sudo nixos-rebuild switch --flake .#r995
 ```
 
 `nix-ssh` ユーザーの `authorizedKeys` に各クライアントの鍵が登録される。
 
-### 4. 動作確認 (クライアント側で)
+### 4. クライアントで分散ビルドを有効化
+
+```sh
+# t14g4 / x1ng1 で
+git pull
+sudo nixos-rebuild switch --flake .#<hostname>
+```
+
+`keys/<hostname>-builder.pub` が repo に存在するので `pathExists` が
+`true` となり、`nix.buildMachines` に r995 が登録される。
+
+### 5. 動作確認 (クライアント側で)
 
 ```sh
 # r995 への SSH 疎通確認
-sudo -i ssh -i /root/.ssh/nix-remote-builder nix-ssh@r995 nix --version
+sudo ssh -i /root/.ssh/nix-remote-builder nix-ssh@r995 nix --version
 
 # ダミービルドで分散ビルドが動くか確認
 nix build --rebuild nixpkgs#hello -L
@@ -119,10 +145,26 @@ nix build --rebuild nixpkgs#hello -L
 
 ### ビルドが r995 に行かない
 
-Nix は小さな derivation はローカルで処理することがある。明示的に
-分散させるには `--max-jobs 0 --builders 'ssh-ng://nix-ssh@r995'` を
-付けるか、`nix.settings.max-jobs = 0` でローカルを無効化する
+まず `modules/nix-distributed-builds/keys/<hostname>-builder.pub` が
+repo に存在するか確認 (これが無いと `buildMachines` 自体が空になる)。
+
+それでも分散ビルドにならない場合: Nix は小さな derivation はローカルで
+処理することがある。明示的に分散させるには
+`--max-jobs 0 --builders 'ssh-ng://nix-ssh@r995'` を付けるか、
+`nix.settings.max-jobs = 0` でローカルを無効化する
 (ローカルは全く使われなくなる点に注意)。
+
+### 初回 rebuild が詰まる場合 (旧版から移行する場合)
+
+`buildMachines` を無条件で登録していた版を適用してしまった場合、SSH 認証
+失敗のリトライで rebuild が進まない。一時的に `--option builders ''` を
+付ければビルダー無しで rebuild できる:
+
+```sh
+sudo nixos-rebuild switch --flake .#<hostname> --option builders ''
+```
+
+そのまま activation script で鍵生成 → 上記セットアップ手順に戻る。
 
 ### Tailscale が落ちている
 
