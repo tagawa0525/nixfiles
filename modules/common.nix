@@ -312,7 +312,7 @@
     htop # プロセス一覧とリソース使用状況をリアルタイム表示
     btop # htopの高機能版。CPU/メモリ/ネットワークをグラフ表示
     cosmic-ext-applet-minimon # COSMICパネル用システムモニター
-    cc-bar # COSMICパネル用Claude Codeコンテキストモニター
+    # cc-bar は ./modules/cc-bar.nix で集約管理
 
     # ─────────────────────────────────────────────────────────────
     # GUIツール - 開発
