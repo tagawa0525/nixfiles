@@ -2,17 +2,15 @@
 # x1ng1 (ThinkPad X1 Nano 1st Gen) 固有の設定
 # =============================================================================
 # このホストのみに適用される設定。
-# 共通設定は modules/common.nix を参照。
-# ブート設定は modules/boot-initial.nix (Non Secure Boot) を使用しており、
-# Secure Boot を有効化する場合は modules/boot-lanzaboote.nix に切り替える。
+# 共通設定は modules/common.nix、ブート設定は modules/boot-lanzaboote.nix を参照。
 # =============================================================================
 
 { lib, ... }:
 {
   imports = [
     ./hardware-configuration.nix # nixos-generate-config で生成されたハードウェア設定
-    # ../../modules/boot-lanzaboote.nix # Secure Boot共通設定
-    ../../modules/boot-initial.nix # Non Secure Boot共通設定
+    ../../modules/boot-lanzaboote.nix # Secure Boot共通設定
+    # ../../modules/boot-initial.nix # Non Secure Boot共通設定 (新規ホスト初期セットアップ用テンプレ)
     ../../modules/nix-distributed-builds/client.nix # 重いビルドを r995 にオフロード
   ];
 
