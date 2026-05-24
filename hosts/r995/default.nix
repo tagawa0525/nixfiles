@@ -18,16 +18,12 @@
   ];
 
   # ===========================================================================
-  # ユーザー SSH設定（複数ユーザー想定）
+  # ユーザー SSH 設定
   # ===========================================================================
-  # tagawa: 複数ホスト間の相互接続用
-  # ユーザーの個人設定から公開鍵を参照
-  users.users.tagawa.openssh.authorizedKeys.keyFiles = [
-    "${self}/modules/home/users/tagawa/keys/t14g4.pub"
-    "${self}/modules/home/users/tagawa/keys/r995.pub"
-  ];
-
-  # 将来的なユーザー追加時のテンプレート：
+  # tagawa の authorized_keys は modules/ssh-authorized-keys.nix で
+  # 全ホスト共通に管理（keys/*.pub を動的に集める）。
+  #
+  # 別ユーザーを追加する場合のテンプレート：
   # users.users.<newuser>.openssh.authorizedKeys.keyFiles = [
   #   "${self}/modules/home/users/<newuser>/keys/<newuser>@r995.pub"
   # ];
