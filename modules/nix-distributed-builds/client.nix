@@ -65,6 +65,13 @@ in
   # bool を直接代入。lib.mkIf は attrset を返すため bool プロパティに使うと
   # 型不整合になる (false 時に {} となる)
   nix.settings.builders-use-substitutes = remoteBuilderReady;
+  # ノートPC (低TDP, 冷却制約) でビルドするより r995 (Ryzen 9950X) に全部
+  # 投げた方が体感速い。max-jobs=0 でローカルジョブ実行を抑制し、ビルドを
+  # 全て r995 にオフロードする。fixed-output derivation など一部はローカルで
+  # 走るが、CPU バウンドな大物は完全に r995 行きになる。
+  # 鍵未登録時 (remoteBuilderReady=false) は mkIf が無効化され、デフォルト
+  # (auto) に戻るので初回 rebuild が詰まらない。
+  nix.settings.max-jobs = lib.mkIf remoteBuilderReady 0;
   nix.buildMachines = lib.optionals remoteBuilderReady [
     {
       hostName = builderHost;
