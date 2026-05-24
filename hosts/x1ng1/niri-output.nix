@@ -18,7 +18,7 @@
   niriOutputConfig = ''
     // x1ng1ノートPCのディスプレイ設定
     // ThinkPad X1 Nano Gen 1: 13インチ WUXGA (2160x1350, 16:10)
-    // HiDPI設定: 1.5x スケーリングで読みやすさとスペースのバランスを取る
+    // HiDPI設定: 1.25x スケーリングで読みやすさとスペースのバランスを取る
     output "eDP-1" {
         mode "2160x1350@60"
         scale 1.25
