@@ -2,7 +2,9 @@
 # x1ng1 (ThinkPad X1 Nano 1st Gen) 固有の設定
 # =============================================================================
 # このホストのみに適用される設定。
-# 共通設定は modules/common.nix、ブート設定は modules/boot-lanzaboote.nix を参照。
+# 共通設定は modules/common.nix を参照。
+# ブート設定は modules/boot-initial.nix (Non Secure Boot) を使用しており、
+# Secure Boot を有効化する場合は modules/boot-lanzaboote.nix に切り替える。
 # =============================================================================
 
 {
