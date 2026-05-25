@@ -24,6 +24,12 @@
   # TLP: ラップトップ向けの電源管理。バッテリー寿命を最適化
   # CPU周波数、ディスクスピンダウン、USB省電力などを自動調整
   services.tlp.enable = true;
+  # 据え置き運用が中心のため充電上限を 70% に制限してリチウムイオンの劣化を抑制。
+  # 出張等で満充電したい時は `sudo tlp fullcharge BAT0` で一時解除（再起動で復帰）。
+  services.tlp.settings = {
+    START_CHARGE_THRESH_BAT0 = 65;
+    STOP_CHARGE_THRESH_BAT0 = 70;
+  };
   # COSMIC DEはデフォルトでpower-profiles-daemonを有効にするため、
   # TLPと競合しないよう明示的に無効化
   services.power-profiles-daemon.enable = false;
