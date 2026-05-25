@@ -5,7 +5,7 @@
 # 共通設定は modules/common.nix、ブート設定は modules/boot-lanzaboote.nix を参照。
 # =============================================================================
 
-{ lib, ... }:
+{ ... }:
 {
   imports = [
     ./hardware-configuration.nix # nixos-generate-config で生成されたハードウェア設定
@@ -19,27 +19,16 @@
   # ===========================================================================
   networking.hostName = "x1ng1";
 
-  # 内蔵LTEモデム (Intel XMM7360 / PCI 8086:7360)
-  # カーネル 7.0.x の iosm ドライバが /dev/wwan0at0,at1,xmmrpc0 を生成するが、
-  # XMM7360 は Intel 独自の XMM RPC モードで初期化される。
-  # nixpkgs の ModemManager 1.24.2 はこの RPC モードに未対応のため、
-  # XMM7360 RPC サポートが入った dev tag 1.25.95-dev で上書きする。
-  # 1.26.0 stable が nixpkgs に取り込まれたら overlay ごと削除する。
-  # lib.mkAfter で末尾に積み、他 overlay による上書きを避ける。
-  nixpkgs.overlays = lib.mkAfter [
-    (_final: prev: {
-      modemmanager = prev.modemmanager.overrideAttrs (_oldAttrs: rec {
-        version = "1.25.95-dev";
-        src = prev.fetchFromGitLab {
-          domain = "gitlab.freedesktop.org";
-          owner = "mobile-broadband";
-          repo = "ModemManager";
-          rev = version;
-          hash = "sha256-xyb9LTkuJyTqt0yWDDJTYiICFVFJ5SqRlnOdrhrL2Ps=";
-        };
-      });
-    })
-  ];
+  # 内蔵LTEモデム (Intel XMM7360 / PCI 8086:7360):
+  # nixpkgs の ModemManager 1.24.2 は XMM7360 RPC モード未対応のため、
+  # かつて main HEAD (1.25.95-dev + MR !1421) を overlay で取り込む構成を
+  # 試したが、ModemManager 上は attach APN セットまで到達したものの
+  # modem 側で PLMN サーチが成立せず実通信に至らなかった。
+  # nixpkgs を update するたびに 5 時間級の再ビルドを背負うのは割に合わないため overlay は一旦撤去。
+  # ModemManager 自体は他の WWAN デバイス用に有効化したまま残す
+  # (XMM7360 は認識されないが、enable しても害はない)。
+  # 検討の経緯と再現手順は docs/x1ng1-xmm7360-lte.md を参照。
+  # 1.26.0 stable / xmm7360-pci 併用を後日検討する。
   networking.modemmanager.enable = true;
 
   # ===========================================================================
