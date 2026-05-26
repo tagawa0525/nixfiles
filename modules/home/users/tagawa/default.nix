@@ -16,6 +16,7 @@
     ../../common/tmux.nix # Tmux設定と接続スクリプト
     ../../common/editors.nix # VSCode, Neovim, Zed, Alacritty
     ../../common/desktop.nix # COSMIC, XDG, fcitx5, mimeApps
+    ../../common/communication.nix # Discord, Zoom などお仕事用GUIアプリ
     ../../common/git.nix # Git, Git Hooks, delta, GitHub CLI
     ../../common/claude-code.nix # Claude Code CLI, hooks/skills同期, settings管理
     ../../common/development.nix # 開発ツール, activation scripts
