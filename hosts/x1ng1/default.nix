@@ -11,7 +11,7 @@
     ./hardware-configuration.nix # nixos-generate-config で生成されたハードウェア設定
     ../../modules/boot-lanzaboote.nix # Secure Boot共通設定
     # ../../modules/boot-initial.nix # Non Secure Boot共通設定 (新規ホスト初期セットアップ用テンプレ)
-    ../../modules/nix-distributed-builds/client.nix # 重いビルドを r995 にオフロード
+    ../../modules/profiles/laptop.nix # Laptop 共通（TLP、distributed-builds/client）
   ];
 
   # ===========================================================================
@@ -32,20 +32,14 @@
   networking.modemmanager.enable = true;
 
   # ===========================================================================
-  # 電源管理
+  # 電源管理（ホスト固有: TLP 充電閾値）
   # ===========================================================================
-  # TLP: ラップトップ向けの電源管理。バッテリー寿命を最適化
-  # CPU周波数、ディスクスピンダウン、USB省電力などを自動調整
-  services.tlp.enable = true;
   # 充電上限を 80% に制限してリチウムイオンの劣化を抑制。
   # 出張等で満充電したい時は `sudo tlp fullcharge BAT0` で一時解除（再起動で復帰）。
   services.tlp.settings = {
     START_CHARGE_THRESH_BAT0 = 75;
     STOP_CHARGE_THRESH_BAT0 = 80;
   };
-  # COSMIC DEはデフォルトでpower-profiles-daemonを有効にするため、
-  # TLPと競合しないよう明示的に無効化
-  services.power-profiles-daemon.enable = false;
 
   # ===========================================================================
   # システムバージョン
