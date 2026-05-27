@@ -127,12 +127,12 @@
         count = 65536;
       }
     ];
-    # wheel: sudo権限, networkmanager: WiFi操作, podman: コンテナ操作, libvirtd: VM操作
+    # wheel: sudo権限, networkmanager: WiFi操作, podman: コンテナ操作
+    # libvirtd は workstation.nix（virt-manager/libvirtd を有効化する側）で追加する
     extraGroups = [
       "wheel"
       "networkmanager"
       "podman"
-      "libvirtd"
     ];
     # mkpasswd -m sha-512 で生成したハッシュ
     hashedPassword = "$6$g8T1ZyjV8uoBKzcp$HPjF9mnYkkpEyY3NXeK1HXv.Y3vcUSN4bHkzktlzuSi9SHxBYcNbbhtfwYHMSw5gQ2spy8fF9MORT.oUOUboA.";
