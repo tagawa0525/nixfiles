@@ -10,7 +10,7 @@
 # home-manager 側（dotfiles, shell, editors 等）は
 # modules/home/users/tagawa/default.nix を参照してください。
 # =============================================================================
-{ pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 {
   users.users.tagawa = {
@@ -29,12 +29,13 @@
       }
     ];
     # wheel: sudo権限, networkmanager: WiFi操作, podman: コンテナ操作
-    # libvirtd は workstation.nix（virt-manager/libvirtd を有効化する側）で追加する
+    # libvirtd は workstation profile で virtualisation.libvirtd が有効化された
+    # ホストでのみ追加する（profile 側に username を書かないため）
     extraGroups = [
       "wheel"
       "networkmanager"
       "podman"
-    ];
+    ] ++ lib.optionals config.virtualisation.libvirtd.enable [ "libvirtd" ];
     # mkpasswd -m sha-512 で生成したハッシュ
     hashedPassword = "$6$g8T1ZyjV8uoBKzcp$HPjF9mnYkkpEyY3NXeK1HXv.Y3vcUSN4bHkzktlzuSi9SHxBYcNbbhtfwYHMSw5gQ2spy8fF9MORT.oUOUboA.";
     shell = pkgs.bash; # デフォルトはbash（VSCode-Server等の互換性のため）
