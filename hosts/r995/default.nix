@@ -15,7 +15,7 @@
     ./hardware-configuration.nix # nixos-generate-config で生成されたハードウェア設定
     ../../modules/boot-lanzaboote.nix # Secure Boot共通設定
     # ../../modules/boot-initial.nix # Non Secure Boot共通設定 (新規ホスト初期セットアップ用テンプレ)
-    ../../modules/nix-distributed-builds/builder.nix # 他ホストからのリモートビルド受付
+    ../../modules/profiles/desktop.nix # Desktop 共通（distributed-builds/builder）
   ];
 
   # ===========================================================================
