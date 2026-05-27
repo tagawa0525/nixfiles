@@ -1,7 +1,9 @@
 # =============================================================================
-# 全ホスト共通のシステム設定
+# Base プロファイル（全ホスト共通の最小ベース設定）
 # =============================================================================
-# このファイルはt14g4(ノートPC)とr995(デスクトップ)で共有される設定を定義します。
+# OS として最低限必要な設定。GUI ワークステーション関連は
+# modules/profiles/workstation.nix を参照。Laptop/Desktop 種別の
+# 設定は modules/profiles/laptop.nix / desktop.nix を参照。
 # ホスト固有の設定は hosts/<hostname>/default.nix に記述してください。
 # =============================================================================
 #
@@ -16,7 +18,7 @@
 
 {
   imports = [
-    ./ssh-authorized-keys.nix # modules/home/users/*/keys/*.pub を system 側 authorizedKeys に集約
+    ../ssh-authorized-keys.nix # modules/home/users/*/keys/*.pub を system 側 authorizedKeys に集約
   ];
 
   # ===========================================================================
@@ -96,36 +98,6 @@
   };
 
   # ===========================================================================
-  # 日本語入力 (fcitx5 + Mozc)
-  # ===========================================================================
-  # fcitx5: 入力メソッドフレームワーク
-  # Mozc: Google日本語入力のオープンソース版
-  i18n.inputMethod = {
-    enable = true;
-    type = "fcitx5";
-    fcitx5.addons = with pkgs; [
-      fcitx5-mozc # 日本語変換エンジン
-      fcitx5-gtk # GTKアプリとの統合
-    ];
-  };
-
-  # ===========================================================================
-  # 環境変数
-  # ===========================================================================
-  environment.sessionVariables = {
-    # Electron/ChromiumアプリをWaylandネイティブで動作させる
-    NIXOS_OZONE_WL = "1";
-  };
-
-  # ===========================================================================
-  # デスクトップ環境 (COSMIC DE)
-  # ===========================================================================
-  # System76が開発中のRust製デスクトップ環境
-  # Waylandネイティブでタイル型ウィンドウ管理をサポート
-  services.desktopManager.cosmic.enable = true;
-  services.displayManager.cosmic-greeter.enable = true;
-
-  # ===========================================================================
   # コンテナ (Podman)
   # ===========================================================================
   # DockerのRootless代替。デーモン不要でセキュリティが高い
@@ -136,25 +108,6 @@
   };
   # Rootlessコンテナに必要なユーザー名前空間を許可
   security.unprivilegedUsernsClone = true;
-
-  # ===========================================================================
-  # 仮想化 (libvirt/KVM)
-  # ===========================================================================
-  # ハードウェア仮想化によるVM実行環境
-  # Windows VM、開発環境の分離などに使用
-  virtualisation.libvirtd.enable = true;
-  programs.virt-manager.enable = true; # VM管理用GUI
-  # NixOSではFHS準拠の/usr/binが存在しないため、このサービスを明示的に上書きする
-  # ExecStartはリスト型なので空文字で既存エントリをクリアしてから置換する
-  systemd.services.virt-secret-init-encryption.serviceConfig.ExecStart =
-    let
-      script = pkgs.writeShellScript "virt-secret-init-encryption" ''
-        umask 0077
-        dd if=/dev/random status=none bs=32 count=1 \
-          | ${pkgs.systemd}/bin/systemd-creds encrypt --name=secrets-encryption-key - /var/lib/libvirt/secrets/secrets-encryption-key
-      '';
-    in
-    lib.mkForce [ "" "${script}" ];
 
   # ===========================================================================
   # ユーザーアカウント
@@ -174,12 +127,12 @@
         count = 65536;
       }
     ];
-    # wheel: sudo権限, networkmanager: WiFi操作, podman: コンテナ操作, libvirtd: VM操作
+    # wheel: sudo権限, networkmanager: WiFi操作, podman: コンテナ操作
+    # libvirtd は workstation.nix（virt-manager/libvirtd を有効化する側）で追加する
     extraGroups = [
       "wheel"
       "networkmanager"
       "podman"
-      "libvirtd"
     ];
     # mkpasswd -m sha-512 で生成したハッシュ
     hashedPassword = "$6$g8T1ZyjV8uoBKzcp$HPjF9mnYkkpEyY3NXeK1HXv.Y3vcUSN4bHkzktlzuSi9SHxBYcNbbhtfwYHMSw5gQ2spy8fF9MORT.oUOUboA.";
@@ -189,7 +142,6 @@
   # ===========================================================================
   # プログラム
   # ===========================================================================
-  programs.firefox.enable = true;
   programs.fish.enable = true; # tmux内で使用
 
   # ===========================================================================
@@ -218,15 +170,9 @@
   # ===========================================================================
   environment.systemPackages = with pkgs; [
     # ─────────────────────────────────────────────────────────────
-    # ブラウザ
-    # ─────────────────────────────────────────────────────────────
-    google-chrome # Chromiumベース。開発者ツールが充実
-
-    # ─────────────────────────────────────────────────────────────
     # エディタ・ターミナル
     # ─────────────────────────────────────────────────────────────
     neovim # Vimの後継。Luaで拡張可能
-    neovide # Neovim用GUI。アニメーションやIME対応が優秀
     alacritty # Rust製GPU加速ターミナル。設定はYAML
 
     # ─────────────────────────────────────────────────────────────
@@ -315,15 +261,7 @@
     # ─────────────────────────────────────────────────────────────
     htop # プロセス一覧とリソース使用状況をリアルタイム表示
     btop # htopの高機能版。CPU/メモリ/ネットワークをグラフ表示
-    cosmic-ext-applet-minimon # COSMICパネル用システムモニター
     # cc-bar は ./modules/cc-bar.nix で集約管理
-
-    # ─────────────────────────────────────────────────────────────
-    # GUIツール - 開発
-    # ─────────────────────────────────────────────────────────────
-    podman-desktop # コンテナ管理GUI。Docker Desktopの代替
-    meld # ファイル/ディレクトリの差分比較・マージ
-    dbeaver-bin # 多数のDBに対応したGUIクライアント
 
     # ─────────────────────────────────────────────────────────────
     # システムユーティリティ
@@ -338,9 +276,9 @@
   # ===========================================================================
   # SSH鍵、GPG鍵、アプリのパスワードを安全に保管
   # ログイン時に自動でアンロックされる
+  # cosmic-greeter pam 設定は workstation.nix 側で追加
   services.gnome.gnome-keyring.enable = true;
   security.pam.services.login.enableGnomeKeyring = true;
-  security.pam.services.cosmic-greeter.enableGnomeKeyring = true;
 
   # ===========================================================================
   # システムログ (journald)
