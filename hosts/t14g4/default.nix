@@ -12,6 +12,7 @@
     # ../../modules/boot-initial.nix # Non Secure Boot共通設定 (新規ホスト初期セットアップ用テンプレ)
     ../../modules/profiles/laptop.nix # Laptop 共通（TLP、distributed-builds/client）
     ../../modules/profiles/workstation.nix # GUI 開発機共通（COSMIC、fcitx5、virt-manager 等）
+    ../../modules/users/tagawa.nix # 住人: tagawa
   ];
 
   # ===========================================================================

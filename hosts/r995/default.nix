@@ -17,6 +17,7 @@
     # ../../modules/boot-initial.nix # Non Secure Boot共通設定 (新規ホスト初期セットアップ用テンプレ)
     ../../modules/profiles/desktop.nix # Desktop 共通（distributed-builds/builder）
     ../../modules/profiles/workstation.nix # GUI 開発機共通（COSMIC、fcitx5、virt-manager 等）
+    ../../modules/users/tagawa.nix # 住人: tagawa
   ];
 
   # ===========================================================================
