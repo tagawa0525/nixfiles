@@ -14,7 +14,7 @@
 #   - noatime: アクセス時刻の更新を無効化（SSD寿命・パフォーマンス改善）
 #
 # =============================================================================
-{ pkgs, lib, ... }:
+{ pkgs, ... }:
 
 {
   imports = [
@@ -110,38 +110,9 @@
   security.unprivilegedUsernsClone = true;
 
   # ===========================================================================
-  # ユーザーアカウント
-  # ===========================================================================
-  users.users.tagawa = {
-    isNormalUser = true;
-    # Rootlessコンテナ用のサブUID/GID範囲を割り当て
-    subUidRanges = [
-      {
-        startUid = 100000;
-        count = 65536;
-      }
-    ];
-    subGidRanges = [
-      {
-        startGid = 100000;
-        count = 65536;
-      }
-    ];
-    # wheel: sudo権限, networkmanager: WiFi操作, podman: コンテナ操作
-    # libvirtd は workstation.nix（virt-manager/libvirtd を有効化する側）で追加する
-    extraGroups = [
-      "wheel"
-      "networkmanager"
-      "podman"
-    ];
-    # mkpasswd -m sha-512 で生成したハッシュ
-    hashedPassword = "$6$g8T1ZyjV8uoBKzcp$HPjF9mnYkkpEyY3NXeK1HXv.Y3vcUSN4bHkzktlzuSi9SHxBYcNbbhtfwYHMSw5gQ2spy8fF9MORT.oUOUboA.";
-    shell = pkgs.bash; # デフォルトはbash（VSCode-Server等の互換性のため）
-  };
-
-  # ===========================================================================
   # プログラム
   # ===========================================================================
+  # ユーザー定義は modules/users/<name>.nix にあり、各ホストの imports で個別に取り込む
   programs.fish.enable = true; # tmux内で使用
 
   # ===========================================================================

@@ -46,10 +46,9 @@
   # Windows VM、開発環境の分離などに使用
   virtualisation.libvirtd.enable = true;
   programs.virt-manager.enable = true; # VM管理用GUI
-
-  # libvirtd を有効化する責任とユーザーへの権限付与を同じ profile で持つ
-  # （base.nix を workstation なしで使えるようにするため）
-  users.users.tagawa.extraGroups = [ "libvirtd" ];
+  # ユーザーの libvirtd グループ加入は user モジュール側で
+  # config.virtualisation.libvirtd.enable をトリガーに条件付き追加する
+  # （workstation profile を username 非依存に保つため）
   # NixOSではFHS準拠の/usr/binが存在しないため、このサービスを明示的に上書きする
   # ExecStartはリスト型なので空文字で既存エントリをクリアしてから置換する
   systemd.services.virt-secret-init-encryption.serviceConfig.ExecStart =
