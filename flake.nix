@@ -115,7 +115,7 @@
           specialArgs = { inherit self cc-bar; }; # flakeルートと cc-bar input を modules に渡す
           modules = [
             ./hosts/${hostName} # ホスト固有設定（ブート、ホスト名等）
-            ./modules/common.nix # 共通システム設定
+            ./modules/profiles/base.nix # 全ホスト共通の最小ベース設定
             # ./modules/cc-bar.nix # cc-bar 統合（有効化するにはこの行のコメントを外す）
             lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
             home-manager.nixosModules.home-manager
