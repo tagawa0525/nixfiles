@@ -11,17 +11,17 @@
 
 {
   imports = [
-    ../../common/niri.nix # Niriウィンドウマネージャの設定
-    ../../common/shell.nix # Fish, Starship, Zoxide, Direnv, fzf, bat
-    ../../common/tmux.nix # Tmux設定と接続スクリプト
-    ../../common/editors.nix # VSCode, Neovim, Zed, Alacritty
-    ../../common/desktop.nix # COSMIC, XDG, fcitx5, mimeApps
-    ../../common/communication.nix # Discord, Zoom などお仕事用GUIアプリ
-    ../../common/git.nix # Git, Git Hooks, delta, GitHub CLI
-    ../../common/claude-code.nix # Claude Code CLI, hooks/skills同期, settings管理
-    ../../common/development.nix # 開発ツール, activation scripts
-    ../../common/mise.nix # mise（ランタイムバージョンマネージャー）
-    ../../common/vscode-server.nix # VS Code Server自動パッチ（NixOS用）
+    ../../parts/niri.nix # Niriウィンドウマネージャの設定
+    ../../parts/shell.nix # Fish, Starship, Zoxide, Direnv, fzf, bat
+    ../../parts/tmux.nix # Tmux設定と接続スクリプト
+    ../../parts/editors.nix # VSCode, Neovim, Zed, Alacritty
+    ../../parts/desktop.nix # COSMIC, XDG, fcitx5, mimeApps
+    ../../parts/communication.nix # Discord, Zoom などお仕事用GUIアプリ
+    ../../parts/git.nix # Git, Git Hooks, delta, GitHub CLI
+    ../../parts/claude-code.nix # Claude Code CLI, hooks/skills同期, settings管理
+    ../../parts/development.nix # 開発ツール, activation scripts
+    ../../parts/mise.nix # mise（ランタイムバージョンマネージャー）
+    ../../parts/vscode-server.nix # VS Code Server自動パッチ（NixOS用）
   ];
 
   # niriOutputConfigをniri.nixに渡す（ホスト固有のディスプレイ設定用）
