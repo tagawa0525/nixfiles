@@ -5,13 +5,11 @@
 # 共通モジュールは ../common/ から import。
 # =============================================================================
 { pkgs
-, niriOutputConfig ? ""
 , ...
 }:
 
 {
   imports = [
-    ../../parts/niri.nix # Niriウィンドウマネージャの設定
     ../../parts/shell.nix # Fish, Starship, Zoxide, Direnv, fzf, bat
     ../../parts/tmux.nix # Tmux設定と接続スクリプト
     ../../parts/editors.nix # VSCode, Neovim, Zed, Alacritty
@@ -23,9 +21,6 @@
     ../../parts/mise.nix # mise（ランタイムバージョンマネージャー）
     ../../parts/vscode-server.nix # VS Code Server自動パッチ（NixOS用）
   ];
-
-  # niriOutputConfigをniri.nixに渡す（ホスト固有のディスプレイ設定用）
-  _module.args.niriOutputConfig = niriOutputConfig;
 
   # Home Managerのバージョン（変更しない）
   home.stateVersion = "26.05";
