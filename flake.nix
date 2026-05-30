@@ -16,7 +16,9 @@
   # ===========================================================================
   inputs = {
     # メインのパッケージリポジトリ（unstableで最新パッケージを使用）
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # nixpkgs-unstable はパッケージビルドテストのみ通過。nixos-unstable は
+    # NixOS 統合テストも通過するが、リリース境界では数日〜2週間遅れることがある。
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     # Home Manager: ユーザー設定（ドットファイル）を宣言的に管理
     home-manager = {
