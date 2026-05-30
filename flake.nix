@@ -108,7 +108,6 @@
       #   2. SSH公開鍵を該当ユーザーの個人設定に配置
       #      （例：modules/home/users/<user>/keys/<hostName>.pub）
       #   3. hosts/<hostName>/default.nix と hardware-configuration.nix を作成
-      #   4. hosts/<hostName>/niri-output.nix を作成
       # ─────────────────────────────────────────────────────────────────────────
       mkHost =
         hostName:
@@ -159,8 +158,8 @@
               home-manager.useGlobalPkgs = true; # システムのnixpkgsを使用
               home-manager.useUserPackages = true; # ユーザーパッケージをシステムに統合
               home-manager.backupFileExtension = "backup"; # 既存ファイルのバックアップ拡張子
-              # ホスト固有のディスプレイ設定とflakeソースをHome Managerに渡す
-              home-manager.extraSpecialArgs = (import ./hosts/${hostName}/niri-output.nix) // {
+              # flakeソースとVS Code ServerモジュールをHome Managerに渡す
+              home-manager.extraSpecialArgs = {
                 claudeCodeSource = self; # flakeルートを渡す（Claude Code設定用）
                 vscode-server = nixos-vscode-server; # VS Code Server自動パッチモジュール
               };
