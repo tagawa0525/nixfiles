@@ -5,6 +5,8 @@
 # デフォルトシェルはbash（tmux設定は tmux.nix を参照）
 # =============================================================================
 
+{ lib, ... }:
+
 {
   # ===========================================================================
   # PATHの設定
@@ -27,13 +29,23 @@
   programs.fish = {
     enable = true;
     # 起動時のグリーティングメッセージを無効化
-    interactiveShellInit = ''
-      set -g fish_greeting
-      # ~/.local/bin をPATHに追加（カスタムスクリプト用）
-      fish_add_path --path ~/.local/bin
-      # mise有効化（Fishシェルで自動補完とコマンドが使えるようになる）
-      mise activate fish | source
-    '';
+    interactiveShellInit = lib.mkMerge [
+      ''
+        set -g fish_greeting
+        # ~/.local/bin をPATHに追加（カスタムスクリプト用）
+        fish_add_path --path ~/.local/bin
+        # mise有効化（Fishシェルで自動補完とコマンドが使えるようになる）
+        mise activate fish | source
+      ''
+      # Ctrl+R は fzf と atuin の両方がバインドするため、評価順に依存せず
+      # atuin に固定する。mkAfter（priority 1500）で fzf/atuin モジュールの
+      # 寄与（priority 1000）より確実に後で再バインドする。
+      # fzf の Ctrl+T（ファイル）/ Alt+C（ディレクトリ）はそのまま温存される。
+      (lib.mkAfter ''
+        bind \cr _atuin_search
+        bind -M insert \cr _atuin_search
+      '')
+    ];
     # よく使うコマンドのエイリアス
     shellAliases = {
       ls = "eza"; # モダンなls
@@ -73,6 +85,12 @@
       if command -v mise &> /dev/null; then
         eval "$(mise activate bash)"
       fi
+    '';
+    # Ctrl+R は fzf と atuin の両方がバインドするため、評価順に依存せず
+    # atuin に固定する。mkAfter で atuin 統合（__atuin_history 定義）より後に
+    # readline バインドを上書きする（bash は emacs キーマップ）。
+    initExtra = lib.mkAfter ''
+      bind -x '"\C-r": __atuin_history --keymap-mode=emacs'
     '';
   };
 
@@ -125,6 +143,28 @@
       "--reverse"
       "--border"
     ];
+  };
+
+  # ===========================================================================
+  # Atuin（シェル履歴の同期・全文検索）
+  # ===========================================================================
+  # 履歴をSQLiteで管理し、Ctrl+Rで全文検索・実行コンテキスト付きで呼び出す。
+  # 同期サーバーは r995 にセルフホスト（hosts/r995/default.nix を参照）。
+  # 履歴はE2E暗号化されてから送られるため、サーバーは平文を復号できない。
+  programs.atuin = {
+    enable = true;
+    enableFishIntegration = true;
+    enableBashIntegration = true;
+    # Ctrl+Rのみ atuin に置き換え、上矢印は通常のシェル履歴のまま残す。
+    # （上矢印でも全文検索したい場合はこのフラグを外す）
+    flags = [ "--disable-up-arrow" ];
+    settings = {
+      auto_sync = true; # バックグラウンドで自動同期
+      sync_frequency = "5m"; # 同期間隔
+      sync_address = "http://r995:8888"; # セルフホストサーバー（Tailscale名で解決）
+      search_mode = "fuzzy"; # ファジー検索（fzf流のあいまい一致）
+      style = "compact"; # コンパクト表示
+    };
   };
 
   # ===========================================================================
