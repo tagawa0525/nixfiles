@@ -5,7 +5,29 @@
 # =============================================================================
 
 { pkgs, ... }:
+let
+  # ===========================================================================
+  # handlr-regex: Rust製の「より良い xdg-utils」
+  # ===========================================================================
+  # xdg-open/xdg-mime 相当を1バイナリで提供するフォーク（活発にメンテ）。
+  # MIME関連付けは標準の $XDG_CONFIG_HOME/mimeapps.list を読むため、
+  # 下記 xdg.mimeApps の設定（chrome/neovide/qmpo 等）をそのまま流用できる。
+  handlr = pkgs.handlr-regex;
+
+  # xdg-open シム: アプリ（やシェル）が `xdg-open` を呼ぶと handlr に委譲する。
+  # ~/.nix-profile/bin が /run/current-system/sw/bin より PATH 前段にあるため、
+  # 本家 xdg-utils の xdg-open を上書きできる。Perl版 xdg-open を実質バイパス。
+  xdg-open-handlr = pkgs.writeShellScriptBin "xdg-open" ''
+    exec ${handlr}/bin/handlr open "$@"
+  '';
+in
 {
+  # handlr本体と xdg-open シムをユーザープロファイルに導入
+  home.packages = [
+    handlr
+    xdg-open-handlr
+  ];
+
   # ===========================================================================
   # XDGユーザーディレクトリ
   # ===========================================================================
