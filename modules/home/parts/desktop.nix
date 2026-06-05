@@ -146,9 +146,14 @@ in
   # System76製デスクトップ環境の設定ファイルを直接配置
 
   # ターミナルショートカットをAlacritty + tmuxに設定
+  # WebBrowser(Super+B)はChromeを直接起動する。
+  # COSMIC既定は `xdg-open http://` だが、xdg-open を handlr-regex に
+  # 置き換えた結果、ホスト無しの裸 `http://` を handlr が無視して
+  # ブラウザが開かなくなるため、直接起動に差し替える。
   xdg.configFile."cosmic/com.system76.CosmicSettings.Shortcuts/v1/system_actions".text = ''
     {
         Terminal: "alacritty -e local-tmux",
+        WebBrowser: "google-chrome-stable",
     }
   '';
 
