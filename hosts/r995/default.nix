@@ -72,7 +72,14 @@
     openRegistration = true;
     # database.createLocally = true（デフォルト）により PostgreSQL を
     # ローカルに自動作成する。
+    # atuin は TCP ではなく UNIX ソケット経由で接続するため、PostgreSQL の
+    # ポートを既定の 5432 から退避させても、URI に新ポートを指定すれば動く。
+    # こうすることで 5432 を別用途の PostgreSQL に明け渡せる。
+    database.uri = "postgresql:///atuin?host=/run/postgresql&port=15432";
   };
+
+  # atuin 用に作られる PostgreSQL を既定の 5432 から退避させ、衝突を避ける。
+  services.postgresql.settings.port = 15432;
 
   # Atuin サーバーへの接続は Tailscale 経由のみ許可する。
   # openFirewall = true は全インターフェースに穴を開けるため使わず、
