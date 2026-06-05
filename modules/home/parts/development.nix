@@ -14,6 +14,7 @@
     llm-agents.opencode # Open Code CLI（自動更新）
     llm-agents.copilot-cli # GitHub Copilot CLI（自動更新）
     mold # 高速リンカー（Rustのコンパイル時間短縮）
+    sccache # コンパイルキャッシュ（依存クレートをプロジェクト間で再利用）
     bacon # ファイル監視＆自動ビルド（cargo-watchの代替）
     cargo-nextest # 高速テストランナー
     cargo-expand # マクロ展開確認
@@ -61,13 +62,24 @@
   '';
 
   # ===========================================================================
-  # Cargo設定（moldリンカー使用）
+  # Cargo設定（moldリンカー + sccacheコンパイルキャッシュ）
   # ===========================================================================
+  # sccacheは依存クレートのコンパイル結果をキャッシュし、プロジェクト間や
+  # ブランチ切替・クリーンビルドで再利用する。自分のクレートのincremental
+  # compilation（-C incremental付き呼び出し）は自動でスキップされるため、
+  # CARGO_INCREMENTALは変更せず両者を併用する。
   home.file.".cargo/config.toml".text = ''
+    [build]
+    rustc-wrapper = "sccache"
+
     [target.x86_64-unknown-linux-gnu]
     linker = "clang"
     rustflags = ["-C", "link-arg=-fuse-ld=mold"]
   '';
+
+  # sccacheのキャッシュ上限（デフォルト10G）。Rustのビルドを多用し
+  # ディスクに余裕があるため引き上げる。
+  home.sessionVariables.SCCACHE_CACHE_SIZE = "30G";
 
   # ===========================================================================
   # OpenCode設定
