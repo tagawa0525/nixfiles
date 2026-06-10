@@ -32,6 +32,61 @@
   };
 
   # ===========================================================================
+  # フォント
+  # ===========================================================================
+  # 日本語表示に必要なフォントと開発用フォントをインストール
+  fonts.packages = with pkgs; [
+    noto-fonts-cjk-sans # Google Noto日本語フォント
+    noto-fonts-color-emoji # 絵文字フォント
+    nerd-fonts.jetbrains-mono # 開発用フォント（アイコン付き）
+    font-awesome # アイコンフォント（ステータスバー等で使用）
+  ];
+  # システム全体のデフォルトフォントを日本語対応に設定
+  fonts.fontconfig = {
+    defaultFonts = {
+      sansSerif = [
+        "Noto Sans CJK JP"
+        "Noto Sans"
+      ];
+      monospace = [
+        "Noto Sans Mono CJK JP"
+        "Noto Sans Mono"
+      ];
+    };
+  };
+
+  # ===========================================================================
+  # キーリマップ (keyd)
+  # ===========================================================================
+  # Wayland/X11/TTY全てで動作するキーリマッパー
+  # CapsLockを「単独押し=Esc」「長押し/組み合わせ=Ctrl」に変更
+  # Vim使用時に非常に便利
+  services.keyd = {
+    enable = true;
+    keyboards.default = {
+      ids = [ "*" ]; # 全キーボードに適用
+      settings.main = {
+        capslock = "overload(control, esc)";
+      };
+    };
+  };
+
+  # ===========================================================================
+  # XDGユーザーディレクトリ
+  # ===========================================================================
+  # ホームディレクトリの標準フォルダ構成を定義
+  environment.etc."xdg/user-dirs.defaults".text = ''
+    DESKTOP=Desktop
+    DOWNLOAD=Downloads
+    TEMPLATES=Templates
+    PUBLICSHARE=Public
+    DOCUMENTS=Documents
+    MUSIC=Music
+    PICTURES=Pictures
+    VIDEOS=Videos
+  '';
+
+  # ===========================================================================
   # デスクトップ環境 (COSMIC DE)
   # ===========================================================================
   # System76が開発中のRust製デスクトップ環境
@@ -73,8 +128,15 @@
     # ブラウザ
     google-chrome # Chromiumベース。開発者ツールが充実
 
+    # ターミナル
+    alacritty # Rust製GPU加速ターミナル。設定はYAML
+
     # エディタ GUI
     neovide # Neovim用GUI。アニメーションやIME対応が優秀
+
+    # Wayland ユーティリティ
+    wl-clipboard # Wayland用クリップボード操作（wl-copy, wl-paste）
+    waypipe # WaylandアプリをSSH経由で転送。リモートGUIアプリの実行に使用
 
     # システムモニタ
     cosmic-ext-applet-minimon # COSMICパネル用システムモニター
@@ -86,8 +148,11 @@
   ];
 
   # ===========================================================================
-  # COSMIC greeter の GNOME Keyring 連携
+  # GNOME Keyring
   # ===========================================================================
-  # gnome-keyring 本体と login pam は base.nix で有効化済み
+  # SSH鍵、GPG鍵、アプリのパスワードを安全に保管
+  # ログイン時（コンソール / cosmic-greeter どちらでも）に自動でアンロックされる
+  services.gnome.gnome-keyring.enable = true;
+  security.pam.services.login.enableGnomeKeyring = true;
   security.pam.services.cosmic-greeter.enableGnomeKeyring = true;
 }
