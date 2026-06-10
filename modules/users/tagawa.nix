@@ -20,10 +20,13 @@
 
 let
   keysDir = ../home/users/tagawa/keys;
+  # keys/ 未作成でも評価を壊さない（新ユーザーのブートストラップ中は鍵なし扱い）
   authorizedKeyFiles =
-    map (n: keysDir + "/${n}")
-      (builtins.filter (lib.hasSuffix ".pub")
-        (builtins.attrNames (builtins.readDir keysDir)));
+    if builtins.pathExists keysDir then
+      map (n: keysDir + "/${n}")
+        (builtins.filter (lib.hasSuffix ".pub")
+          (builtins.attrNames (builtins.readDir keysDir)))
+    else [ ];
 in
 {
   users.users.tagawa = {
