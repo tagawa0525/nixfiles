@@ -163,7 +163,8 @@
                 claudeCodeSource = self; # flakeルートを渡す（Claude Code設定用）
                 vscode-server = nixos-vscode-server; # VS Code Server自動パッチモジュール
               };
-              home-manager.users.tagawa = import ./modules/home/users/tagawa/default.nix;
+              # 各ユーザーの home-manager.users.<name> は modules/users/<name>.nix が
+              # 定義する（ホストが import したユーザーだけがそのホストに住む）
             }
           ];
         };

@@ -2,11 +2,7 @@
 # r995 (デスクトップ) 固有の設定
 # =============================================================================
 # Ryzen 9950X + AMD Radeon Graphics のハイエンドデスクトップ設定。
-# 共通設定は modules/common.nix、ブート設定は modules/boot-lanzaboote.nix を参照。
-#
-# SSH の authorized_keys は modules/ssh-authorized-keys.nix が
-# modules/home/users/<userName>/keys/*.pub を自動集約するため、
-# 新ユーザーを追加する際もそのディレクトリに .pub を置くだけでよい。
+# 共通設定は modules/profiles/、ブート設定は modules/boot-lanzaboote.nix を参照。
 # =============================================================================
 { pkgs, ... }:
 
