@@ -91,31 +91,28 @@
     }:
     let
       # ─────────────────────────────────────────────────────────────────────────
-      # ホスト一覧
+      # ホスト一覧（hosts/ 配下のディレクトリ名を自動検出）
       # ─────────────────────────────────────────────────────────────────────────
-      hostList = [
-        "t14g4" # t14g4: ノートPC (ThinkPad T14 4th Gen)
-        "x1ng1" # x1ng1: ノートPC (ThinkPad X1 Nano 1st Gen)
-        "r995" # r995: デスクトップ (Ryzen 9950X + AMD GPU)
-      ];
+      # ホスト追加 = hosts/<hostName>/ を作成、削除 = ディレクトリごと削除。
+      # 手順の詳細は hosts/TEMPLATE.md を参照。
+      hostNames = builtins.attrNames
+        (nixpkgs.lib.filterAttrs (_: type: type == "directory")
+          (builtins.readDir ./hosts));
 
       # ─────────────────────────────────────────────────────────────────────────
       # mkHost: ホスト設定を生成するヘルパー関数
       # ─────────────────────────────────────────────────────────────────────────
       # 引数: ホスト名（hosts/<hostName>/配下に設定ファイルが必要）
-      # 新しいホストを追加する場合:
-      #   1. hostList に追加
-      #   2. SSH公開鍵を該当ユーザーの個人設定に配置
-      #      （例：modules/home/users/<user>/keys/<hostName>.pub）
-      #   3. hosts/<hostName>/default.nix と hardware-configuration.nix を作成
-      # ─────────────────────────────────────────────────────────────────────────
+      # networking.hostName はディレクトリ名から自動設定される（mkDefault のため
+      # ホスト側で上書きも可能）。
       mkHost =
         hostName:
         nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           specialArgs = { inherit self cc-bar; }; # flakeルートと cc-bar input を modules に渡す
           modules = [
-            ./hosts/${hostName} # ホスト固有設定（ブート、ホスト名等）
+            ./hosts/${hostName} # ホスト固有設定（ブート、ハードウェア等）
+            { networking.hostName = nixpkgs.lib.mkDefault hostName; }
             ./modules/profiles/base.nix # 全ホスト共通の最小ベース設定
             # ./modules/cc-bar.nix # cc-bar 統合（有効化するにはこの行のコメントを外す）
             lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
@@ -170,11 +167,6 @@
         };
     in
     {
-      nixosConfigurations = builtins.listToAttrs (map
-        (hostName: {
-          name = hostName;
-          value = mkHost hostName;
-        })
-        hostList);
+      nixosConfigurations = nixpkgs.lib.genAttrs hostNames mkHost;
     };
 }

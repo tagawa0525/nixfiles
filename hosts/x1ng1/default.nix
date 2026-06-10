@@ -16,10 +16,7 @@
     ../../modules/users/tagawa.nix # 住人: tagawa
   ];
 
-  # ===========================================================================
-  # ネットワーク
-  # ===========================================================================
-  networking.hostName = "x1ng1";
+  # networking.hostName はディレクトリ名から flake.nix の mkHost が自動設定する
 
   # 内蔵LTEモデム (Intel XMM7360 / PCI 8086:7360):
   # nixpkgs の ModemManager 1.24.2 は XMM7360 RPC モード未対応のため、
