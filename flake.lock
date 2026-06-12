@@ -311,11 +311,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1781265871,
-        "narHash": "sha256-yDJ9JE/OsT4l9+eF09suF6bNKqDdE7lhpGkrXRtzQMs=",
+        "lastModified": 1781272997,
+        "narHash": "sha256-tKV2h0e6mF/+6+Z78l5Olpys1Ami7N+evPtXvhicUEk=",
         "owner": "tagawa0525",
         "repo": "nur-vscode-latest",
-        "rev": "63733b449cf8933d3273c6af5290ac09ccdcea98",
+        "rev": "5f42f299877445afe1ecad1c78159c801faab457",
         "type": "github"
       },
       "original": {
