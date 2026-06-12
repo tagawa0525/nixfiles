@@ -128,23 +128,6 @@
                 (final: prev: {
                   nur-vscode-latest = nur-vscode-latest.packages.${prev.stdenv.hostPlatform.system};
                 })
-                # jedi-language-server 0.46.0 は jedi<0.20 を要求するが、nixpkgs 側の
-                # jedi が 0.20.0 に更新されたため pythonRuntimeDepsCheckHook で
-                # ビルドが失敗する。実際の動作には支障がないため、依存バージョン制約を
-                # 緩めて nixpkgs 上流の修正までの繋ぎとする。
-                # 解消したら overlay ごと削除する。
-                #
-                # `python313` を override することで、そこから派生する全エイリアス
-                # (python3, python3Packages, python313Packages) に修正が反映される。
-                (final: prev: {
-                  python313 = prev.python313.override {
-                    packageOverrides = pyfinal: pyprev: {
-                      jedi-language-server = pyprev.jedi-language-server.overrideAttrs (oldAttrs: {
-                        pythonRelaxDeps = (oldAttrs.pythonRelaxDeps or [ ]) ++ [ "jedi" ];
-                      });
-                    };
-                  };
-                })
                 # VSCode拡張機能（nix-vscode-extensions）
                 nix-vscode-extensions.overlays.default
                 # AI Coding Agents
