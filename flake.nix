@@ -59,9 +59,13 @@
     };
 
     # VS Code Server for NixOS: リモートSSH接続時のNode.jsバイナリ自動パッチ
+    # flake として評価すると上流の eachSystem が x86_64-darwin を含む全システムで
+    # nixpkgs を実体化し「26.05 が x86_64-darwin 対応最後のリリース」という評価警告が
+    # 出るため、ソース取得のみにしてモジュールをパスで直接 import する
+    # （modules/home/parts/vscode-server.nix 参照）
     nixos-vscode-server = {
       url = "github:nix-community/nixos-vscode-server";
-      inputs.nixpkgs.follows = "nixpkgs";
+      flake = false;
     };
 
     # qmpo: directory:// URIハンドラ
