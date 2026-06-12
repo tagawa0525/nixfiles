@@ -29,7 +29,10 @@
     # Lanzaboote: NixOSでSecure Bootを有効にするためのツール
     # 自己署名したカーネル/initrdで起動可能
     lanzaboote = {
-      url = "github:nix-community/lanzaboote/v0.4.2";
+      # nixpkgs で boot.bootspec.enable が削除され、v1.0.0 以前は同オプションを
+      # 設定するため評価が失敗する。修正コミット（module: don't set bootspec.enable）
+      # を含む master のコミットに固定。次のタグリリースが出たらタグ指定に戻す
+      url = "github:nix-community/lanzaboote/2a9c6ba61f2e1bd6eaf4e1e12aca77699bf7ea95";
       # Rustバージョンの非互換を避けるためnixpkgsをフォローしない
     };
 
