@@ -16,8 +16,12 @@ flake.nix の編集は不要。
 
    `modules/users/<username>.nix` を編集:
    - ファイル内の `tagawa` をすべて `<username>` に置換
-   - `hashedPassword` を差し替え（`mkpasswd -m sha-512` で生成）
    - `extraGroups` を必要に応じて調整（wheel を外せば sudo 不可の一般ユーザーになる）
+
+   パスワードはリポジトリに置かない（public リポジトリのためハッシュでも不可）。
+   ユーザーはパスワードロック状態で作成されるので、ホスト適用後に root で
+   `passwd <username>` を実行して設定する（`users.mutableUsers = true` のため
+   以降のパスワードは passwd 管理となり、rebuild で上書きされない）。
 
 2. Home Manager 個人設定を作成
 
