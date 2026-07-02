@@ -40,12 +40,25 @@ update() {
   fi
   # リモートの変更を取り込む（rebaseでflake.lockの競合を回避）
   if ! git pull --rebase origin main; then
-    echo "⚠️  Pull failed, attempting to resolve..."
-    # flake.lockの競合はリモート版を優先
-    if [[ -f flake.lock ]]; then
-      git checkout --theirs flake.lock 2>/dev/null
-      git add flake.lock
-      git rebase --continue 2>/dev/null
+    conflicts=$(git diff --name-only --diff-filter=U)
+    if [[ "$conflicts" != "flake.lock" ]]; then
+      echo "❌ Pull failed (flake.lock 単独の競合ではありません)"
+      echo "   手動で解決してください: git status"
+      git rebase --abort 2>/dev/null || true
+      cd - > /dev/null
+      return 1
+    fi
+    echo "⚠️  flake.lock が競合しました。リモート版を優先して解決します..."
+    # rebase 中は ours=リベース先(origin/main)、theirs=ローカル側のコミット
+    git checkout --ours -- flake.lock
+    git add flake.lock
+    # ローカルコミットが flake.lock のみだった場合、リモート版採用で
+    # 空コミットになり --continue が失敗するため --skip にフォールバック
+    if ! GIT_EDITOR=true git rebase --continue && ! git rebase --skip; then
+      echo "❌ Rebase を継続できませんでした。中断して元の状態に戻します"
+      git rebase --abort
+      cd - > /dev/null
+      return 1
     fi
   fi
   echo "⬆️  Updating flake..."
