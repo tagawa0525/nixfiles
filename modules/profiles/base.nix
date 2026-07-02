@@ -7,14 +7,6 @@
 # 設定は modules/profiles/server.nix / desktop.nix / laptop.nix を参照。
 # ホスト固有の設定は hosts/<hostname>/default.nix に記述してください。
 # =============================================================================
-#
-# TODO: Btrfs マウントオプション最適化
-#   hosts/*/hardware-configuration.nix の fileSystems."/" に以下を追加:
-#   options = [ "subvol=@root" "compress=zstd" "noatime" ];
-#   - compress=zstd: 透過的圧縮でディスク使用量削減
-#   - noatime: アクセス時刻の更新を無効化（SSD寿命・パフォーマンス改善）
-#
-# =============================================================================
 { pkgs, ... }:
 
 {
