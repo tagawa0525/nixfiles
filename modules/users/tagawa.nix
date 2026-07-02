@@ -52,8 +52,11 @@ in
       "networkmanager"
       "podman"
     ] ++ lib.optionals config.virtualisation.libvirtd.enable [ "libvirtd" ];
-    # mkpasswd -m sha-512 で生成したハッシュ
-    hashedPassword = "$6$g8T1ZyjV8uoBKzcp$HPjF9mnYkkpEyY3NXeK1HXv.Y3vcUSN4bHkzktlzuSi9SHxBYcNbbhtfwYHMSw5gQ2spy8fF9MORT.oUOUboA.";
+    # パスワードは宣言しない（public リポジトリにハッシュを置かないため）。
+    # users.mutableUsers = true（デフォルト）のため /etc/shadow は passwd で
+    # 管理され、rebuild で上書きされない。新ホストではユーザーがパスワード
+    # ロック状態で作られるので、初回起動時に root で `passwd tagawa` を実行する
+    # （SSH は authorized_keys で入れるが sudo にはパスワードが必要）。
     shell = pkgs.bash; # デフォルトはbash（VSCode-Server等の互換性のため）
     openssh.authorizedKeys.keyFiles = authorizedKeyFiles;
   };
