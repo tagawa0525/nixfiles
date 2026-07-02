@@ -60,9 +60,9 @@
     # Tailscale 名 "r995" で他ホストから http://r995:8888 に接続する。
     host = "0.0.0.0";
     port = 8888;
-    # 初回ユーザー登録に必要。全ホストの登録・login が済んだら false に戻して
-    # 再 rebuild すると、以降の新規アカウント作成を拒否できる（推奨）。
-    openRegistration = true;
+    # 全ホストの登録・login が完了済みのため新規アカウント作成を拒否する。
+    # 新ホスト追加時も既存アカウントへの login は可能（true に戻す必要はない）。
+    openRegistration = false;
     # database.createLocally = true（デフォルト）により PostgreSQL を
     # ローカルに自動作成する。
     # atuin は TCP ではなく UNIX ソケット経由で接続するため、PostgreSQL の
