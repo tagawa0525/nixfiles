@@ -47,7 +47,7 @@ in
 
   # nix-daemon が substituter 指定や trusted-public-keys を受け入れるため
   # ビルダーアカウントを信頼する必要がある。
-  # common.nix で設定済みの "root" / "@wheel" を保つため mkAfter で追記する
+  # profiles/base.nix で設定済みの "root" / "@wheel" を保つため mkAfter で追記する
   # (単純代入だと merge 動作が暗黙的で危険)
   nix.settings.trusted-users = lib.mkAfter [ "nix-ssh" ];
 }

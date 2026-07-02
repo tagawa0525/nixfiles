@@ -13,7 +13,7 @@
 #
 # 接続先:
 #   r995 (Tailscale MagicDNS で Tailnet IP に解決)
-#   両ホストで services.tailscale.enable = true (modules/common.nix)
+#   両ホストで services.tailscale.enable = true (modules/profiles/base.nix)
 #
 # 初回セットアップ:
 #   1. このモジュールを適用 → /root/.ssh/nix-remote-builder.pub が生成される
