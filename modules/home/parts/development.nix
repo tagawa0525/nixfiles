@@ -25,9 +25,7 @@
     python3Packages.pytest # テストフレームワーク
 
     # Nix品質チェックツール
-    # RFC 166 公式スタイルの Formatter（バイナリ名は nixfmt）。
-    # 現行 nixpkgs では pkgs.nixfmt はまだ classic 版のため rfc-style を明示
-    nixfmt-rfc-style
+    nixfmt # Formatter（RFC 166 公式スタイル）
     statix # Linter（静的解析）
 
     # Markdown品質チェックツール
