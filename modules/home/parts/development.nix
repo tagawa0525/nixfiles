@@ -40,7 +40,9 @@
   home.file.".markdownlintrc".text = builtins.toJSON {
     default = true;
     MD013 = false; # 行の長さ制限を無効化
-    MD024 = { siblings_only = true; }; # 異なるセクション間の見出し重複は許可
+    MD024 = {
+      siblings_only = true;
+    }; # 異なるセクション間の見出し重複は許可
     MD029 = false; # 番号付きリストのプレフィックス順序を強制しない
     MD033 = false; # インラインHTMLを許可
     MD034 = false; # URLの直書きを許可

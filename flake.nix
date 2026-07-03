@@ -81,17 +81,18 @@
   # 出力（システム設定）
   # ===========================================================================
   outputs =
-    { self
-    , nixpkgs
-    , home-manager
-    , lanzaboote
-    , nix-vscode-extensions
-    , nur-vscode-latest
-    , llm-agents
-    , nixos-vscode-server
-    , qmpo
-    , cc-bar
-    , ...
+    {
+      self,
+      nixpkgs,
+      home-manager,
+      lanzaboote,
+      nix-vscode-extensions,
+      nur-vscode-latest,
+      llm-agents,
+      nixos-vscode-server,
+      qmpo,
+      cc-bar,
+      ...
     }:
     let
       # ─────────────────────────────────────────────────────────────────────────
@@ -99,9 +100,9 @@
       # ─────────────────────────────────────────────────────────────────────────
       # ホスト追加 = hosts/<hostName>/ を作成、削除 = ディレクトリごと削除。
       # 手順の詳細は hosts/TEMPLATE.md を参照。
-      hostNames = builtins.attrNames
-        (nixpkgs.lib.filterAttrs (_: type: type == "directory")
-          (builtins.readDir ./hosts));
+      hostNames = builtins.attrNames (
+        nixpkgs.lib.filterAttrs (_: type: type == "directory") (builtins.readDir ./hosts)
+      );
 
       # ─────────────────────────────────────────────────────────────────────────
       # mkHost: ホスト設定を生成するヘルパー関数

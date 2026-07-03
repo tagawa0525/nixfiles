@@ -23,7 +23,13 @@
 #   4. クライアントで再度 nixos-rebuild → 分散ビルドが有効化される
 #   詳細は docs/nix-distributed-builds.md を参照。
 # =============================================================================
-{ config, lib, pkgs, self, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  self,
+  ...
+}:
 let
   builderKey = "/root/.ssh/nix-remote-builder";
   builderHost = "r995";

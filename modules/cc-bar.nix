@@ -9,7 +9,12 @@
 #   するだけで cc-bar 関連の全機能が無効になる。
 #   （flake input と specialArgs の cc-bar 受け渡しは残っても無害）
 # =============================================================================
-{ pkgs, lib, cc-bar, ... }:
+{
+  pkgs,
+  lib,
+  cc-bar,
+  ...
+}:
 {
   # nixpkgs に cc-bar overlay を追加し pkgs.cc-bar として参照可能にする。
   # 元の flake.nix では overlays 配列の末尾に置かれていた（後勝ち）。
