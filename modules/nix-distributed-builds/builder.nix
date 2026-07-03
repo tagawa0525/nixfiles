@@ -20,7 +20,12 @@
 # 鍵ファイルが存在しないホストは authorizedKeys から自動的に除外されるため、
 # 初回適用時 (まだ鍵がない状態) でも評価エラーにならない。
 # =============================================================================
-{ lib, pkgs, self, ... }:
+{
+  lib,
+  pkgs,
+  self,
+  ...
+}:
 let
   keyDir = "${self}/modules/nix-distributed-builds/keys";
   clientHosts = [

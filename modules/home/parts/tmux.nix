@@ -54,19 +54,28 @@ let
 
   # SSH経由でtmux接続するスクリプトを生成
   # リモートホストにも同じNixOS設定があるので、local-tmuxを呼び出す
-  mkSshTmux = name: host:
+  mkSshTmux =
+    name: host:
     pkgs.writeShellScriptBin name ''
       ssh -t ${host} local-tmux
     '';
 
   # SSH tmux用デスクトップエントリを生成
-  mkSshTmuxEntry = { name, comment, scriptName }:
+  mkSshTmuxEntry =
+    {
+      name,
+      comment,
+      scriptName,
+    }:
     {
       inherit name comment;
       icon = "utilities-terminal";
       exec = "${pkgs.alacritty}/bin/alacritty -e ${scriptName}";
       terminal = false;
-      categories = [ "Network" "RemoteAccess" ];
+      categories = [
+        "Network"
+        "RemoteAccess"
+      ];
     };
 in
 {
@@ -130,7 +139,10 @@ in
       icon = "utilities-terminal";
       exec = "${pkgs.alacritty}/bin/alacritty -e local-tmux";
       terminal = false;
-      categories = [ "System" "TerminalEmulator" ];
+      categories = [
+        "System"
+        "TerminalEmulator"
+      ];
     };
     # リモートホストへのtmux接続
     ssh-r995 = mkSshTmuxEntry {

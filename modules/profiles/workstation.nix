@@ -114,7 +114,10 @@
           | ${pkgs.systemd}/bin/systemd-creds encrypt --name=secrets-encryption-key - /var/lib/libvirt/secrets/secrets-encryption-key
       '';
     in
-    lib.mkForce [ "" "${script}" ];
+    lib.mkForce [
+      ""
+      "${script}"
+    ];
 
   # ===========================================================================
   # ブラウザ

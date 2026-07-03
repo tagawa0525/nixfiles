@@ -16,17 +16,23 @@
 # StrictModes が "bad ownership or modes" で認証拒否するため、この方式を使う。
 # 新ホスト追加時は keys/ に <hostName>.pub を置くだけで反映される。
 # =============================================================================
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   keysDir = ../home/users/tagawa/keys;
   # keys/ 未作成でも評価を壊さない（新ユーザーのブートストラップ中は鍵なし扱い）
   authorizedKeyFiles =
     if builtins.pathExists keysDir then
-      map (n: keysDir + "/${n}")
-        (builtins.filter (lib.hasSuffix ".pub")
-          (builtins.attrNames (builtins.readDir keysDir)))
-    else [ ];
+      map (n: keysDir + "/${n}") (
+        builtins.filter (lib.hasSuffix ".pub") (builtins.attrNames (builtins.readDir keysDir))
+      )
+    else
+      [ ];
 in
 {
   users.users.tagawa = {
@@ -51,7 +57,8 @@ in
       "wheel"
       "networkmanager"
       "podman"
-    ] ++ lib.optionals config.virtualisation.libvirtd.enable [ "libvirtd" ];
+    ]
+    ++ lib.optionals config.virtualisation.libvirtd.enable [ "libvirtd" ];
     # パスワードは宣言しない（public リポジトリにハッシュを置かないため）。
     # users.mutableUsers = true（デフォルト）のため /etc/shadow は passwd で
     # 管理され、rebuild で上書きされない。新ホストではユーザーがパスワード
