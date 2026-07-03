@@ -29,23 +29,13 @@
   programs.fish = {
     enable = true;
     # 起動時のグリーティングメッセージを無効化
-    interactiveShellInit = lib.mkMerge [
-      ''
-        set -g fish_greeting
-        # ~/.local/bin をPATHに追加（カスタムスクリプト用）
-        fish_add_path --path ~/.local/bin
-        # mise有効化（Fishシェルで自動補完とコマンドが使えるようになる）
-        mise activate fish | source
-      ''
-      # Ctrl+R は fzf と atuin の両方がバインドするため、評価順に依存せず
-      # atuin に固定する。mkAfter（priority 1500）で fzf/atuin モジュールの
-      # 寄与（priority 1000）より確実に後で再バインドする。
-      # fzf の Ctrl+T（ファイル）/ Alt+C（ディレクトリ）はそのまま温存される。
-      (lib.mkAfter ''
-        bind \cr _atuin_search
-        bind -M insert \cr _atuin_search
-      '')
-    ];
+    interactiveShellInit = ''
+      set -g fish_greeting
+      # ~/.local/bin をPATHに追加（カスタムスクリプト用）
+      fish_add_path --path ~/.local/bin
+      # mise有効化（Fishシェルで自動補完とコマンドが使えるようになる）
+      mise activate fish | source
+    '';
     # よく使うコマンドのエイリアス
     shellAliases = {
       ls = "eza"; # モダンなls
@@ -85,12 +75,6 @@
       if command -v mise &> /dev/null; then
         eval "$(mise activate bash)"
       fi
-    '';
-    # Ctrl+R は fzf と atuin の両方がバインドするため、評価順に依存せず
-    # atuin に固定する。mkAfter で atuin 統合（__atuin_history 定義）より後に
-    # readline バインドを上書きする（bash は emacs キーマップ）。
-    initExtra = lib.mkAfter ''
-      bind -x '"\C-r": __atuin_history --keymap-mode=emacs'
     '';
   };
 
@@ -136,8 +120,11 @@
   # ファイル選択、履歴検索、ディレクトリジャンプに使用
   programs.fzf = {
     enable = true;
-    enableFishIntegration = true; # Ctrl+R（履歴）, Ctrl+T（ファイル）, Alt+C（ディレクトリ）
+    enableFishIntegration = true; # Ctrl+T（ファイル）, Alt+C（ディレクトリ）
     enableBashIntegration = true;
+    # Ctrl+R は atuin が所有するため fzf 側のバインドを無効化
+    # （Ctrl+T / Alt+C はそのまま有効）
+    historyWidget.command = "";
     defaultOptions = [
       "--height 40%"
       "--reverse"
