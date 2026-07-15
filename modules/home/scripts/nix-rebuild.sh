@@ -83,7 +83,12 @@ update() {
   # ラップトップでは nix-distributed-builds により実ビルドは r995 で走る
   # （評価と成果物の転送のみローカル）。r995 に到達できない場合はここで
   # 失敗し、push されない。
-  hosts=$(nix eval .#nixosConfigurations --apply 'c: builtins.concatStringsSep " " (builtins.attrNames c)' --raw)
+  if ! hosts=$(nix eval .#nixosConfigurations --apply 'c: builtins.concatStringsSep " " (builtins.attrNames c)' --raw); then
+    echo "❌ Failed to enumerate hosts, not switching or pushing"
+    reset_lock
+    cd - > /dev/null
+    return 1
+  fi
   read -ra host_list <<< "$hosts"
   targets=()
   for h in "${host_list[@]}"; do
