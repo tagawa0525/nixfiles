@@ -19,6 +19,13 @@
 # =============================================================================
 { pkgs, ... }:
 
+let
+  # 実行ユーザーと flake のパス。sudoers の command 行は
+  # nix-rebuild.sh が発行するコマンド行（NIXDIR=~/nix/nixfiles）と
+  # 完全一致している必要があるため、変更時は両方を確認すること
+  user = "tagawa";
+  nixdir = "/home/${user}/nix/nixfiles";
+in
 {
   # user service にはパスワード入力の機会がないため、nix-rebuild.sh が
   # 発行する固定コマンド行（引数まで完全一致）に限り NOPASSWD を許可する。
@@ -31,10 +38,10 @@
   # root 化を防ぐところまでが効果）。受容する
   security.sudo.extraRules = [
     {
-      users = [ "tagawa" ];
+      users = [ user ];
       commands = [
         {
-          command = "/run/current-system/sw/bin/nixos-rebuild switch --flake /home/tagawa/nix/nixfiles";
+          command = "/run/current-system/sw/bin/nixos-rebuild switch --flake ${nixdir}";
           options = [ "NOPASSWD" ];
         }
       ];
@@ -46,7 +53,7 @@
       nix-auto-update = {
         description = "NixOS flake update (verify all hosts, switch, push)";
         # cosmic-greeter 等の他ユーザーの user manager では起動しない
-        unitConfig.ConditionUser = "tagawa";
+        unitConfig.ConditionUser = user;
         onFailure = [ "nix-auto-update-notify.service" ];
         # sudo は setuid wrapper (/run/wrappers) が必須。git / nix /
         # nixos-rebuild / hostname は systemPackages から解決する
@@ -62,7 +69,7 @@
 
       nix-auto-update-notify = {
         description = "Notify user of nix-auto-update failure";
-        unitConfig.ConditionUser = "tagawa";
+        unitConfig.ConditionUser = user;
         serviceConfig.Type = "oneshot";
         script = ''
           ${pkgs.libnotify}/bin/notify-send --urgency=critical \
@@ -74,7 +81,7 @@
 
     timers.nix-auto-update = {
       description = "Daily NixOS auto update";
-      unitConfig.ConditionUser = "tagawa";
+      unitConfig.ConditionUser = user;
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnCalendar = "*-*-* 06:30:00";
