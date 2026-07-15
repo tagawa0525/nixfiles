@@ -70,7 +70,14 @@ update() {
     fi
   fi
   echo "⬆️  Updating flake..."
-  nix flake update
+  # set -e による即終了を避けて明示ハンドリングする（部分的に書き換わった
+  # flake.lock が残ると翌日以降の git pull --rebase が詰まるため）
+  if ! nix flake update; then
+    echo "❌ Flake update failed"
+    reset_lock
+    cd - > /dev/null
+    return 1
+  fi
   echo "🧪 Verifying all host configurations..."
   # 未検証の flake.lock を main に push しないための必須ゲート。
   # ラップトップでは nix-distributed-builds により実ビルドは r995 で走る
