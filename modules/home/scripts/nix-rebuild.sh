@@ -101,7 +101,9 @@ update() {
     return 1
   fi
   echo "🔨 Rebuilding NixOS..."
-  if ! sudo nixos-rebuild switch --flake .; then
+  # 絶対パス指定は modules/nix-auto-update.nix の NOPASSWD ルール
+  # （引数まで完全一致）に合わせるため。動作は --flake . と同じ
+  if ! sudo nixos-rebuild switch --flake "$NIXDIR"; then
     echo "❌ Rebuild failed, not pushing changes"
     reset_lock
     cd - > /dev/null

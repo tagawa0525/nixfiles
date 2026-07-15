@@ -20,15 +20,21 @@
 { pkgs, ... }:
 
 {
-  # user service にはパスワード入力の機会がないため、nixos-rebuild に限り
-  # パスワードなし sudo を許可する。tagawa は wheel なので任意コマンドを
-  # パスワード付きで実行できる状態は変わらず、免除対象が1コマンド増えるだけ
+  # user service にはパスワード入力の機会がないため、nix-rebuild.sh が
+  # 発行する固定コマンド行（引数まで完全一致）に限り NOPASSWD を許可する。
+  # 任意の flake を指定した即時 root 化には使えない。
+  #
+  # 残存リスク: 参照先の ~/nix/nixfiles は tagawa が書き込めるため、
+  # セッションを掌握した攻撃者は構成を書き換えることで次回実行時に root を
+  # 取れる。これは「ユーザー所有の構成を root 権限で自動適用する」仕組みに
+  # 固有のリスクで、sudo の絞り込みでは除去できない（即時のオンデマンド
+  # root 化を防ぐところまでが効果）。受容する
   security.sudo.extraRules = [
     {
       users = [ "tagawa" ];
       commands = [
         {
-          command = "/run/current-system/sw/bin/nixos-rebuild";
+          command = "/run/current-system/sw/bin/nixos-rebuild switch --flake /home/tagawa/nix/nixfiles";
           options = [ "NOPASSWD" ];
         }
       ];
