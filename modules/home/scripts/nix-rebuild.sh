@@ -29,6 +29,14 @@ rebuild() {
   cd - > /dev/null
 }
 
+# 失敗時に flake.lock を元に戻す。dirty な flake.lock が残ると翌日以降の
+# git pull --rebase が失敗し続け、自動更新 (modules/nix-auto-update.nix) が
+# 詰まるため。失敗した lock は nix flake update で再現できるので情報は失わない
+reset_lock() {
+  echo "↩️  Resetting flake.lock (reproduce with: nix flake update)"
+  git checkout -- flake.lock
+}
+
 update() {
   cd "$NIXDIR" || return 1
   echo "📥 Syncing with remote..."
@@ -63,9 +71,27 @@ update() {
   fi
   echo "⬆️  Updating flake..."
   nix flake update
+  echo "🧪 Verifying all host configurations..."
+  # 未検証の flake.lock を main に push しないための必須ゲート。
+  # ラップトップでは nix-distributed-builds により実ビルドは r995 で走る
+  # （評価と成果物の転送のみローカル）。r995 に到達できない場合はここで
+  # 失敗し、push されない。
+  hosts=$(nix eval .#nixosConfigurations --apply 'c: builtins.concatStringsSep " " (builtins.attrNames c)' --raw)
+  read -ra host_list <<< "$hosts"
+  targets=()
+  for h in "${host_list[@]}"; do
+    targets+=(".#nixosConfigurations.${h}.config.system.build.toplevel")
+  done
+  if ! nix build --no-link "${targets[@]}"; then
+    echo "❌ Verification failed for some hosts, not switching or pushing"
+    reset_lock
+    cd - > /dev/null
+    return 1
+  fi
   echo "🔨 Rebuilding NixOS..."
   if ! sudo nixos-rebuild switch --flake .; then
     echo "❌ Rebuild failed, not pushing changes"
+    reset_lock
     cd - > /dev/null
     return 1
   fi
