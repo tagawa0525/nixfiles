@@ -34,7 +34,9 @@ rebuild() {
 # 詰まるため。失敗した lock は nix flake update で再現できるので情報は失わない
 reset_lock() {
   echo "↩️  Resetting flake.lock (reproduce with: nix flake update)"
-  git checkout -- flake.lock
+  # HEAD 指定で index / worktree の両方を復元する（-- のみだと index からの
+  # 復元になり、staged だった場合に dirty が残るため）
+  git checkout HEAD -- flake.lock
 }
 
 update() {
