@@ -41,41 +41,45 @@
     }
   ];
 
-  systemd.user.services.nix-auto-update = {
-    description = "NixOS flake update (verify all hosts, switch, push)";
-    # cosmic-greeter 等の他ユーザーの user manager では起動しない
-    unitConfig.ConditionUser = "tagawa";
-    onFailure = [ "nix-auto-update-notify.service" ];
-    # sudo は setuid wrapper (/run/wrappers) が必須。git / nix /
-    # nixos-rebuild / hostname は systemPackages から解決する
-    path = [
-      "/run/wrappers"
-      "/run/current-system/sw"
-    ];
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "%h/.local/bin/nix-rebuild update";
+  systemd.user = {
+    services = {
+      nix-auto-update = {
+        description = "NixOS flake update (verify all hosts, switch, push)";
+        # cosmic-greeter 等の他ユーザーの user manager では起動しない
+        unitConfig.ConditionUser = "tagawa";
+        onFailure = [ "nix-auto-update-notify.service" ];
+        # sudo は setuid wrapper (/run/wrappers) が必須。git / nix /
+        # nixos-rebuild / hostname は systemPackages から解決する
+        path = [
+          "/run/wrappers"
+          "/run/current-system/sw"
+        ];
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = "%h/.local/bin/nix-rebuild update";
+        };
+      };
+
+      nix-auto-update-notify = {
+        description = "Notify user of nix-auto-update failure";
+        unitConfig.ConditionUser = "tagawa";
+        serviceConfig.Type = "oneshot";
+        script = ''
+          ${pkgs.libnotify}/bin/notify-send --urgency=critical \
+            "NixOS 自動更新に失敗しました" \
+            "journalctl --user -u nix-auto-update.service で確認してください"
+        '';
+      };
     };
-  };
 
-  systemd.user.services.nix-auto-update-notify = {
-    description = "Notify user of nix-auto-update failure";
-    unitConfig.ConditionUser = "tagawa";
-    serviceConfig.Type = "oneshot";
-    script = ''
-      ${pkgs.libnotify}/bin/notify-send --urgency=critical \
-        "NixOS 自動更新に失敗しました" \
-        "journalctl --user -u nix-auto-update.service で確認してください"
-    '';
-  };
-
-  systemd.user.timers.nix-auto-update = {
-    description = "Daily NixOS auto update";
-    unitConfig.ConditionUser = "tagawa";
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnCalendar = "*-*-* 06:30:00";
-      Persistent = true;
+    timers.nix-auto-update = {
+      description = "Daily NixOS auto update";
+      unitConfig.ConditionUser = "tagawa";
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnCalendar = "*-*-* 06:30:00";
+        Persistent = true;
+      };
     };
   };
 }
