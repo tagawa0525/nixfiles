@@ -118,10 +118,26 @@ update() {
     echo "📤 Committing and pushing flake.lock..."
     git add flake.lock
     git commit -m "flake: update ($HOSTNAME)"
+    # 検証済みの lock の内容を記録（リトライ時の変化検出に使う）
+    lock_hash=$(git hash-object flake.lock)
     # プッシュ失敗時は一度だけリトライ
     if ! git push; then
       echo "⚠️  Push failed, pulling and retrying..."
-      if git pull --rebase origin main && git push; then
+      if ! git pull --rebase origin main; then
+        echo "❌ Pull failed during retry. rebase を中断して戻します"
+        git rebase --abort 2>/dev/null || true
+        cd - > /dev/null
+        return 1
+      fi
+      # rebase の textual merge で flake.lock が検証済みの内容から変わった
+      # 場合は push しない（未検証の lock を main に載せないため）。
+      # 次回の update で通常フローに合流して回復する
+      if [[ "$(git hash-object flake.lock)" != "$lock_hash" ]]; then
+        echo "❌ flake.lock が rebase で変化しました。再度 update を実行してください"
+        cd - > /dev/null
+        return 1
+      fi
+      if git push; then
         echo "✅ Successfully updated and pushed from $HOSTNAME"
       else
         echo "❌ Push failed again, please resolve manually"
