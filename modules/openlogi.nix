@@ -35,16 +35,36 @@ let
   # GPUI (Zed の UI フレームワーク) は libwayland-client / libvulkan を
   # リンクせず実行時に dlopen する。NixOS では既定の検索パスにこれらが
   # 存在しないため、LD_LIBRARY_PATH で供給するラッパーを介して起動する。
-  # ここで参照する store パスはシステムクロージャに入り GC root される
-  # （直書きパスを .desktop に埋めると GC で消えて起動不能になる）
+  #
+  # ここで注入する wayland / vulkan-loader はシステムクロージャに入り
+  # GC root される。ただしバイナリ自身の実行時クロージャ（interpreter の
+  # glibc や RUNPATH 先）は devenv 側の gc root（~/github/OpenLogi/.devenv）
+  # 頼みで、このモジュールでは root しない（cargo 成果物は可変なため
+  # nix 側から追跡できない）。
+  #
+  # 既知のトレードオフ（意図的に許容）:
+  # - 注入 lib は nixfiles の lock、バイナリの glibc は devenv の lock 由来。
+  #   flake update で glibc がずれると "version GLIBC_x.xx not found" で
+  #   起動に失敗しうる。その場合は OpenLogi 側を再ビルドして揃える
+  # - LD_LIBRARY_PATH は GUI の子プロセスにも継承される。注入するのが
+  #   ほぼ全アプリがリンク済みの wayland / vulkan-loader のみのため実害は
+  #   想定しない（GUI 側で unset しない限り継承自体は避けられない）
   openlogi-gui-wrapper = pkgs.writeShellScriptBin "openlogi-gui" ''
+    bin=${openlogiRepo}/target/release/openlogi-gui
+    if [ ! -x "$bin" ]; then
+      msg="openlogi-gui が見つかりません: $bin （cargo build --release が必要）"
+      echo "$msg" >&2
+      # ランチャー起動では stderr が journal にしか残らないため通知も出す
+      command -v notify-send > /dev/null && notify-send "OpenLogi" "$msg"
+      exit 127
+    fi
     export LD_LIBRARY_PATH=${
       lib.makeLibraryPath [
         pkgs.wayland
         pkgs.vulkan-loader
       ]
     }''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-    exec ${openlogiRepo}/target/release/openlogi-gui "$@"
+    exec "$bin" "$@"
   '';
 
   # ランチャー（COSMIC 等）は XDG_DATA_DIRS 上の share/applications を読む。
@@ -54,7 +74,12 @@ let
     name = "openlogi";
     desktopName = "OpenLogi";
     comment = "Logitech HID++ device control — remap buttons, DPI, SmartShift";
-    exec = "${openlogi-gui-wrapper}/bin/openlogi-gui";
+    # ラッパーは systemPackages で PATH に載るため、store パスを埋め込まず
+    # コマンド名で参照する（埋め込むとラッパー編集のたびに再ビルドが波及する）
+    exec = "openlogi-gui";
+    # アイコンも working tree の生ファイル参照。pure eval では flake 外の
+    # 絶対パスを store へ取り込めないため、バイナリと同じトレードオフに含める
+    # （リポジトリ移動時はアイコンだけ汎用プレースホルダに落ちる）
     icon = "${openlogiRepo}/design/icon/openlogi.png";
     categories = [
       "Settings"
