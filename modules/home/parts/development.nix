@@ -18,6 +18,7 @@
     bacon # ファイル監視＆自動ビルド（cargo-watchの代替）
     cargo-nextest # 高速テストランナー
     cargo-expand # マクロ展開確認
+    devenv # devenv.nix ベースの開発環境（OpenLogi等が使用、direnvのuse devenvに必要）
 
     # Python開発ツール
     uv # 高速パッケージマネージャー（pip/venv代替）
