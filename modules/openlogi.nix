@@ -25,11 +25,59 @@
 #   ヘッドレス起動ではエージェントは uinput / evdev を開けないが、
 #   デスクトップ専用ツールなので意図通り。
 # =============================================================================
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
+let
+  # ローカルビルド（cargo build --release）の成果物パス。nixpkgs 化していない
+  # 試用段階のため、リポジトリの場所をここに直書きする
+  openlogiRepo = "/home/tagawa/github/OpenLogi";
+
+  # GPUI (Zed の UI フレームワーク) は libwayland-client / libvulkan を
+  # リンクせず実行時に dlopen する。NixOS では既定の検索パスにこれらが
+  # 存在しないため、LD_LIBRARY_PATH で供給するラッパーを介して起動する。
+  # ここで参照する store パスはシステムクロージャに入り GC root される
+  # （直書きパスを .desktop に埋めると GC で消えて起動不能になる）
+  openlogi-gui-wrapper = pkgs.writeShellScriptBin "openlogi-gui" ''
+    export LD_LIBRARY_PATH=${
+      lib.makeLibraryPath [
+        pkgs.wayland
+        pkgs.vulkan-loader
+      ]
+    }''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+    exec ${openlogiRepo}/target/release/openlogi-gui "$@"
+  '';
+
+  # ランチャー（COSMIC 等）は XDG_DATA_DIRS 上の share/applications を読む。
+  # upstream の install.sh は /usr/share/applications 前提で NixOS では無効
+  # なため、システムパッケージとして .desktop を配置する
+  openlogi-desktop = pkgs.makeDesktopItem {
+    name = "openlogi";
+    desktopName = "OpenLogi";
+    comment = "Logitech HID++ device control — remap buttons, DPI, SmartShift";
+    exec = "${openlogi-gui-wrapper}/bin/openlogi-gui";
+    icon = "${openlogiRepo}/design/icon/openlogi.png";
+    categories = [
+      "Settings"
+      "HardwareSettings"
+    ];
+    keywords = [
+      "logitech"
+      "mouse"
+      "hid"
+      "remap"
+      "dpi"
+    ];
+    startupNotify = true;
+  };
+in
 {
   # uinput カーネルモジュールのロード（ボタンリマップ用の仮想入力デバイス作成に必要）
   hardware.uinput.enable = true;
+
+  environment.systemPackages = [
+    openlogi-gui-wrapper
+    openlogi-desktop
+  ];
 
   services.udev.packages = [
     (pkgs.writeTextFile {
