@@ -68,8 +68,12 @@
     device = "/dev/disk/by-uuid/D878-9B1C";
     fsType = "vfat";
     options = [
-      "fmask=0022"
-      "dmask=0022"
+      # ESP を 700 にする（生成時の既定 0022 は 755 になる）。
+      # 755 だと systemd-boot の /boot/loader/random-seed を一般ユーザーが読めてしまい、
+      # bootctl が "world accessible, which is a security hole" と警告する。
+      # 手動修正のため、nixos-generate-config の再実行時は 0022 に戻らないよう注意。
+      "fmask=0077"
+      "dmask=0077"
     ];
   };
 
