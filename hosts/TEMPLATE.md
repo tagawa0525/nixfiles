@@ -18,6 +18,11 @@
    nixos-generate-config --show-hardware-config > hosts/<hostName>/hardware-configuration.nix
    ```
 
+   生成後、`fileSystems."/boot".options` の `fmask=0022,dmask=0022` を
+   `fmask=0077,dmask=0077` に書き換える。生成時の既定値では ESP が 755 になり、
+   systemd-boot の `/boot/loader/random-seed` を一般ユーザーが読めてしまうため
+   （起動のたびに bootctl が world accessible の警告を出す）。
+
 3. `hosts/<hostName>/default.nix` を作成（既存ホストをひな形にしてよい）
 
    ```nix
