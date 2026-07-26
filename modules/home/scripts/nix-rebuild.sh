@@ -10,6 +10,9 @@ set -e
 
 NIXDIR=~/nix/nixfiles
 HOSTNAME=$(hostname)
+# 検証ビルドの成果物に張る GC ルートの置き場。home-manager の
+# ~/.local/state/home-manager/gcroots に倣う（cache ではなく state）
+GCROOTS=~/.local/state/nix-rebuild/gcroots
 
 rebuild() {
   cd "$NIXDIR" || return 1
@@ -96,12 +99,31 @@ update() {
   for h in "${host_list[@]}"; do
     targets+=(".#nixosConfigurations.${h}.config.system.build.toplevel")
   done
-  if ! nix build --no-link "${targets[@]}"; then
+  if ! built=$(nix build --no-link --print-out-paths "${targets[@]}"); then
     echo "❌ Verification failed for some hosts, not switching or pushing"
     reset_lock
     cd - > /dev/null
     return 1
   fi
+  # 検証済み toplevel に GC ルートを張る。
+  #
+  # ルートが無いと自ホスト以外の成果物（自ホスト分は /run/current-system が
+  # 守る）は常に GC 対象で、週次 GC（modules/profiles/base.nix の nix.gc）の
+  # たびに消える。消えるのは systemd unit / etc / fish-completions といった
+  # ホスト固有の生成物で、そのホスト構成でしか作られないためバイナリキャッシュ
+  # に存在せず、次回の検証で必ずローカルビルドし直しになる。
+  # r995 はラップトップのリモートビルダーも兼ねるので、ここを残しておくと
+  # 同じ lock で update してくる他ホストの再ビルドも省ける。
+  #
+  # 全削除してから張り直すのは、hosts/ から消えたホストのルートが残って
+  # 古い closure を pin し続けるのを防ぐため。--print-out-paths は
+  # installable の指定順で出力するので host_list とそのまま対応する。
+  mapfile -t out_paths <<< "$built"
+  mkdir -p "$GCROOTS"
+  rm -f "${GCROOTS:?}"/*
+  for i in "${!host_list[@]}"; do
+    nix-store --realise "${out_paths[i]}" --add-root "$GCROOTS/${host_list[i]}" > /dev/null
+  done
   echo "🔨 Rebuilding NixOS..."
   # コマンドのフルパスと --flake の絶対パスは modules/nix-auto-update.nix の
   # NOPASSWD ルール（コマンド行の完全一致）に合わせるため。PATH 解決に
