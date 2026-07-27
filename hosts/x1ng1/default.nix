@@ -31,13 +31,25 @@
   networking.modemmanager.enable = true;
 
   # ===========================================================================
-  # 電源管理（ホスト固有: TLP 充電閾値）
+  # 電源管理（ホスト固有: TLP 充電閾値、蓋を閉じた際の休止移行）
   # ===========================================================================
   # 充電上限を 80% に制限してリチウムイオンの劣化を抑制。
   # 出張等で満充電したい時は `sudo tlp fullcharge BAT0` で一時解除（再起動で復帰）。
   services.tlp.settings = {
     START_CHARGE_THRESH_BAT0 = 75;
     STOP_CHARGE_THRESH_BAT0 = 80;
+  };
+
+  # 本機は S3 非対応で s2idle のみ（/sys/power/mem_sleep = [s2idle]）。
+  # S0ix 滞在率は 98.9% と良好だが、それでもサスペンド中に実測 0.3W =
+  # 約 15%/日 を消費する。s2idle である以上ソフトウェアで消費自体は減らせない
+  # ため、蓋を閉じて 30 分経過したら休止状態に移行して消費をゼロにする。
+  # AC 接続時は電池が減らないので、復帰速度を優先して休止させない。
+  # 休止の前提（swap 16GB > RAM 15GiB、boot.resumeDevice）は充足済み。
+  services.logind.settings.Login.HandleLidSwitch = "suspend-then-hibernate";
+  systemd.sleep.settings.Sleep = {
+    HibernateDelaySec = "30min";
+    HibernateOnACPower = false;
   };
 
   # ===========================================================================
