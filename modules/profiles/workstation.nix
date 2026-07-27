@@ -158,4 +158,11 @@
   services.gnome.gnome-keyring.enable = true;
   security.pam.services.login.enableGnomeKeyring = true;
   security.pam.services.cosmic-greeter.enableGnomeKeyring = true;
+
+  # ===========================================================================
+  # GnuPG の pinentry
+  # ===========================================================================
+  # base プロファイルは pinentry-curses（TTY用）。GUIセッションでは端末を
+  # 持たないアプリからも gpg が呼ばれるため、GTK版に差し替える
+  programs.gnupg.agent.pinentryPackage = pkgs.pinentry-gnome3;
 }
