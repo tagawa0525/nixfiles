@@ -10,6 +10,9 @@ set -e
 
 NIXDIR=~/nix/nixfiles
 HOSTNAME=$(hostname)
+# 検証ビルドの成果物に張る GC ルートの置き場。home-manager の
+# ~/.local/state/home-manager/gcroots に倣う（cache ではなく state）
+GCROOTS=~/.local/state/nix-rebuild/gcroots
 
 rebuild() {
   cd "$NIXDIR" || return 1
@@ -37,6 +40,52 @@ reset_lock() {
   # HEAD 指定で index / worktree の両方を復元する（-- のみだと index からの
   # 復元になり、staged だった場合に dirty が残るため）
   git checkout HEAD -- flake.lock
+}
+
+# 検証済み toplevel に GC ルートを張る。
+#
+# ルートが無いと自ホスト以外の成果物（自ホスト分は /run/current-system が
+# 守る）は常に GC 対象で、週次 GC（modules/profiles/base.nix の nix.gc）の
+# たびに消える。消えるのは systemd unit / etc / fish-completions といった
+# ホスト固有の生成物で、そのホスト構成でしか作られないためバイナリキャッシュ
+# に存在せず、次回の検証で必ずローカルビルドし直しになる。
+# r995 はラップトップのリモートビルダーも兼ねるので、ここを残しておくと
+# 同じ lock で update してくる他ホストの再ビルドも省ける。
+#
+# ルート張りの失敗は「次回のビルドキャッシュが効かない」だけで update 自体は
+# 成功しているため、呼び出し側で `|| true` を付けて set -e による中断を止め、
+# 内部でも警告に留める。ここで死ぬと flake.lock が dirty のまま残り、翌日
+# 以降の git pull --rebase が詰まる（reset_lock のコメント参照）。
+# 第1引数は nix build --print-out-paths の出力、第2引数以降がホスト名。
+add_gcroots() {
+  local built=$1
+  shift
+  local host_names=("$@")
+  local paths link name h i
+  mapfile -t paths <<< "$built"
+  # 出力順が installable の指定順と 1:1 対応することに依存するため、件数が
+  # 食い違ったら黙って取り違えるより何もしない方が安全（nix は重複した
+  # installable を渡すと出力行が増える）
+  if [[ ${#paths[@]} -ne ${#host_names[@]} ]]; then
+    echo "⚠️  出力パス数 ${#paths[@]} がホスト数 ${#host_names[@]} と一致しません。GC ルートをスキップします"
+    return 0
+  fi
+  mkdir -p "$GCROOTS"
+  # 先に張り替えてから不要な名前を掃除する。逆順にすると全削除から再作成
+  # までの間に GC が走ったとき、全ホストが無ルートで削除されうる
+  for i in "${!host_names[@]}"; do
+    nix-store --realise "${paths[i]}" --add-root "$GCROOTS/${host_names[i]}" > /dev/null \
+      || echo "⚠️  ${host_names[i]} の GC ルートを張れませんでした"
+  done
+  # hosts/ から消えたホストのルートが古い closure を pin し続けるのを防ぐ
+  for link in "$GCROOTS"/*; do
+    [[ -L $link ]] || continue
+    name=$(basename "$link")
+    for h in "${host_names[@]}"; do
+      [[ $h == "$name" ]] && continue 2
+    done
+    rm -f "$link"
+  done
 }
 
 update() {
@@ -96,7 +145,7 @@ update() {
   for h in "${host_list[@]}"; do
     targets+=(".#nixosConfigurations.${h}.config.system.build.toplevel")
   done
-  if ! nix build --no-link "${targets[@]}"; then
+  if ! built=$(nix build --no-link --print-out-paths "${targets[@]}"); then
     echo "❌ Verification failed for some hosts, not switching or pushing"
     reset_lock
     cd - > /dev/null
@@ -113,6 +162,9 @@ update() {
     cd - > /dev/null
     return 1
   fi
+  # switch 成功後に張る。失敗パスで張ってしまうと、reset_lock が戻した lock
+  # 側の closure が無ルートになり、次回 GC で消えて全ホスト再ビルドになる
+  add_gcroots "$built" "${host_list[@]}" || true
   # 変更がある場合のみコミット＆プッシュ
   if ! git diff --quiet flake.lock 2>/dev/null; then
     echo "📤 Committing and pushing flake.lock..."
