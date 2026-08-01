@@ -52,6 +52,22 @@ let
       x1ng1 = 4; # Core i7-1160G7: 4C/8T
     }
     .${hostName} or 4;
+
+  # kikitori のエンジン接続先。r995 は自ホストの kikitorid（Unix ソケット、
+  # クライアント側の既定値）を使うため指定不要
+  kikitoriEngine = if hostName == "r995" then null else "r995:41717";
+
+  # COSMIC のショートカットが起動する kikitori コマンド。
+  # エンジン接続先は環境変数 KIKITORI_ENGINE ではなく引数で明示する:
+  # Spawn は cosmic-comp の環境を継承するが、cosmic-comp は
+  # cosmic-greeter/cosmic-session 経由で起動されるためログインシェルを通らず、
+  # home.sessionVariables（profile.d 経由）が届かない。届かないまま起動した
+  # クライアントはローカルソケットに接続を試みて失敗し、バーを出さないまま
+  # プロセスだけが残る（接続失敗時に exit しない upstream の挙動）。
+  # --socket は "host:port" 形式を TCP として解釈する
+  kikitoriCommand =
+    lib.getExe pkgs.kikitori
+    + lib.optionalString (kikitoriEngine != null) " --socket ${kikitoriEngine}";
 in
 {
   # SenseVoice 等の ONNX エンジンを含むバリアント。
@@ -144,7 +160,7 @@ in
   # Super+Shift+V = voxtype（移行期のフォールバック。安定確認後に撤去する）
   xdg.configFile."cosmic/com.system76.CosmicSettings.Shortcuts/v1/custom".text = ''
     {
-        (modifiers: [Super], key: "v"): Spawn("${lib.getExe pkgs.kikitori}"),
+        (modifiers: [Super], key: "v"): Spawn("${kikitoriCommand}"),
         (modifiers: [Super, Shift], key: "v"): Spawn("${lib.getExe pkgs.voxtype-onnx} record toggle"),
     }
   '';
@@ -152,11 +168,11 @@ in
   # ===========================================================================
   # kikitori（voxtype 後継、試行中）
   # ===========================================================================
-  # リアルタイム部分表示つきのローカル音声入力。Super+Shift+V で
+  # リアルタイム部分表示つきのローカル音声入力。Super+V で
   # 1 回目 = 録音開始（画面下部にバー表示）、2 回目 = 停止して wtype 入力。
   # エンジン kikitorid は r995 でのみ常駐し（初回起動時に ExecStartPre が
   # モデルを ~/.local/share/kikitori/ へ自動取得）、他ホストは
-  # KIKITORI_ENGINE 経由で r995 へリモート接続する（下記）。
+  # --socket 引数で r995 へリモート接続する（上記 kikitoriCommand）。
   # Super+V に昇格済み（2026-08-02）。voxtype は Super+Shift+V に退避中で、
   # 安定確認後に撤去する。
   # 置換辞書: ~/.config/kikitori/replace.tsv（任意）
@@ -164,13 +180,16 @@ in
   # エンジン配置: r995 だけがエンジンを持ち、tailscale0 に TCP 公開する
   # （decode は常にエンジン側で走るため、非力なラップトップは薄い
   # クライアントに徹する。認証は tailnet の信頼モデルに委ねる）。
-  # ラップトップが tailnet 外にいる間は音声入力不可（明示エラー）
+  # ラップトップが tailnet 外にいる間は音声入力不可（クライアントは接続に
+  # 失敗するとバーを出さずに待機し続けるため、無反応に見える）
   services.kikitori = {
     enable = hostName == "r995";
     tcp = if hostName == "r995" then "0.0.0.0:41717" else null;
   };
-  home.sessionVariables = lib.mkIf (hostName != "r995") {
-    KIKITORI_ENGINE = "r995:41717";
+  # 対話シェルから kikitori-cli を直接叩くとき用。COSMIC の Super+V は
+  # この変数に依存しない（上記 kikitoriCommand の理由を参照）
+  home.sessionVariables = lib.mkIf (kikitoriEngine != null) {
+    KIKITORI_ENGINE = kikitoriEngine;
   };
 
   # ===========================================================================
