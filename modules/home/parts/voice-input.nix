@@ -1,5 +1,5 @@
 # =============================================================================
-# 音声入力 (voxtype + whisper.cpp)
+# 音声入力 (voxtype + SenseVoice)
 # =============================================================================
 # OS 全体（任意のアプリ）で使えるローカル音声入力。
 # https://github.com/peteonrails/voxtype
@@ -7,24 +7,25 @@
 # 仕組み:
 #   - voxtype デーモンが常駐し、COSMIC のカスタムショートカット
 #     (Super+V -> `voxtype record toggle`) で録音を開始/停止する
-#   - 停止すると whisper.cpp（voxtype に内蔵、完全ローカル）が文字起こしし、
-#     カーソル位置に貼り付ける
+#   - 停止すると SenseVoice（ONNX、完全ローカル、日本語対応）が文字起こしし、
+#     wtype がカーソル位置に直接タイプする
 #
 # 設計上の選択:
 #   - ホットキーは voxtype 内蔵の evdev 監視ではなく COSMIC キーバインドで
 #     制御する。evdev 監視は input グループ加入（= 全キーボードの生イベント
 #     読み取り権限）が必要で、openlogi.nix で意図的に避けているキーロガー面を
 #     開いてしまうため
-#   - 出力は paste モード（wl-copy でクリップボードに置き Ctrl+V を打鍵）。
-#     日本語（漢字かな交じり）はキーコード合成では入力できないため、
-#     クリップボード経由が唯一確実な方式
-#   - 貼り付け打鍵は dotool（uinput 直接）で行う。/dev/uinput へのアクセスは
-#     openlogi.nix の uaccess ルールで既に開放済みなので追加権限は不要。
-#     wtype は COSMIC の virtual-keyboard 実装で誤動作する報告があるため
-#     driver_order から除外する
+#   - エンジンは whisper ではなく SenseVoice。whisper large-v3-turbo は
+#     r995(16スレッド) でも数秒の発話に 8〜10 秒かかり、繰り返し幻覚
+#     （同一フレーズの連発）も実音声で確認した。SenseVoice は CJK 特化の
+#     CTC モデルで桁違いに速く、これらの問題がない
+#   - 出力は type モード（wtype による Wayland virtual-keyboard 直接入力）。
+#     日本語を含む任意のユニコードをそのままタイプでき、クリップボードを
+#     汚さない。COSMIC 1.5 で動作することを実機確認済み（過去のバージョン
+#     では誤動作報告があった）。フォールバックは dotool → クリップボード
 #
 # 初回セットアップ（ホストごとに1回、~/.local/share/voxtype/ へ取得）:
-#   voxtype setup --download   # whisper モデル（初回使用時の自動DLでも可）
+#   voxtype setup model        # SenseVoice モデル（対話選択）
 #   voxtype setup vad          # silero VAD モデル（約2MB）
 # =============================================================================
 {
@@ -53,10 +54,11 @@ let
     .${hostName} or 4;
 in
 {
+  # SenseVoice 等の ONNX エンジンを含むバリアント。
   # 依存ツールの追加インストールは不要: nixpkgs の voxtype は wrapProgram で
   # dotool / wl-clipboard / wtype（および X11 用の xclip / xdotool）を
   # 自身の PATH に注入している
-  home.packages = [ pkgs.voxtype ];
+  home.packages = [ pkgs.voxtype-onnx ];
 
   # ===========================================================================
   # voxtype 設定
@@ -66,6 +68,11 @@ in
   xdg.configFile."voxtype/config.toml".text = ''
     # `voxtype record toggle` と `voxtype status` に必須
     state_file = "auto"
+
+    # SenseVoice: CJK 特化の高速 CTC エンジン（ja/zh/ko/en/yue、ONNX）。
+    # whisper はフォールバック用に [whisper] セクションを残してある
+    # （`voxtype --engine whisper daemon` で切替可能）
+    engine = "sensevoice"
 
     [hotkey]
     # COSMIC キーバインドから `voxtype record toggle` で制御するため無効化
@@ -84,10 +91,8 @@ in
     language = "ja"
     translate = false
     threads = ${toString whisperThreads}
-    # 録音長に合わせて処理する（既定は常に30秒枠へパディングされ、短い
-    # 発話でも30秒分のエンコードが走る）。turbo モデルは繰り返しループの
-    # 報告があるため既定では無効だが、無音は VAD で棄却済みなので有効化する
-    context_window_optimization = true
+    # context_window_optimization は有効化しない: 高速化はするが、turbo で
+    # 既知の繰り返しループ（同一フレーズ連発）が実音声でも再現したため
     # 録音開始時にモデルをロードし、文字起こし後に解放する。
     # 常駐 RAM（large-v3-turbo で約 2GB）を節約する代わりに、
     # 使用のたびにロード時間（SSD なら 1〜2 秒）が加算される
@@ -102,17 +107,14 @@ in
     backend = "whisper"
 
     [output]
-    # クリップボードにコピーしてから貼り付けキーを打鍵する（日本語対応の要）
-    mode = "paste"
-    # Ctrl+V ではなく Shift+Insert を打鍵する。ターミナル（Alacritty は
-    # Ctrl+V がペーストでない）と GUI アプリの両方で通用する伝統的な
-    # ペーストキーのため
-    paste_keys = "shift+insert"
-    # 元のクリップボード内容を退避し、貼り付け後に復元する
-    restore_clipboard = true
-    # wtype（COSMIC で誤動作）と ydotool（要デーモン）を除外し、
-    # dotool（uinput 直接）→ 失敗時はクリップボードに残すだけ、の順で試す
-    driver_order = ["dotool", "clipboard"]
+    # wtype（Wayland virtual-keyboard）でカーソル位置に直接タイプする。
+    # 日本語を含む任意のユニコードを入力でき、クリップボードを汚さない。
+    # COSMIC 1.5 での動作は実機確認済み。
+    # paste モード（クリップボード + ペーストキー打鍵）は不採用: Ctrl+V は
+    # ターミナルで通用せず、Shift+Insert は Alacritty がプライマリ
+    # セレクションを貼るため、アプリを問わず確実なペーストキーが存在しない
+    mode = "type"
+    driver_order = ["wtype", "dotool", "clipboard"]
     fallback_to_clipboard = true
     type_delay_ms = 0
     pre_type_delay_ms = 0
@@ -133,7 +135,7 @@ in
   # デーモンへ SIGUSR1/SIGUSR2 を送るだけなので即座に返る
   xdg.configFile."cosmic/com.system76.CosmicSettings.Shortcuts/v1/custom".text = ''
     {
-        (modifiers: [Super], key: "v"): Spawn("${lib.getExe pkgs.voxtype} record toggle"),
+        (modifiers: [Super], key: "v"): Spawn("${lib.getExe pkgs.voxtype-onnx} record toggle"),
     }
   '';
 
@@ -149,7 +151,7 @@ in
       PartOf = [ "graphical-session.target" ];
     };
     Service = {
-      ExecStart = "${lib.getExe pkgs.voxtype} daemon";
+      ExecStart = "${lib.getExe pkgs.voxtype-onnx} daemon";
       Restart = "on-failure";
       RestartSec = 5;
     };
