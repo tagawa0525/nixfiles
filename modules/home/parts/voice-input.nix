@@ -48,11 +48,23 @@ in
   # ===========================================================================
   # voxtype 設定
   # ===========================================================================
+  # 注意: voxtype はセクションの部分省略を許さない（missing field でパース
+  # エラーになる）ため、同梱 default-config.toml の全セクションを明示する
   xdg.configFile."voxtype/config.toml".text = ''
+    # `voxtype record toggle` と `voxtype status` に必須
+    state_file = "auto"
+
     [hotkey]
     # COSMIC キーバインドから `voxtype record toggle` で制御するため無効化
     # （有効化には input グループ加入が必要になる。上部コメント参照）
     enabled = false
+    key = "SCROLLLOCK"
+    modifiers = []
+
+    [audio]
+    device = "default"
+    sample_rate = 16000
+    max_duration_secs = 60
 
     [whisper]
     model = "${whisperModel}"
@@ -72,6 +84,17 @@ in
     # wtype（COSMIC で誤動作）と ydotool（要デーモン）を除外し、
     # dotool（uinput 直接）→ 失敗時はクリップボードに残すだけ、の順で試す
     driver_order = ["dotool", "clipboard"]
+    fallback_to_clipboard = true
+    type_delay_ms = 0
+    pre_type_delay_ms = 0
+
+    [output.notification]
+    on_recording_start = true
+    on_recording_stop = true
+    on_transcription = true
+
+    [status]
+    icon_theme = "emoji"
   '';
 
   # ===========================================================================
