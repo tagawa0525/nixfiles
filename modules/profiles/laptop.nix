@@ -11,6 +11,9 @@
   imports = [
     # 重いビルドを builder ホスト（r995 など）にオフロードする
     ../nix-distributed-builds/client.nix
+
+    # cosmic-idle のバッテリー駆動時に自動サスペンドが発火しないバグの修正
+    ../cosmic-idle-fix.nix
   ];
 
   # ===========================================================================
@@ -24,4 +27,29 @@
   # COSMIC DEはデフォルトでpower-profiles-daemonを有効にするため、
   # TLPと競合しないよう明示的に無効化
   services.power-profiles-daemon.enable = false;
+
+  # ===========================================================================
+  # 低残量時の保護 (UPower)
+  # ===========================================================================
+  # DE のアイドル管理とは独立した最後の防波堤。COSMIC 側が何であれ
+  # 残量が尽きる前に systemd レイヤで確実に退避させる。
+  services.upower = {
+    # 既定は HybridSleep だが x1ng1 は hibernate がハングして使えず
+    # （docs/x1ng1-power-management.md）、Suspend は放電を止められないため
+    # 最終的に汚い電源断になる（NixOS も allowRiskyCriticalPowerAction を
+    # 要求して止めてくる）。確実にクリーンへ倒せる PowerOff を選ぶ。
+    criticalPowerAction = "PowerOff";
+
+    # 既定の 5% のままだと下の percentageAction と同値になり、
+    # 「まもなく電源が切れます」の警告と同時に落ちて警告の意味がなくなる。
+    # 10% に上げて稼働中で約 80 分の猶予を作る。
+    percentageCritical = 10;
+
+    # 停止に要するのは検知遅延と shutdown を含めても 0.2% 程度で、既定の 2%
+    # でも足りる。それでも 5% を採るのは残量計の誤差対策。本機では放電中に
+    # 10 ポイント飛ぶ再校正を実測しており（2026-08-01 09:32 51% → 09:40 41%）、
+    # 2% では誤差に飲まれて停止前に落ちうる。充電上限を 80% に制限して劣化を
+    # 抑える運用とも、深放電を避ける方向で一貫する。
+    percentageAction = 5;
+  };
 }
