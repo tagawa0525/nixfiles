@@ -166,7 +166,7 @@ in
   # ラップトップが tailnet 外にいる間は音声入力不可（明示エラー）
   services.kikitori = {
     enable = hostName == "r995";
-    tcp = lib.mkIf (hostName == "r995") "0.0.0.0:41717";
+    tcp = if hostName == "r995" then "0.0.0.0:41717" else null;
   };
   home.sessionVariables = lib.mkIf (hostName != "r995") {
     KIKITORI_ENGINE = "r995:41717";
