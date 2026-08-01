@@ -1,0 +1,28 @@
+AC/バッテリー切り替え時に idle notification を再作成する
+
+cosmic-idle はサスペンド用の idle notification を recreate_notifications() で
+しか生成せず、その呼び出し箇所は「起動時 / 設定変更時 / screensaver inhibit の
+変化時」の3つに限られる。UPower の OnBattery 変化を受け取る handle_event() は
+フィールドを更新するだけで再作成を行わないため、AC 接続状態で起動すると
+on_battery = false (初期値) で作られた notification がそのまま固定される。
+
+その結果、「コンセント接続時の自動サスペンド: しない」を設定していると
+suspend 用の notification が一度も作られず、以後 AC を抜いてバッテリー駆動に
+なっても自動サスペンドが永久に発火しない。
+
+screen_off_time は on_battery に依存しないため画面オフとロックだけは動作し、
+「画面は消えるのにサスペンドしない」という症状になる。
+
+upstream: https://github.com/pop-os/cosmic-idle (epoch-1.5.0 / master = c95d066b
+時点で未修正。関連する議論は issue #9 のコメント)
+
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -222,6 +222,7 @@
+         match event {
+             Event::OnBattery(value) => {
+                 self.on_battery = value;
++                self.recreate_notifications();
+             }
+             Event::ScreensaverInhibit(value) => {
+                 self.screensaver_inhibit = value;
