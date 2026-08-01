@@ -37,6 +37,25 @@ $ cat /sys/power/mem_sleep
 
 S3 なら 1〜2%/日 で済むところ、s2idle では `0.3 W × 24 h = 7.2 Wh` = 満充電の約 15% を消費する。これは故障でも設定ミスでもない。
 
+## AC 接続中は蓋を閉じてもサスペンドしない
+
+蓋を閉じたままリモートから SSH して作業できるよう、AC 接続中は据え置きデスクトップとして扱う。
+
+```nix
+services.logind.lidSwitchExternalPower = "ignore";
+```
+
+| 状態           | 蓋を閉じたとき | 意図              |
+| -------------- | -------------- | ----------------- |
+| AC 接続中      | 稼働継続       | 据え置き運用・SSH |
+| バッテリー駆動 | サスペンド     | 持ち運び時の保護  |
+
+systemd は `HandleLidSwitchExternalPower` が未設定だと `HandleLidSwitch` (= `suspend`) にフォールバックするため、**明示しない限り AC 接続中も蓋を閉じれば止まる**。サスペンドするとネットワークスタックごと停止するので sshd も Tailscale も応答せず、本機は有線ポートを持たないため Wake-on-LAN で起こすこともできない。
+
+「AC 接続で蓋を閉じて稼働中に AC を抜く」経路では、logind は蓋の状態変化でしか動かないためサスペンドしない。この穴は下記の cosmic-idle のアイドルサスペンド (15 分) が塞いでいる。**この修正が入る前にこの設定を入れると、蓋を閉じたまま延々と放電し続ける**ことになるので順序に注意。
+
+なお SSH でログイン中でもローカル入力がなければアイドル判定されるため、作業中に AC が抜けると 15 分でサスペンドする。バッテリー保護を優先した挙動として受け入れる。
+
 ## バッテリー駆動でも自動サスペンドしない (cosmic-idle のバグ)
 
 2026-08-01、蓋を開けたまま放置したら 17% まで減っていた。**消費が異常だったのではなく、7 時間 15 分ものあいだ一度もサスペンドしなかった**のが原因。
@@ -131,15 +150,38 @@ Event::OnBattery(value) => {
 
 **「10% でサスペンドし 2% で電源を切る」という 2 段構えは標準機能では組めない。**サスペンド中は UPower 自身が停止しており残量を監視する主体がいないため。RTC アラームで定期的に起床して判定する仕組みを自作すれば可能だが (本機に `/sys/class/rtc/rtc0/wakealarm` は存在する)、cosmic-idle の修正で低残量まで落ちる状況自体が起きにくくなるため見送った。
 
-### 検証方法
+### 検証 (2026-08-01 実施・成功)
 
-パッチの効きは、**AC を抜いた状態で設定を変更しても直ることはない**点で確認できる (設定変更は `recreate_notifications()` を呼ぶので、パッチなしでも一時的に復活してしまう)。素直に次で確認する。
+パッチ済みと未適用のバイナリを**並走**させて対照実験した。`cosmic-idle.scope` は systemd scope で restart できないが、この方法なら再ログインせずセッションを維持したまま検証できる。
 
-1. `~/.config/cosmic/com.system76.CosmicIdle/v1/suspend_on_battery_time` を短くする (例: `Some(60000)` = 1 分)
-2. **AC を接続したまま**セッションを再ログインし、cosmic-idle を起動時 AC 状態にする
-3. AC を抜いて放置する
-4. 1 分でサスペンドすれば OK (パッチ前は永久にサスペンドしない)
-5. 確認後、`suspend_on_battery_time` を元に戻す
+1. `~/.config/cosmic/com.system76.CosmicIdle/v1/suspend_on_battery_time` に `Some(60000)` (1 分) を書く
+2. **AC を接続したまま**パッチ済みバイナリを手動起動する (既存プロセスは残す)
+
+   ```console
+   $ setsid env $(tr '\0' '\n' < /proc/<既存PID>/environ \
+       | grep -E '^(WAYLAND_DISPLAY|XDG_RUNTIME_DIR|DBUS_SESSION_BUS_ADDRESS|HOME|USER|PATH)=') \
+       /nix/store/…-cosmic-idle-1.4.0/bin/cosmic-idle &
+   ```
+
+3. AC を抜いて 1 分放置する
+4. 確認後、手動起動したプロセスを kill し `suspend_on_battery_time` を削除する
+
+結果は次のとおり。
+
+| 条件          | 未適用             | パッチ済み           |
+| ------------- | ------------------ | -------------------- |
+| AC 抜去後     | **サスペンドせず** | 1 分ごとにサスペンド |
+| AC を挿し直す | —                  | サスペンド停止       |
+
+```text
+18:37:35 systemd-logind: suspend requested from client ('systemctl')
+18:38:57 systemd-logind: suspend requested from client ('systemctl')  ← 1 分後
+19:01:22 PM: suspend exit                                             ← AC 再接続で復帰、以後停止
+```
+
+未適用のプロセスは notification を持たないため何もしない。したがって**サスペンドが起きたこと自体がパッチの効いた証拠**になる。1 分間隔で繰り返したことは `suspend_on_battery_time` が実際に使われた裏付けであり、AC 再接続で止まったことは逆方向 (バッテリー → AC) の反映も正しいことを示す。
+
+**設定変更で確認しようとしてはいけない。**設定の書き込みは `recreate_notifications()` を呼ぶため、パッチがなくても一時的に復活してしまう。
 
 ## hibernate は動作しない
 
