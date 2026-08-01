@@ -75,6 +75,12 @@
       url = "github:tagawa0525/cc-bar";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # kikitori: 完全ローカル・リアルタイム表示の日本語音声入力（voxtype 後継）
+    kikitori = {
+      url = "github:tagawa0525/kikitori";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # ===========================================================================
@@ -92,6 +98,7 @@
       nixos-vscode-server,
       qmpo,
       cc-bar,
+      kikitori,
       ...
     }:
     let
@@ -137,6 +144,10 @@
                 })
                 # qmpo: directory:// URIハンドラ
                 qmpo.overlays.default
+                # kikitori: ローカル音声入力（voice-input.nix のショートカットが参照）
+                (final: prev: {
+                  kikitori = kikitori.packages.${prev.stdenv.hostPlatform.system}.kikitori;
+                })
                 # cc-bar の overlay は ./modules/cc-bar.nix に集約済み
               ];
               # Home Manager設定
@@ -144,6 +155,8 @@
               home-manager.useUserPackages = true; # ユーザーパッケージをシステムに統合
               home-manager.backupFileExtension = "backup"; # 既存ファイルのバックアップ拡張子
               # flakeソースとVS Code ServerモジュールをHome Managerに渡す
+              # kikitori の systemd サービス定義（services.kikitori.*）を全ユーザーに公開
+              home-manager.sharedModules = [ kikitori.homeManagerModules.default ];
               home-manager.extraSpecialArgs = {
                 claudeCodeSource = self; # flakeルートを渡す（Claude Code設定用）
                 vscode-server = nixos-vscode-server; # VS Code Server自動パッチモジュール
