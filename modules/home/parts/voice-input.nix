@@ -140,8 +140,8 @@ in
   # ===========================================================================
   # COSMIC カスタムショートカット
   # ===========================================================================
-  # Super+V = kikitori（主系）、Super+Shift+V = voxtype（移行期のフォール
-  # バック。安定確認後に撤去する）
+  # Super+V = kikitori（主系）。
+  # Super+Shift+V = voxtype（移行期のフォールバック。安定確認後に撤去する）
   xdg.configFile."cosmic/com.system76.CosmicSettings.Shortcuts/v1/custom".text = ''
     {
         (modifiers: [Super], key: "v"): Spawn("${lib.getExe pkgs.kikitori}"),
