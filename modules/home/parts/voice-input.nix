@@ -158,7 +158,18 @@ in
   # モデルを ~/.local/share/kikitori/ へ自動取得する（ExecStartPre）。
   # 安定を確認したら Super+V を kikitori に差し替え、voxtype を撤去する。
   # 置換辞書: ~/.config/kikitori/replace.tsv（任意）
-  services.kikitori.enable = true;
+  #
+  # エンジン配置: r995 だけがエンジンを持ち、tailscale0 に TCP 公開する
+  # （decode は常にエンジン側で走るため、非力なラップトップは薄い
+  # クライアントに徹する。認証は tailnet の信頼モデルに委ねる）。
+  # ラップトップが tailnet 外にいる間は音声入力不可（明示エラー）
+  services.kikitori = {
+    enable = hostName == "r995";
+    tcp = lib.mkIf (hostName == "r995") "0.0.0.0:41717";
+  };
+  home.sessionVariables = lib.mkIf (hostName != "r995") {
+    KIKITORI_ENGINE = "r995:41717";
+  };
 
   # ===========================================================================
   # voxtype デーモン（systemd ユーザーサービス）
