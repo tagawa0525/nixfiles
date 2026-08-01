@@ -154,8 +154,9 @@ in
   # ===========================================================================
   # リアルタイム部分表示つきのローカル音声入力。Super+Shift+V で
   # 1 回目 = 録音開始（画面下部にバー表示）、2 回目 = 停止して wtype 入力。
-  # エンジン kikitorid は systemd ユーザーサービスとして常駐し、初回起動時に
-  # モデルを ~/.local/share/kikitori/ へ自動取得する（ExecStartPre）。
+  # エンジン kikitorid は r995 でのみ常駐し（初回起動時に ExecStartPre が
+  # モデルを ~/.local/share/kikitori/ へ自動取得）、他ホストは
+  # KIKITORI_ENGINE 経由で r995 へリモート接続する（下記）。
   # 安定を確認したら Super+V を kikitori に差し替え、voxtype を撤去する。
   # 置換辞書: ~/.config/kikitori/replace.tsv（任意）
   #

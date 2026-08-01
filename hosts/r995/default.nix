@@ -80,7 +80,7 @@
   # tailscale0 インターフェース限定でポートを開放する。
   networking.firewall.interfaces."tailscale0".allowedTCPPorts = [
     8888
-    41717 # kikitori エンジン（x1ng1 / t14g4 が LAN/tailnet 越しに使う）
+    41717 # kikitori エンジン（x1ng1 / t14g4 が tailnet 経由で使う。LAN 直は不可）
   ];
 
   # ===========================================================================
