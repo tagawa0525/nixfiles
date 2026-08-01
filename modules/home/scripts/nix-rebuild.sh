@@ -14,6 +14,19 @@ HOSTNAME=$(hostname)
 # ~/.local/state/home-manager/gcroots に倣う（cache ではなく state）
 GCROOTS=~/.local/state/nix-rebuild/gcroots
 
+# switch は必ずこの関数を経由する。sudoers の NOPASSWD ルール
+# （modules/nix-rebuild-nopasswd.nix）はコマンド行の完全一致で許可を判定するため、
+# コマンドのフルパスと --flake の絶対パスをここ 1 箇所に集約して、sudoers と
+# 食い違わないようにする。PATH 解決や `--flake .` に依存すると sudoers と
+# 一致せず、パスワードを入力できない user service（自動更新）で失敗する。
+#
+# `--flake .` を許可しない理由: sudo は cwd を制約できないため、`.` を許した
+# ルールは「任意のディレクトリに置いた flake をパスワードなしで root 適用
+# できる」ことと等価になり、コマンド行を固定した意味が失われる。
+nixos_rebuild_switch() {
+  sudo /run/current-system/sw/bin/nixos-rebuild switch --flake "$NIXDIR"
+}
+
 rebuild() {
   cd "$NIXDIR" || return 1
   echo "📥 Pulling latest changes from remote..."
@@ -28,7 +41,7 @@ rebuild() {
     echo "   Consider running 'update' instead to sync properly"
   fi
   echo "🔨 Rebuilding NixOS..."
-  sudo nixos-rebuild switch --flake .
+  nixos_rebuild_switch
   cd - > /dev/null
 }
 
@@ -152,11 +165,7 @@ update() {
     return 1
   fi
   echo "🔨 Rebuilding NixOS..."
-  # コマンドのフルパスと --flake の絶対パスは modules/nix-auto-update.nix の
-  # NOPASSWD ルール（コマンド行の完全一致）に合わせるため。PATH 解決に
-  # 依存すると sudoers と不一致になり、user service ではパスワード入力
-  # できず失敗する。動作は sudo nixos-rebuild switch --flake . と同じ
-  if ! sudo /run/current-system/sw/bin/nixos-rebuild switch --flake "$NIXDIR"; then
+  if ! nixos_rebuild_switch; then
     echo "❌ Rebuild failed, not pushing changes"
     reset_lock
     cd - > /dev/null

@@ -16,38 +16,16 @@
 # 前提:
 #   - ~/.local/bin/nix-rebuild が存在する（modules/home/parts/shell.nix）
 #   - git push 用の SSH 鍵がパスフレーズなし、または agent で解錠済み
+#   - switch の NOPASSWD ルール（modules/nix-rebuild-nopasswd.nix）が入って
+#     いる。user service にはパスワード入力の機会がないため必須。
+#     modules/users/tagawa.nix 経由で全ホストに入る
 # =============================================================================
 { pkgs, ... }:
 
 let
-  # 実行ユーザーと flake のパス。sudoers の command 行は
-  # nix-rebuild.sh が発行するコマンド行（NIXDIR=~/nix/nixfiles）と
-  # 完全一致している必要があるため、変更時は両方を確認すること
   user = "tagawa";
-  nixdir = "/home/${user}/nix/nixfiles";
 in
 {
-  # user service にはパスワード入力の機会がないため、nix-rebuild.sh が
-  # 発行する固定コマンド行（引数まで完全一致）に限り NOPASSWD を許可する。
-  # 任意の flake を指定した即時 root 化には使えない。
-  #
-  # 残存リスク: 参照先の ~/nix/nixfiles は tagawa が書き込めるため、
-  # セッションを掌握した攻撃者は構成を書き換えることで次回実行時に root を
-  # 取れる。これは「ユーザー所有の構成を root 権限で自動適用する」仕組みに
-  # 固有のリスクで、sudo の絞り込みでは除去できない（即時のオンデマンド
-  # root 化を防ぐところまでが効果）。受容する
-  security.sudo.extraRules = [
-    {
-      users = [ user ];
-      commands = [
-        {
-          command = "/run/current-system/sw/bin/nixos-rebuild switch --flake ${nixdir}";
-          options = [ "NOPASSWD" ];
-        }
-      ];
-    }
-  ];
-
   systemd.user = {
     services = {
       nix-auto-update = {
