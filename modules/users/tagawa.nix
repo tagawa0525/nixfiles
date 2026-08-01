@@ -7,6 +7,7 @@
 #   - システムユーザー（権限・パスワードハッシュ・rootless container 用 sub UID/GID）
 #   - SSH authorized_keys（../home/users/tagawa/keys/*.pub を自動集約）
 #   - Home Manager 設定（dotfiles, shell, editors 等）の紐付け
+#   - nix-rebuild の switch を NOPASSWD で許可する sudoers ルール
 # workstation profile を import するホストでは、追加で libvirtd グループも
 # 条件付きで付与されます。
 #
@@ -35,6 +36,10 @@ let
       [ ];
 in
 {
+  # nix-rebuild の switch を NOPASSWD で許可する（このユーザーに紐づく
+  # sudoers ルールなので、tagawa が住むホストにだけ入るのが正しいスコープ）
+  imports = [ ../nix-rebuild-nopasswd.nix ];
+
   users.users.tagawa = {
     isNormalUser = true;
     # Rootlessコンテナ用のサブUID/GID範囲を割り当て

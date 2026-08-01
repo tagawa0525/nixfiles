@@ -15,7 +15,7 @@ HOSTNAME=$(hostname)
 GCROOTS=~/.local/state/nix-rebuild/gcroots
 
 # switch は必ずこの関数を経由する。sudoers の NOPASSWD ルール
-# （modules/nix-auto-update.nix）はコマンド行の完全一致で許可を判定するため、
+# （modules/nix-rebuild-nopasswd.nix）はコマンド行の完全一致で許可を判定するため、
 # コマンドのフルパスと --flake の絶対パスをここ 1 箇所に集約して、sudoers と
 # 食い違わないようにする。PATH 解決や `--flake .` に依存すると sudoers と
 # 一致せず、パスワードを入力できない user service（自動更新）で失敗する。
