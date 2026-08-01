@@ -145,8 +145,20 @@ in
   xdg.configFile."cosmic/com.system76.CosmicSettings.Shortcuts/v1/custom".text = ''
     {
         (modifiers: [Super], key: "v"): Spawn("${lib.getExe pkgs.voxtype-onnx} record toggle"),
+        (modifiers: [Super, Shift], key: "v"): Spawn("${lib.getExe pkgs.kikitori}"),
     }
   '';
+
+  # ===========================================================================
+  # kikitori（voxtype 後継、試行中）
+  # ===========================================================================
+  # リアルタイム部分表示つきのローカル音声入力。Super+Shift+V で
+  # 1 回目 = 録音開始（画面下部にバー表示）、2 回目 = 停止して wtype 入力。
+  # エンジン kikitorid は systemd ユーザーサービスとして常駐し、初回起動時に
+  # モデルを ~/.local/share/kikitori/ へ自動取得する（ExecStartPre）。
+  # 安定を確認したら Super+V を kikitori に差し替え、voxtype を撤去する。
+  # 置換辞書: ~/.config/kikitori/replace.tsv（任意）
+  services.kikitori.enable = true;
 
   # ===========================================================================
   # voxtype デーモン（systemd ユーザーサービス）
