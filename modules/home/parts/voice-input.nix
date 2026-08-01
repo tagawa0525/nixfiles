@@ -40,6 +40,9 @@ let
   whisperModel = if osConfig.networking.hostName == "x1ng1" then "small" else "large-v3-turbo";
 in
 {
+  # 依存ツールの追加インストールは不要: nixpkgs の voxtype は wrapProgram で
+  # dotool / wl-clipboard / wtype（および X11 用の xclip / xdotool）を
+  # 自身の PATH に注入している
   home.packages = [ pkgs.voxtype ];
 
   # ===========================================================================
