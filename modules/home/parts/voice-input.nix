@@ -42,10 +42,10 @@ let
   # small に落とす。認識精度は下がるが応答時間を優先する
   whisperModel = if hostName == "x1ng1" then "small" else "large-v3-turbo";
 
-  # whisper.cpp のデフォルトは 4 スレッドで、large-v3-turbo では実用に
-  # ならない遅さ（r995 で 13 秒の音声に 4 分超を実測）。物理コア数に
-  # 合わせて並列化する
-  whisperThreads =
+  # 推論スレッド数（whisper・SenseVoice 共用）。whisper.cpp のデフォルトは
+  # 4 スレッドで実用にならない遅さだった（r995 で 13 秒の音声に 4 分超を実測）。
+  # 物理コア数に合わせて並列化する
+  cpuThreads =
     {
       r995 = 16; # Ryzen 9950X: 16C/32T
       t14g4 = 8; # Core i7-1355U: 2P+8E
@@ -90,13 +90,22 @@ in
     model = "${whisperModel}"
     language = "ja"
     translate = false
-    threads = ${toString whisperThreads}
+    threads = ${toString cpuThreads}
     # context_window_optimization は有効化しない: 高速化はするが、turbo で
     # 既知の繰り返しループ（同一フレーズ連発）が実音声でも再現したため
     # 録音開始時にモデルをロードし、文字起こし後に解放する。
     # 常駐 RAM（large-v3-turbo で約 2GB）を節約する代わりに、
     # 使用のたびにロード時間（SSD なら 1〜2 秒）が加算される
     on_demand_loading = true
+
+    [sensevoice]
+    model = "sensevoice-small"
+    language = "ja"
+    # 句読点の自動付与
+    use_itn = true
+    threads = ${toString cpuThreads}
+    # モデルが小さい（数百MB・ロード数百ms）ため常駐させ、応答を最速にする
+    on_demand_loading = false
 
     [vad]
     # 音声区間検出。無音だけの録音を文字起こし前に棄却する。
