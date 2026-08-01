@@ -140,12 +140,12 @@ in
   # ===========================================================================
   # COSMIC カスタムショートカット
   # ===========================================================================
-  # Super+V で録音の開始/停止をトグルする。
-  # デーモンへ SIGUSR1/SIGUSR2 を送るだけなので即座に返る
+  # Super+V = kikitori（主系）。
+  # Super+Shift+V = voxtype（移行期のフォールバック。安定確認後に撤去する）
   xdg.configFile."cosmic/com.system76.CosmicSettings.Shortcuts/v1/custom".text = ''
     {
-        (modifiers: [Super], key: "v"): Spawn("${lib.getExe pkgs.voxtype-onnx} record toggle"),
-        (modifiers: [Super, Shift], key: "v"): Spawn("${lib.getExe pkgs.kikitori}"),
+        (modifiers: [Super], key: "v"): Spawn("${lib.getExe pkgs.kikitori}"),
+        (modifiers: [Super, Shift], key: "v"): Spawn("${lib.getExe pkgs.voxtype-onnx} record toggle"),
     }
   '';
 
@@ -157,7 +157,8 @@ in
   # エンジン kikitorid は r995 でのみ常駐し（初回起動時に ExecStartPre が
   # モデルを ~/.local/share/kikitori/ へ自動取得）、他ホストは
   # KIKITORI_ENGINE 経由で r995 へリモート接続する（下記）。
-  # 安定を確認したら Super+V を kikitori に差し替え、voxtype を撤去する。
+  # Super+V に昇格済み（2026-08-02）。voxtype は Super+Shift+V に退避中で、
+  # 安定確認後に撤去する。
   # 置換辞書: ~/.config/kikitori/replace.tsv（任意）
   #
   # エンジン配置: r995 だけがエンジンを持ち、tailscale0 に TCP 公開する
