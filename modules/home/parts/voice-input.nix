@@ -23,9 +23,9 @@
 #     wtype は COSMIC の virtual-keyboard 実装で誤動作する報告があるため
 #     driver_order から除外する
 #
-# 初回セットアップ（ホストごとに1回）:
-#   モデルは初回使用時に ~/.local/share/voxtype/ へ自動ダウンロードされる。
-#   手動で行う場合: `voxtype setup --download`
+# 初回セットアップ（ホストごとに1回、~/.local/share/voxtype/ へ取得）:
+#   voxtype setup --download   # whisper モデル（初回使用時の自動DLでも可）
+#   voxtype setup vad          # silero VAD モデル（約2MB）
 # =============================================================================
 {
   pkgs,
@@ -74,6 +74,14 @@ in
     # 常駐 RAM（large-v3-turbo で約 2GB）を節約する代わりに、
     # 使用のたびにロード時間（SSD なら 1〜2 秒）が加算される
     on_demand_loading = true
+
+    [vad]
+    # 音声区間検出。無音だけの録音を文字起こし前に棄却する。
+    # 無音を whisper に通すと幻覚（「ご視聴ありがとうございました」等）を
+    # 出力した上、デコードが数分間ループして CPU に張り付くため必須。
+    # silero VAD モデル（約2MB）が必要: `voxtype setup vad` で取得する
+    enabled = true
+    backend = "whisper"
 
     [output]
     # クリップボードにコピーしてから貼り付けキーを打鍵する（日本語対応の要）
