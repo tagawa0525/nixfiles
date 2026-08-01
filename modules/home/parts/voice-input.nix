@@ -35,9 +35,22 @@
 }:
 
 let
+  hostName = osConfig.networking.hostName;
+
   # x1ng1 (4コア Tiger Lake) では large-v3-turbo の CPU 推論が遅すぎるため
   # small に落とす。認識精度は下がるが応答時間を優先する
-  whisperModel = if osConfig.networking.hostName == "x1ng1" then "small" else "large-v3-turbo";
+  whisperModel = if hostName == "x1ng1" then "small" else "large-v3-turbo";
+
+  # whisper.cpp のデフォルトは 4 スレッドで、large-v3-turbo では実用に
+  # ならない遅さ（r995 で 13 秒の音声に 4 分超を実測）。物理コア数に
+  # 合わせて並列化する
+  whisperThreads =
+    {
+      r995 = 16; # Ryzen 9950X: 16C/32T
+      t14g4 = 8; # Core i7-1355U: 2P+8E
+      x1ng1 = 4; # Core i7-1160G7: 4C/8T
+    }
+    .${hostName} or 4;
 in
 {
   # 依存ツールの追加インストールは不要: nixpkgs の voxtype は wrapProgram で
@@ -70,6 +83,11 @@ in
     model = "${whisperModel}"
     language = "ja"
     translate = false
+    threads = ${toString whisperThreads}
+    # 録音長に合わせて処理する（既定は常に30秒枠へパディングされ、短い
+    # 発話でも30秒分のエンコードが走る）。turbo モデルは繰り返しループの
+    # 報告があるため既定では無効だが、無音は VAD で棄却済みなので有効化する
+    context_window_optimization = true
     # 録音開始時にモデルをロードし、文字起こし後に解放する。
     # 常駐 RAM（large-v3-turbo で約 2GB）を節約する代わりに、
     # 使用のたびにロード時間（SSD なら 1〜2 秒）が加算される
@@ -86,7 +104,10 @@ in
     [output]
     # クリップボードにコピーしてから貼り付けキーを打鍵する（日本語対応の要）
     mode = "paste"
-    paste_keys = "ctrl+v"
+    # Ctrl+V ではなく Shift+Insert を打鍵する。ターミナル（Alacritty は
+    # Ctrl+V がペーストでない）と GUI アプリの両方で通用する伝統的な
+    # ペーストキーのため
+    paste_keys = "shift+insert"
     # 元のクリップボード内容を退避し、貼り付け後に復元する
     restore_clipboard = true
     # wtype（COSMIC で誤動作）と ydotool（要デーモン）を除外し、
