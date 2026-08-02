@@ -30,23 +30,11 @@
 
 let
   # ワークスペース共通バージョン。手で二重管理すると src 更新時にずれるため
-  # Cargo.toml の [workspace.package] から抽出する（全クレートが
-  # version.workspace = true でこの値を参照している）。抽出できなければ
-  # 黙って別の値にフォールバックせず失敗させる。
-  cargoToml = builtins.readFile "${src}/Cargo.toml";
-  afterHeader = lib.splitString "[workspace.package]" cargoToml;
-  versionLine =
-    if builtins.length afterHeader < 2 then
-      throw "openlogi: Cargo.toml に [workspace.package] セクションが無い"
-    else
-      lib.findFirst (l: builtins.match "version = \"[^\"]+\"" l != null) null (
-        lib.splitString "\n" (builtins.elemAt afterHeader 1)
-      );
-  version =
-    if versionLine == null then
-      throw "openlogi: [workspace.package] の version 行を抽出できなかった"
-    else
-      builtins.head (builtins.match "version = \"([^\"]+)\"" versionLine);
+  # Cargo.toml の [workspace.package] から取る（全クレートが
+  # version.workspace = true でこの値を参照している）。キーが消えていたら
+  # 黙って別の値にフォールバックせず属性エラーで失敗させる。
+  cargoToml = builtins.fromTOML (builtins.readFile "${src}/Cargo.toml");
+  version = cargoToml.workspace.package.version;
 
   # GPUI は libwayland-client / libvulkan をリンクせず実行時に dlopen する。
   # NixOS の既定の検索パスには無いため、ラッパーで LD_LIBRARY_PATH を与える。
@@ -94,7 +82,14 @@ rustPlatform.buildRustPackage {
     # `../assets/assets/icons` を読み、upstream リポジトリのワークスペース配置を
     # 前提にしている。vendor ツリーはクレートを平坦に並べるためその兄弟
     # ディレクトリが無く、gpui-component-assets へのリンクで復元する。
-    ln -sfn "$cargoDepsCopy"/gpui-component-assets-* "$cargoDepsCopy/assets"
+    # glob が 0 件（クレート名変更）や複数件（バージョン混在）なら、ln の
+    # 引数ずれで意図しないリンクを作る前に明示的に失敗させる。
+    assets=("$cargoDepsCopy"/gpui-component-assets-*)
+    if [ ''${#assets[@]} -ne 1 ] || [ ! -d "''${assets[0]}" ]; then
+      echo "openlogi: gpui-component-assets の vendor ディレクトリを一意に特定できない: ''${assets[*]}" >&2
+      exit 1
+    fi
+    ln -sfn "''${assets[0]}" "$cargoDepsCopy/assets"
   '';
 
   env.OPENLOGI_THEMES_DIR = "${gpuiComponentSrc}/themes";
