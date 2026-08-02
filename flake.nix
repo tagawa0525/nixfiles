@@ -182,5 +182,21 @@
     in
     {
       nixosConfigurations = nixpkgs.lib.genAttrs hostNames mkHost;
+
+      # CI (openlogi-drift.yml) が fork の master HEAD に対して vendor 取得を
+      # 検証するためのエントリポイント。openlogi-cargo-deps は importCargoLock
+      # の vendor ディレクトリで、これのビルド = 全依存の取得とハッシュ検証。
+      # rust のコンパイルを伴わないため、gpui 等の rev bump によるハッシュずれを
+      # 数分で検知できる（コンパイルまで通るかは通常の update フローが担う）
+      packages.x86_64-linux =
+        let
+          openlogi = nixpkgs.legacyPackages.x86_64-linux.callPackage ./pkgs/openlogi/package.nix {
+            src = openlogi-src;
+          };
+        in
+        {
+          inherit openlogi;
+          openlogi-cargo-deps = openlogi.cargoDeps;
+        };
     };
 }
