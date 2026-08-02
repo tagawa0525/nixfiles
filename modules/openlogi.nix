@@ -1,11 +1,17 @@
 # =============================================================================
-# OpenLogi (Logitech Options+ 代替) のデバイスアクセス許可
+# OpenLogi (Logitech Options+ 代替) の統合
 # =============================================================================
-# https://github.com/AprilNEA/OpenLogi
-# ローカルビルドした openlogi / openlogi-agent / openlogi-gui が root なしで
-# Logitech デバイスを扱うための udev ルール。upstream 同梱の
-# packaging/linux/udev/70-openlogi.rules を基に、evdev フック用の入力イベント
-# ノード開放（Logitech 限定）を追加している。
+# https://github.com/tagawa0525/OpenLogi （upstream: AprilNEA/OpenLogi の fork）
+#
+# パッケージ本体は ./pkgs/openlogi/package.nix で flake input `openlogi-src`
+# からビルドする。以前はローカルの cargo 成果物（~/github/OpenLogi/target）を
+# 直接参照していたが、そのパスを持たない x1ng1 / t14g4 では動かせず、
+# nix flake update でも更新されなかったため input 化した。
+#
+# このモジュールが持つのは「システム側に要る設定」だけ:
+#   - デバイスアクセス許可 (udev + uinput)
+#   - エージェントの常駐 (systemd user service)
+#   - パッケージの導入
 #
 # uaccess タグは systemd-logind がアクティブシートのユーザーに ACL を付与する
 # 仕組みで、ユーザー名やグループ追加を書かずに済む。ただしタグ付与は
@@ -25,84 +31,32 @@
 #   ヘッドレス起動ではエージェントは uinput / evdev を開けないが、
 #   デスクトップ専用ツールなので意図通り。
 # =============================================================================
-{ pkgs, lib, ... }:
-
-let
-  # ローカルビルド（cargo build --release）の成果物パス。nixpkgs 化していない
-  # 試用段階のため、リポジトリの場所をここに直書きする
-  openlogiRepo = "/home/tagawa/github/OpenLogi";
-
-  # GPUI (Zed の UI フレームワーク) は libwayland-client / libvulkan を
-  # リンクせず実行時に dlopen する。NixOS では既定の検索パスにこれらが
-  # 存在しないため、LD_LIBRARY_PATH で供給するラッパーを介して起動する。
-  #
-  # ここで注入する wayland / vulkan-loader はシステムクロージャに入り
-  # GC root される。ただしバイナリ自身の実行時クロージャ（interpreter の
-  # glibc や RUNPATH 先）は devenv 側の gc root（~/github/OpenLogi/.devenv）
-  # 頼みで、このモジュールでは root しない（cargo 成果物は可変なため
-  # nix 側から追跡できない）。
-  #
-  # 既知のトレードオフ（意図的に許容）:
-  # - 注入 lib は nixfiles の lock、バイナリの glibc は devenv の lock 由来。
-  #   flake update で glibc がずれると "version GLIBC_x.xx not found" で
-  #   起動に失敗しうる。その場合は OpenLogi 側を再ビルドして揃える
-  # - LD_LIBRARY_PATH は GUI の子プロセスにも継承される。注入するのが
-  #   ほぼ全アプリがリンク済みの wayland / vulkan-loader のみのため実害は
-  #   想定しない（GUI 側で unset しない限り継承自体は避けられない）
-  openlogi-gui-wrapper = pkgs.writeShellScriptBin "openlogi-gui" ''
-    bin=${openlogiRepo}/target/release/openlogi-gui
-    if [ ! -x "$bin" ]; then
-      msg="openlogi-gui が見つかりません: $bin （cargo build --release が必要）"
-      echo "$msg" >&2
-      # ランチャー起動では stderr が journal にしか残らないため通知も出す
-      command -v notify-send > /dev/null && notify-send "OpenLogi" "$msg"
-      exit 127
-    fi
-    export LD_LIBRARY_PATH=${
-      lib.makeLibraryPath [
-        pkgs.wayland
-        pkgs.vulkan-loader
-      ]
-    }''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-    exec "$bin" "$@"
-  '';
-
-  # ランチャー（COSMIC 等）は XDG_DATA_DIRS 上の share/applications を読む。
-  # upstream の install.sh は /usr/share/applications 前提で NixOS では無効
-  # なため、システムパッケージとして .desktop を配置する
-  openlogi-desktop = pkgs.makeDesktopItem {
-    name = "openlogi";
-    desktopName = "OpenLogi";
-    comment = "Logitech HID++ device control — remap buttons, DPI, SmartShift";
-    # ラッパーは systemPackages で PATH に載るため、store パスを埋め込まず
-    # コマンド名で参照する（埋め込むとラッパー編集のたびに再ビルドが波及する）
-    exec = "openlogi-gui";
-    # アイコンも working tree の生ファイル参照。pure eval では flake 外の
-    # 絶対パスを store へ取り込めないため、バイナリと同じトレードオフに含める
-    # （リポジトリ移動時はアイコンだけ汎用プレースホルダに落ちる）
-    icon = "${openlogiRepo}/design/icon/openlogi.png";
-    categories = [
-      "Settings"
-      "HardwareSettings"
-    ];
-    keywords = [
-      "logitech"
-      "mouse"
-      "hid"
-      "remap"
-      "dpi"
-    ];
-    startupNotify = true;
-  };
-in
+{ pkgs, ... }:
 {
   # uinput カーネルモジュールのロード（ボタンリマップ用の仮想入力デバイス作成に必要）
   hardware.uinput.enable = true;
 
-  environment.systemPackages = [
-    openlogi-gui-wrapper
-    openlogi-desktop
-  ];
+  # openlogi (CLI) / openlogi-agent / openlogi-gui と .desktop・アイコンを含む
+  environment.systemPackages = [ pkgs.openlogi ];
+
+  # エージェントの常駐。upstream 同梱の
+  # packaging/linux/systemd/openlogi-agent.service は ExecStart が /usr/bin
+  # 固定で NixOS では使えないため、同等の内容を宣言的に持つ。
+  #
+  # GUI の「ログイン時に起動」設定は agent 自身に
+  # $XDG_CONFIG_HOME/systemd/user/openlogi-agent.service を書かせる。そちらは
+  # /etc/systemd/user のこの unit より優先されるので、両方あると nix 側の
+  # 定義が黙って無視される。移行時は手書きの unit を削除すること。
+  systemd.user.services.openlogi-agent = {
+    description = "OpenLogi background agent (Logitech HID++ device control)";
+    after = [ "graphical-session.target" ];
+    wantedBy = [ "graphical-session.target" ];
+    serviceConfig = {
+      ExecStart = "${pkgs.openlogi}/bin/openlogi-agent";
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
+  };
 
   services.udev.packages = [
     (pkgs.writeTextFile {

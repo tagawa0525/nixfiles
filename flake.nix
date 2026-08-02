@@ -81,6 +81,14 @@
       url = "github:tagawa0525/kikitori";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # OpenLogi: Logitech Options+ 代替（fork 運用）
+    # upstream は自前 flake を #262 で削除済み、nixpkgs 版は macOS 専用のため、
+    # ソースだけ取り込んで ./pkgs/openlogi/package.nix で Linux 向けにビルドする
+    openlogi-src = {
+      url = "github:tagawa0525/OpenLogi";
+      flake = false;
+    };
   };
 
   # ===========================================================================
@@ -99,6 +107,7 @@
       qmpo,
       cc-bar,
       kikitori,
+      openlogi-src,
       ...
     }:
     let
@@ -147,6 +156,10 @@
                 # kikitori: ローカル音声入力（voice-input.nix のショートカットが参照）
                 (final: prev: {
                   kikitori = kikitori.packages.${prev.stdenv.hostPlatform.system}.kikitori;
+                })
+                # OpenLogi: fork のソースを Linux 向けにビルド（modules/openlogi.nix が参照）
+                (final: _prev: {
+                  openlogi = final.callPackage ./pkgs/openlogi/package.nix { src = openlogi-src; };
                 })
                 # cc-bar の overlay は ./modules/cc-bar.nix に集約済み
               ];
