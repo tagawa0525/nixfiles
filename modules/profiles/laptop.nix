@@ -42,7 +42,7 @@
   # でしか動かないためサスペンドしない。この穴は cosmic-idle のアイドル
   # サスペンド（15 分）が塞ぐ。塞げていなかった時期の経緯は
   # docs/x1ng1-power-management.md を参照。
-  services.logind.lidSwitchExternalPower = "ignore";
+  services.logind.settings.Login.HandleLidSwitchExternalPower = "ignore";
 
   # ===========================================================================
   # 低残量時の保護 (UPower)

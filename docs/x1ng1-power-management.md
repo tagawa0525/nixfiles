@@ -42,7 +42,7 @@ S3 なら 1〜2%/日 で済むところ、s2idle では `0.3 W × 24 h = 7.2 Wh`
 蓋を閉じたままリモートから SSH して作業できるよう、AC 接続中は据え置きデスクトップとして扱う。
 
 ```nix
-services.logind.lidSwitchExternalPower = "ignore";
+services.logind.settings.Login.HandleLidSwitchExternalPower = "ignore";
 ```
 
 | 状態           | 蓋を閉じたとき | 意図              |
