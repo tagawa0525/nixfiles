@@ -155,11 +155,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1785658853,
-        "narHash": "sha256-2ZtOivSJKtOeE0J3W/Xh9Z4+pUPtSS2LPoOXeNT5V3U=",
+        "lastModified": 1785659948,
+        "narHash": "sha256-6CYu210ByrI7hzCXXTeroVCpSANNm6p8q3L7TCJgTUU=",
         "owner": "tagawa0525",
         "repo": "kikitori",
-        "rev": "e01b3ef8c12a521b2c9a506496cc744ea2a7585a",
+        "rev": "5cfc799d041fdf64bb923f5d31d7a2555c99acf4",
         "type": "github"
       },
       "original": {
