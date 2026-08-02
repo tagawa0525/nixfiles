@@ -318,6 +318,22 @@
         "type": "github"
       }
     },
+    "openlogi-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1785637725,
+        "narHash": "sha256-m5fUj5aMVriTSenuEu18SbhWatjl3chXdUzpOkpRrWo=",
+        "owner": "tagawa0525",
+        "repo": "OpenLogi",
+        "rev": "a281c573bd5accc2a1b6574ba3cfd9a481273c68",
+        "type": "github"
+      },
+      "original": {
+        "owner": "tagawa0525",
+        "repo": "OpenLogi",
+        "type": "github"
+      }
+    },
     "pre-commit": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -372,6 +388,7 @@
         "nixos-vscode-server": "nixos-vscode-server",
         "nixpkgs": "nixpkgs_3",
         "nur-vscode-latest": "nur-vscode-latest",
+        "openlogi-src": "openlogi-src",
         "qmpo": "qmpo"
       }
     },
