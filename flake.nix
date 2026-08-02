@@ -121,6 +121,14 @@
       );
 
       # ─────────────────────────────────────────────────────────────────────────
+      # OpenLogi パッケージの単一定義
+      # ─────────────────────────────────────────────────────────────────────────
+      # overlay（各ホストの pkgs.openlogi）と packages 出力（CI・単体ビルド）の
+      # 両方がここを参照する。定義を2箇所に持つと package.nix の引数変更時に
+      # 片方だけ更新される事故が起きるため一元化している
+      mkOpenlogi = pkgs: pkgs.callPackage ./pkgs/openlogi/package.nix { src = openlogi-src; };
+
+      # ─────────────────────────────────────────────────────────────────────────
       # mkHost: ホスト設定を生成するヘルパー関数
       # ─────────────────────────────────────────────────────────────────────────
       # 引数: ホスト名（hosts/<hostName>/配下に設定ファイルが必要）
@@ -158,9 +166,7 @@
                   kikitori = kikitori.packages.${prev.stdenv.hostPlatform.system}.kikitori;
                 })
                 # OpenLogi: fork のソースを Linux 向けにビルド（modules/openlogi.nix が参照）
-                (final: _prev: {
-                  openlogi = final.callPackage ./pkgs/openlogi/package.nix { src = openlogi-src; };
-                })
+                (final: _prev: { openlogi = mkOpenlogi final; })
                 # cc-bar の overlay は ./modules/cc-bar.nix に集約済み
               ];
               # Home Manager設定
@@ -182,5 +188,19 @@
     in
     {
       nixosConfigurations = nixpkgs.lib.genAttrs hostNames mkHost;
+
+      # CI (openlogi-drift.yml) が fork の master HEAD に対して vendor 取得を
+      # 検証するためのエントリポイント。openlogi-cargo-deps は importCargoLock
+      # の vendor ディレクトリで、これのビルド = 全依存の取得とハッシュ検証。
+      # rust のコンパイルを伴わないため、gpui 等の rev bump によるハッシュずれを
+      # 数分で検知できる（コンパイルまで通るかは通常の update フローが担う）
+      packages.x86_64-linux =
+        let
+          openlogi = mkOpenlogi nixpkgs.legacyPackages.x86_64-linux;
+        in
+        {
+          inherit openlogi;
+          openlogi-cargo-deps = openlogi.cargoDeps;
+        };
     };
 }
