@@ -56,8 +56,11 @@ let
       # 回収しないと接続のたびに `main-1` を作り直すことになる。
       # session_group は最初の1接続だけ空になるため、アンカーの main 自身も
       # 対象に含める（区切りが空でも列がずれないよう | で分割）。
-      # 複数ある場合は最後に切断したものを選ぶ（切断前の current window に
-      # 戻れるようにするため。名前順だと常に main が選ばれてしまう）
+      # 複数ある場合は最後にアタッチしたものを選ぶ。名前順だと常に main が
+      # 選ばれ、切断前の current window に戻れないため。
+      # session_last_attached は detach では更新されない（アタッチ時刻のまま。
+      # tmux 3.7で確認）ので「最後に切断した」とは一致しないが、ssh 切断からの
+      # 復帰では直前まで使っていたセッションが最後にアタッチしたものになる
       orphan=$(tmux list-sessions \
         -F '#{session_attached}|#{session_group}|#{session_last_attached}|#{session_name}' 2>/dev/null \
         | awk -F'|' '$1 == 0 && ($2 == "main" || $4 == "main")' \
