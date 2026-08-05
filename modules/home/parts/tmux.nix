@@ -40,7 +40,9 @@ let
   # `has-session -t main` の前方一致が複数ヒットして失敗し、下のelse側で
   # グループと無関係な新規`main`を作ってしまう（既存windowから切り離される）。
   # 同じ理由でセッション指定は `=` を付けて完全一致にする。
-  # ただし set-option の -t は target-pane 扱いで `=` を受け付けないため、
+  # ただし set-option だけは例外で、tmux(1) の記法が
+  # `set-option [-aFgopqsuUw] [-t target-pane]` と target-pane のため
+  # `=main` を渡すと `no such session: =main` になる（tmux 3.7で確認）。
   # そこだけ素の `main` を渡す（完全一致は前方一致より優先されるので安全）。
   tmuxConnectCmd = ''
     if tmux has-session -t '=main' 2>/dev/null; then
