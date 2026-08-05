@@ -68,7 +68,13 @@ let
         | head -n 1 \
         | cut -d'|' -f4)
       if [ -n "$orphan" ]; then
-        exec tmux attach -t "=$orphan"
+        # 回収対象が直前に消えた場合は通常経路にフォールバックする。ただし
+        # kill-server でサーバーごと落ちた場合まで作り直すと、ユーザーが
+        # 終了させたサーバーを復活させてしまうので、サーバーの生存を確認する
+        # （tmux 3.7 で実測した attach の終了コード: セッション不在=1、
+        #   attach中のkill-server=1、通常のデタッチ=0、対象セッションのkill=0）
+        tmux attach -t "=$orphan" && exit 0
+        tmux has-session -t '=main' 2>/dev/null || exit 1
       fi
 
       # 優先順位で空いているwindow番号を探す
