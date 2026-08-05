@@ -66,9 +66,14 @@ impl ZellijPlugin for State {
         }
         match message.payload.as_deref() {
             Some("new") => {
-                // 全スロット使用中は tmux の「通常の new-window」相当として
-                // 名前なし（自動名）で作成する
-                new_tab(find_free_slot(&self.tab_names), None);
+                // load_plugins はクライアントのアタッチごとにインスタンスを
+                // 増やし、パイプは全インスタンスに配送される。new_tab だと
+                // 1回の操作でインスタンス数だけタブが並ぶため、冪等な
+                // focus_or_create_tab を使う（最初の1つが作成、残りはフォーカス）。
+                // 全スロット使用中は何もしない（10タブが上限）
+                if let Some(slot) = find_free_slot(&self.tab_names) {
+                    focus_or_create_tab(slot);
+                }
             }
             Some(payload) => {
                 if let Some(slot) = payload.strip_prefix("goto:") {
