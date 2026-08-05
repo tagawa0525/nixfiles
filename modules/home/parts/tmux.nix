@@ -33,22 +33,38 @@ let
   # ===========================================================================
   # 既存セッションがあれば新規windowを作成してグループセッションで接続
   # なければ新規セッション作成
+  #
+  # `main` はグループの起点なので destroy-unattached の対象外にする。
+  # これがないと detach 時に `main` 自身が破棄され、残るのは `main-1` の
+  # ような番号付きセッションだけになる。その状態で2つ以上並存すると
+  # `has-session -t main` の前方一致が複数ヒットして失敗し、下のelse側で
+  # グループと無関係な新規`main`を作ってしまう（既存windowから切り離される）。
+  # 同じ理由でセッション指定は `=` を付けて完全一致にする。
+  # ただし set-option だけは例外で、tmux(1) の記法が
+  # `set-option [-aFgopqsuUw] [-t target-pane]` と target-pane のため
+  # `=main` を渡すと `no such session: =main` になる（tmux 3.7で確認）。
+  # そこだけ素の `main` を渡す（完全一致は前方一致より優先されるので安全）。
   tmuxConnectCmd = ''
-    if tmux has-session -t main 2>/dev/null; then
+    if tmux has-session -t '=main' 2>/dev/null; then
+      # アンカー保護はセッション単位の設定でサーバに永続しないため、接続の
+      # たびに設定し直す。この変更より前から動いているサーバや、local-tmux
+      # を経由せず作られた`main`が無防備なまま残るのを防ぐ（冪等）。
+      tmux set-option -t main destroy-unattached off
       # 優先順位で空いているwindow番号を探す
-      existing=$(tmux list-windows -t main -F '#I' 2>/dev/null)
+      existing=$(tmux list-windows -t '=main' -F '#I' 2>/dev/null)
       for n in ${windowPriority}; do
         if ! echo "$existing" | grep -q "^$n$"; then
-          exec tmux new-session -t main \; new-window -t ":$n"
+          exec tmux new-session -t '=main' \; new-window -t ":$n"
         fi
       done
       # 全て埋まっていたら通常のnew-window
-      exec tmux new-session -t main \; new-window
+      exec tmux new-session -t '=main' \; new-window
     else
       # 新規セッション：window 0で作成後、window 3に移動
       tmux new-session -d -s main
-      tmux move-window -s main:0 -t main:3
-      exec tmux attach -t main
+      tmux set-option -t main destroy-unattached off
+      tmux move-window -s '=main:0' -t '=main:3'
+      exec tmux attach -t '=main'
     fi
   '';
 
@@ -105,6 +121,12 @@ in
 
       # ウィンドウ番号の自動リナンバリング無効化
       set -g renumber-windows off
+
+      # detachしたグループセッションを自動破棄（グループ最後の1つは残す）
+      # local-tmuxは接続ごとに `new-session -t main` でビュー用セッションを
+      # 増やすが、端末を閉じてもdetachのまま残り続けるため。
+      # ウィンドウはグループ内で共有されるので、ビューを破棄してもshellは死なない。
+      set -g destroy-unattached keep-last
 
       # ステータスライン設定
       set -g status-left "#{session_name} | "
