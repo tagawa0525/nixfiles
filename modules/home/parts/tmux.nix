@@ -73,7 +73,8 @@ let
         # 終了させたサーバーを復活させてしまうので、サーバーの生存を確認する
         # （tmux 3.7 で実測した attach の終了コード: セッション不在=1、
         #   attach中のkill-server=1、通常のデタッチ=0、対象セッションのkill=0）
-        tmux attach -t "=$orphan" && exit 0
+        # 失敗はフォールバックで吸収するので、紛らわしいエラーは出さない
+        tmux attach -t "=$orphan" 2>/dev/null && exit 0
         tmux has-session -t '=main' 2>/dev/null || exit 1
       fi
 
