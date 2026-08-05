@@ -72,7 +72,7 @@ in
             bind "Down" { MoveFocus "Down"; SwitchToMode "Locked"; }
             bind "Up" { MoveFocus "Up"; SwitchToMode "Locked"; }
         }
-        // 以下3モードはデフォルト設定の写し（Normalへの遷移をLockedに変更）
+        // 以下のモードはデフォルト設定の写し（Normalへの遷移をLockedに変更）
         scroll {
             bind "q" "Esc" "Ctrl c" { ScrollToBottom; SwitchToMode "Locked"; }
             bind "e" { EditScrollback; SwitchToMode "Locked"; }
