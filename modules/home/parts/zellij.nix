@@ -35,9 +35,10 @@ let
   };
   slotsPlugin = "file:${zellij-slots}/bin/zellij-slots.wasm";
 
-  # スロットNへのジャンプ（プレフィックス+数字。tmuxのselect-window相当）
+  # スロットNへのジャンプ（プレフィックス+数字。tmuxのselect-window相当）。
+  # プレフィックスからCtrlを離さず押した場合（Ctrl+N）でも効くよう両方束ねる
   gotoBinds = lib.concatMapStrings (n: ''
-    bind "${n}" { MessagePlugin "${slotsPlugin}" { name "slots"; payload "goto:${n}"; }; SwitchToMode "Locked"; }
+    bind "${n}" "Ctrl ${n}" { MessagePlugin "${slotsPlugin}" { name "slots"; payload "goto:${n}"; }; SwitchToMode "Locked"; }
   '') (map toString (lib.range 0 9));
 in
 {
@@ -49,12 +50,17 @@ in
   # - Ctrl+\ でプレフィックス（tmuxモード）に入り、1キー実行して戻る
   xdg.configFile."zellij/config.kdl".text = ''
     keybinds clear-defaults=true {
+        // プレフィックスは2つの形式で届く:
+        // - kitty keyboard protocol対応端末（Alacritty）: 「Ctrl \」
+        // - 非対応端末（VSCodeターミナル等）: 生バイト0x1C。Zellij同梱の
+        //   termwizはCtrl+A〜Z（0x01〜0x1A）しか変換せず、0x1Cは素の制御
+        //   文字のまま届くため「\u{1c}」として併記する
         locked {
-            bind "Ctrl \\" { SwitchToMode "Tmux"; }
+            bind "Ctrl \\" "\u{1c}" { SwitchToMode "Tmux"; }
         }
         tmux {
             // 2回押しで直前のタブに戻る（tmuxのlast-window相当）
-            bind "Ctrl \\" { ToggleTab; SwitchToMode "Locked"; }
+            bind "Ctrl \\" "\u{1c}" { ToggleTab; SwitchToMode "Locked"; }
             bind "Esc" "Enter" { SwitchToMode "Locked"; }
             // 優先順位で空いているスロット番号に新規タブを作成
             bind "c" { MessagePlugin "${slotsPlugin}" { name "slots"; payload "new"; }; SwitchToMode "Locked"; }
