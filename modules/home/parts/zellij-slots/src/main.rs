@@ -1,0 +1,121 @@
+// =============================================================================
+// zellij-slots: スロット式タブ管理プラグイン
+// =============================================================================
+// Zellij のタブは位置ベースで、閉じると後続が詰められ固定番号を持てない。
+// そこでタブ「名」をスロット番号として扱い、tmux の window 番号運用を再現する:
+//   - new:    優先順位で空いているスロット番号を名前にしてタブを作成
+//   - goto:N: その名前のタブへフォーカス（不在なら何もしない）
+// キーバインドの MessagePlugin から name="slots" のパイプで呼び出される。
+// =============================================================================
+// ホスト向けビルド（cargo test）ではプラグイン本体を除外するため、
+// 未使用importと未使用定義の警告をwasm外でだけ抑制する
+#![cfg_attr(not(target_arch = "wasm32"), allow(unused_imports, dead_code))]
+
+use std::collections::BTreeMap;
+
+use zellij_tile::prelude::*;
+
+/// スロット番号の優先順位（押しやすい順）。tmux.nix の windowPriority と同じ
+const SLOT_PRIORITY: [&str; 10] = ["3", "4", "2", "8", "7", "9", "5", "6", "1", "0"];
+
+/// パイプの名前。キーバインド側の MessagePlugin と一致させる
+const PIPE_NAME: &str = "slots";
+
+/// 優先順位で最初に空いているスロット番号を返す。全て使用中なら None
+fn find_free_slot(used: &[String]) -> Option<&'static str> {
+    SLOT_PRIORITY
+        .iter()
+        .copied()
+        .find(|slot| !used.iter().any(|name| name == slot))
+}
+
+#[derive(Default)]
+struct State {
+    tab_names: Vec<String>,
+}
+
+// Zellijのホスト関数はwasm実行環境にしか存在せず、ホスト向けの
+// cargo test ではリンクできないため、プラグイン本体はwasm限定にする
+#[cfg(target_arch = "wasm32")]
+register_plugin!(State);
+
+// ユニットテスト実行時のバイナリビルドを通すためのダミー
+#[cfg(not(target_arch = "wasm32"))]
+fn main() {}
+
+#[cfg(target_arch = "wasm32")]
+impl ZellijPlugin for State {
+    fn load(&mut self, _configuration: BTreeMap<String, String>) {
+        request_permission(&[
+            PermissionType::ReadApplicationState,
+            PermissionType::ChangeApplicationState,
+        ]);
+        subscribe(&[EventType::TabUpdate]);
+    }
+
+    fn update(&mut self, event: Event) -> bool {
+        if let Event::TabUpdate(tabs) = event {
+            self.tab_names = tabs.into_iter().map(|t| t.name).collect();
+        }
+        false
+    }
+
+    fn pipe(&mut self, message: PipeMessage) -> bool {
+        if message.name != PIPE_NAME {
+            return false;
+        }
+        match message.payload.as_deref() {
+            Some("new") => {
+                // 全スロット使用中は tmux の「通常の new-window」相当として
+                // 名前なし（自動名）で作成する
+                new_tab(find_free_slot(&self.tab_names), None);
+            }
+            Some(payload) => {
+                if let Some(slot) = payload.strip_prefix("goto:") {
+                    go_to_tab_name(slot);
+                }
+            }
+            None => {}
+        }
+        false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn names(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn 空のとき最優先の3を返す() {
+        assert_eq!(find_free_slot(&[]), Some("3"));
+    }
+
+    #[test]
+    fn 優先順位どおりに次の空きを返す() {
+        assert_eq!(find_free_slot(&names(&["3"])), Some("4"));
+        assert_eq!(find_free_slot(&names(&["3", "4"])), Some("2"));
+        assert_eq!(find_free_slot(&names(&["3", "4", "2"])), Some("8"));
+    }
+
+    #[test]
+    fn 途中の空きスロットを再利用する() {
+        // 3,4,2,8 から 4 を閉じた状態
+        assert_eq!(find_free_slot(&names(&["3", "2", "8"])), Some("4"));
+    }
+
+    #[test]
+    fn スロット外の名前は使用状況に影響しない() {
+        // 手動リネームされたタブがあっても空き判定は変わらない
+        assert_eq!(find_free_slot(&names(&["3", "logs"])), Some("4"));
+    }
+
+    #[test]
+    fn 全スロット使用中はnoneを返す() {
+        let all: Vec<String> = SLOT_PRIORITY.iter().map(|s| s.to_string()).collect();
+        assert_eq!(find_free_slot(&all), None);
+    }
+}
