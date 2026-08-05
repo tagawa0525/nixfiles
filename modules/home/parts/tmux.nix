@@ -31,8 +31,8 @@ let
   # ===========================================================================
   # tmux接続の共通ロジック
   # ===========================================================================
-  # 既存セッションがあれば新規windowを作成してグループセッションで接続
-  # なければ新規セッション作成
+  # 未接続セッションがあれば回収、なければ新規windowを作成してグループ接続
+  # どちらも無ければ新規セッション作成
   #
   # `main` はグループの起点なので destroy-unattached の対象外にする。
   # これがないと detach 時に `main` 自身が破棄され、残るのは `main-1` の
@@ -50,6 +50,34 @@ let
       # たびに設定し直す。この変更より前から動いているサーバや、local-tmux
       # を経由せず作られた`main`が無防備なまま残るのを防ぐ（冪等）。
       tmux set-option -t main destroy-unattached off
+
+      # クライアントが繋がっていないセッションがあれば回収して再利用する。
+      # destroy-unattached の対象外である `main` は detach 後も残るため、
+      # 回収しないと接続のたびに `main-1` を作り直すことになる。
+      # session_group は最初の1接続だけ空になるため、アンカーの main 自身も
+      # 対象に含める（区切りが空でも列がずれないよう | で分割）。
+      # 複数ある場合は最後にアタッチしたものを選ぶ。名前順だと常に main が
+      # 選ばれ、切断前の current window に戻れないため。
+      # session_last_attached は detach では更新されない（アタッチ時刻のまま。
+      # tmux 3.7で確認）ので「最後に切断した」とは一致しないが、ssh 切断からの
+      # 復帰では直前まで使っていたセッションが最後にアタッチしたものになる
+      orphan=$(tmux list-sessions \
+        -F '#{session_attached}|#{session_group}|#{session_last_attached}|#{session_name}' 2>/dev/null \
+        | awk -F'|' '$1 == 0 && ($2 == "main" || $4 == "main")' \
+        | sort -t'|' -k3,3nr \
+        | head -n 1 \
+        | cut -d'|' -f4)
+      if [ -n "$orphan" ]; then
+        # 回収対象が直前に消えた場合は通常経路にフォールバックする。ただし
+        # kill-server でサーバーごと落ちた場合まで作り直すと、ユーザーが
+        # 終了させたサーバーを復活させてしまうので、サーバーの生存を確認する
+        # （tmux 3.7 で実測した attach の終了コード: セッション不在=1、
+        #   attach中のkill-server=1、通常のデタッチ=0、対象セッションのkill=0）
+        # 失敗はフォールバックで吸収するので、紛らわしいエラーは出さない
+        tmux attach -t "=$orphan" 2>/dev/null && exit 0
+        tmux has-session -t '=main' 2>/dev/null || exit 1
+      fi
+
       # 優先順位で空いているwindow番号を探す
       existing=$(tmux list-windows -t '=main' -F '#I' 2>/dev/null)
       for n in ${windowPriority}; do
