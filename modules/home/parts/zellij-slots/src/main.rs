@@ -7,6 +7,10 @@
 //   - goto:N: その名前のタブへフォーカス（不在なら何もしない）
 // キーバインドの MessagePlugin から name="slots" のパイプで呼び出される。
 // =============================================================================
+// ホスト向けビルド（cargo test）ではプラグイン本体を除外するため、
+// 未使用importと未使用定義の警告をwasm外でだけ抑制する
+#![cfg_attr(not(target_arch = "wasm32"), allow(unused_imports, dead_code))]
+
 use std::collections::BTreeMap;
 
 use zellij_tile::prelude::*;
@@ -19,7 +23,10 @@ const PIPE_NAME: &str = "slots";
 
 /// 優先順位で最初に空いているスロット番号を返す。全て使用中なら None
 fn find_free_slot(used: &[String]) -> Option<&'static str> {
-    todo!()
+    SLOT_PRIORITY
+        .iter()
+        .copied()
+        .find(|slot| !used.iter().any(|name| name == slot))
 }
 
 #[derive(Default)]
@@ -27,8 +34,16 @@ struct State {
     tab_names: Vec<String>,
 }
 
+// Zellijのホスト関数はwasm実行環境にしか存在せず、ホスト向けの
+// cargo test ではリンクできないため、プラグイン本体はwasm限定にする
+#[cfg(target_arch = "wasm32")]
 register_plugin!(State);
 
+// ユニットテスト実行時のバイナリビルドを通すためのダミー
+#[cfg(not(target_arch = "wasm32"))]
+fn main() {}
+
+#[cfg(target_arch = "wasm32")]
 impl ZellijPlugin for State {
     fn load(&mut self, _configuration: BTreeMap<String, String>) {
         request_permission(&[
@@ -46,7 +61,22 @@ impl ZellijPlugin for State {
     }
 
     fn pipe(&mut self, message: PipeMessage) -> bool {
-        let _ = message;
+        if message.name != PIPE_NAME {
+            return false;
+        }
+        match message.payload.as_deref() {
+            Some("new") => {
+                // 全スロット使用中は tmux の「通常の new-window」相当として
+                // 名前なし（自動名）で作成する
+                new_tab(find_free_slot(&self.tab_names), None);
+            }
+            Some(payload) => {
+                if let Some(slot) = payload.strip_prefix("goto:") {
+                    go_to_tab_name(slot);
+                }
+            }
+            None => {}
+        }
         false
     }
 }
