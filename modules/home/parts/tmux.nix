@@ -55,9 +55,15 @@ let
       # destroy-unattached の対象外である `main` は detach 後も残るため、
       # 回収しないと接続のたびに `main-1` を作り直すことになる。
       # session_group は最初の1接続だけ空になるため、アンカーの main 自身も
-      # 対象に含める（区切りが空でも列がずれないよう | で分割）
-      orphan=$(tmux list-sessions -F '#{session_attached}|#{session_group}|#{session_name}' 2>/dev/null \
-        | awk -F'|' '$1 == 0 && ($2 == "main" || $3 == "main") { print $3; exit }')
+      # 対象に含める（区切りが空でも列がずれないよう | で分割）。
+      # 複数ある場合は最後に切断したものを選ぶ（切断前の current window に
+      # 戻れるようにするため。名前順だと常に main が選ばれてしまう）
+      orphan=$(tmux list-sessions \
+        -F '#{session_attached}|#{session_group}|#{session_last_attached}|#{session_name}' 2>/dev/null \
+        | awk -F'|' '$1 == 0 && ($2 == "main" || $4 == "main")' \
+        | sort -t'|' -k3,3nr \
+        | head -n 1 \
+        | cut -d'|' -f4)
       if [ -n "$orphan" ]; then
         exec tmux attach -t "=$orphan"
       fi
