@@ -31,8 +31,8 @@ let
   # ===========================================================================
   # tmux接続の共通ロジック
   # ===========================================================================
-  # 既存セッションがあれば新規windowを作成してグループセッションで接続
-  # なければ新規セッション作成
+  # 未接続セッションがあれば回収、なければ新規windowを作成してグループ接続
+  # どちらも無ければ新規セッション作成
   #
   # `main` はグループの起点なので destroy-unattached の対象外にする。
   # これがないと detach 時に `main` 自身が破棄され、残るのは `main-1` の
@@ -50,6 +50,18 @@ let
       # たびに設定し直す。この変更より前から動いているサーバや、local-tmux
       # を経由せず作られた`main`が無防備なまま残るのを防ぐ（冪等）。
       tmux set-option -t main destroy-unattached off
+
+      # クライアントが繋がっていないセッションがあれば回収して再利用する。
+      # destroy-unattached の対象外である `main` は detach 後も残るため、
+      # 回収しないと接続のたびに `main-1` を作り直すことになる。
+      # session_group は最初の1接続だけ空になるため、アンカーの main 自身も
+      # 対象に含める（区切りが空でも列がずれないよう | で分割）
+      orphan=$(tmux list-sessions -F '#{session_attached}|#{session_group}|#{session_name}' 2>/dev/null \
+        | awk -F'|' '$1 == 0 && ($2 == "main" || $3 == "main") { print $3; exit }')
+      if [ -n "$orphan" ]; then
+        exec tmux attach -t "=$orphan"
+      fi
+
       # 優先順位で空いているwindow番号を探す
       existing=$(tmux list-windows -t '=main' -F '#I' 2>/dev/null)
       for n in ${windowPriority}; do
