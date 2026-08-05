@@ -106,6 +106,12 @@ in
       # ウィンドウ番号の自動リナンバリング無効化
       set -g renumber-windows off
 
+      # detachしたグループセッションを自動破棄（グループ最後の1つは残す）
+      # local-tmuxは接続ごとに `new-session -t main` でビュー用セッションを
+      # 増やすが、端末を閉じてもdetachのまま残り続けるため。
+      # ウィンドウはグループ内で共有されるので、ビューを破棄してもshellは死なない。
+      set -g destroy-unattached keep-last
+
       # ステータスライン設定
       set -g status-left "#{session_name} | "
       set -g status-right "%Y/%m/%d %H:%M"
