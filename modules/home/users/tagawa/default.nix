@@ -14,6 +14,7 @@
   imports = [
     ../../parts/shell.nix # Fish, Starship, Zoxide, Direnv, fzf, bat
     ../../parts/tmux.nix # Tmux設定と接続スクリプト
+    ../../parts/zellij.nix # Zellij設定と接続スクリプト（tmuxからの移行検証用）
     ../../parts/editors.nix # VSCode, Neovim, Zed, Alacritty
     ../../parts/desktop.nix # COSMIC, XDG, fcitx5, mimeApps
     ../../parts/voice-input.nix # kikitori（ローカル音声入力、Super+V）
