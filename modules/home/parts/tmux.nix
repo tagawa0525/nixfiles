@@ -44,6 +44,10 @@ let
   # そこだけ素の `main` を渡す（完全一致は前方一致より優先されるので安全）。
   tmuxConnectCmd = ''
     if tmux has-session -t '=main' 2>/dev/null; then
+      # アンカー保護はセッション単位の設定でサーバに永続しないため、接続の
+      # たびに設定し直す。この変更より前から動いているサーバや、local-tmux
+      # を経由せず作られた`main`が無防備なまま残るのを防ぐ（冪等）。
+      tmux set-option -t main destroy-unattached off
       # 優先順位で空いているwindow番号を探す
       existing=$(tmux list-windows -t '=main' -F '#I' 2>/dev/null)
       for n in ${windowPriority}; do
