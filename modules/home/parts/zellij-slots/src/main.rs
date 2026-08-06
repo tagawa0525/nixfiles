@@ -11,7 +11,7 @@
 // 未使用importと未使用定義の警告をwasm外でだけ抑制する
 #![cfg_attr(not(target_arch = "wasm32"), allow(unused_imports, dead_code))]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use zellij_tile::prelude::*;
 
@@ -98,7 +98,11 @@ fn secs_to_next_minute(epoch_secs: u64) -> f64 {
 
 #[derive(Default)]
 struct State {
-    tab_names: Vec<String>,
+    tabs: Vec<TabInfo>,
+    panes: HashMap<usize, Vec<PaneInfo>>,
+    mode_info: ModeInfo,
+    /// 直近のrenderで確定したクリック領域: [start, end) 表示列 → switch_tab_to用の1-based index
+    click_regions: Vec<(usize, usize, u32)>,
 }
 
 // Zellijのホスト関数はwasm実行環境にしか存在せず、ホスト向けの
@@ -111,34 +115,93 @@ register_plugin!(State);
 fn main() {}
 
 #[cfg(target_arch = "wasm32")]
+fn now_epoch() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or_default()
+}
+
+/// タブに表示するタイトル（tmuxの#W相当）。フォーカス中のペインを優先し、
+/// 自分自身を含むプラグインペイン（ステータスバー）は除外する
+#[cfg(target_arch = "wasm32")]
+fn title_for_tab(panes: Option<&Vec<PaneInfo>>) -> String {
+    let Some(panes) = panes else {
+        return String::new();
+    };
+    let terminals: Vec<&PaneInfo> = panes.iter().filter(|p| !p.is_plugin).collect();
+    terminals
+        .iter()
+        .find(|p| p.is_focused)
+        .or_else(|| terminals.first())
+        .map(|p| p.title.clone())
+        .unwrap_or_default()
+}
+
+#[cfg(target_arch = "wasm32")]
 impl ZellijPlugin for State {
     fn load(&mut self, _configuration: BTreeMap<String, String>) {
         request_permission(&[
             PermissionType::ReadApplicationState,
             PermissionType::ChangeApplicationState,
         ]);
-        subscribe(&[EventType::TabUpdate]);
+        set_selectable(false);
+        subscribe(&[
+            EventType::TabUpdate,
+            EventType::PaneUpdate,
+            EventType::ModeUpdate,
+            EventType::Timer,
+            EventType::Mouse,
+        ]);
+        // 時計の更新タイマー。初回発火時に分頭へ揃える
+        set_timeout(1.0);
     }
 
     fn update(&mut self, event: Event) -> bool {
-        if let Event::TabUpdate(tabs) = event {
-            self.tab_names = tabs.into_iter().map(|t| t.name).collect();
+        match event {
+            Event::TabUpdate(tabs) => {
+                self.tabs = tabs;
+                true
+            }
+            Event::PaneUpdate(manifest) => {
+                self.panes = manifest.panes;
+                true
+            }
+            Event::ModeUpdate(mode_info) => {
+                self.mode_info = mode_info;
+                true
+            }
+            Event::Timer(_) => {
+                set_timeout(secs_to_next_minute(now_epoch()));
+                true
+            }
+            Event::Mouse(Mouse::LeftClick(_, col)) => {
+                let hit = self
+                    .click_regions
+                    .iter()
+                    .find(|(start, end, _)| (*start..*end).contains(&col));
+                if let Some((_, _, idx)) = hit {
+                    switch_tab_to(*idx);
+                }
+                false
+            }
+            _ => false,
         }
-        false
     }
 
     fn pipe(&mut self, message: PipeMessage) -> bool {
         if message.name != PIPE_NAME {
             return false;
         }
+        let tab_names: Vec<String> = self.tabs.iter().map(|t| t.name.clone()).collect();
         match message.payload.as_deref() {
             Some("new") => {
-                // load_plugins はクライアントのアタッチごとにインスタンスを
-                // 増やし、パイプは全インスタンスに配送される。new_tab だと
-                // 1回の操作でインスタンス数だけタブが並ぶため、冪等な
+                // このプラグインはタブごとにインスタンス化され、パイプは
+                // 全インスタンスに配送される。new_tab だと1回の操作で
+                // インスタンス数だけタブが並ぶため、冪等な
                 // focus_or_create_tab を使う（最初の1つが作成、残りはフォーカス）。
                 // 全スロット使用中は何もしない（10タブが上限）
-                if let Some(slot) = find_free_slot(&self.tab_names) {
+                if let Some(slot) = find_free_slot(&tab_names) {
                     focus_or_create_tab(slot);
                 }
             }
@@ -150,6 +213,60 @@ impl ZellijPlugin for State {
             None => {}
         }
         false
+    }
+
+    fn render(&mut self, _rows: usize, cols: usize) {
+        // 左側: セッション名 + スロット番号順のタブ一覧（tmuxのstatus-left + window一覧相当）
+        let session = self.mode_info.session_name.clone().unwrap_or_default();
+        let mut plain = format!("{} | ", session);
+        let mut ansi = plain.clone();
+        self.click_regions.clear();
+        let positions: Vec<(usize, String)> = self
+            .tabs
+            .iter()
+            .map(|t| (t.position, t.name.clone()))
+            .collect();
+        for position in display_order(&positions) {
+            let Some(tab) = self.tabs.iter().find(|t| t.position == position) else {
+                continue;
+            };
+            let title = title_for_tab(self.panes.get(&position));
+            let label = format!(" {} ", tab_label(&tab.name, &title));
+            let start = plain.chars().count();
+            plain.push_str(&label);
+            self.click_regions
+                .push((start, plain.chars().count(), position as u32 + 1));
+            if tab.active {
+                // tmuxのwindow-status-current-style bg=white に合わせる
+                ansi.push_str(&format!("\u{1b}[47;30m{}\u{1b}[0m", label));
+            } else {
+                ansi.push_str(&label);
+            }
+        }
+
+        // 右側: モード表示 + 日時（tmuxのstatus-right相当）
+        let marker = match self.mode_info.mode {
+            InputMode::Tmux => " ^\\ ",
+            InputMode::Scroll => " SCROLL ",
+            InputMode::EnterSearch | InputMode::Search => " SEARCH ",
+            InputMode::RenameTab => " RENAME ",
+            _ => "",
+        };
+        let datetime = format_datetime_jst(now_epoch());
+        let right_plain = format!("{}{}", marker, datetime);
+        let right_ansi = if marker.is_empty() {
+            datetime.clone()
+        } else {
+            format!("\u{1b}[43;30m{}\u{1b}[0m{}", marker, datetime)
+        };
+
+        let used = plain.chars().count() + right_plain.chars().count();
+        print!(
+            "{}{}{}",
+            ansi,
+            " ".repeat(cols.saturating_sub(used)),
+            right_ansi
+        );
     }
 }
 
