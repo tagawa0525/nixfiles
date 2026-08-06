@@ -96,6 +96,20 @@ fn secs_to_next_minute(epoch_secs: u64) -> f64 {
     (60 - epoch_secs % 60) as f64
 }
 
+/// バー左側のクリック領域を組み立てる（(ラベル, switch_tab_to用index) の列から）。
+/// マウスイベントの列は端末のセル列なので、文字数ではなくセル幅で数える。
+/// 文字数で数えると全角文字（日本語のタイトル等）でクリック位置がずれる
+fn build_click_regions(prefix: &str, labels: &[(String, u32)]) -> Vec<(usize, usize, u32)> {
+    let _ = (prefix, labels);
+    todo!()
+}
+
+/// 文字列の端末上のセル幅（全角は2セル）
+fn cell_width(s: &str) -> usize {
+    let _ = s;
+    todo!()
+}
+
 #[derive(Default)]
 struct State {
     tabs: Vec<TabInfo>,
@@ -366,5 +380,28 @@ mod tests {
         assert_eq!(secs_to_next_minute(120), 60.0); // ちょうど分頭なら次の分まで60秒
         assert_eq!(secs_to_next_minute(121), 59.0);
         assert_eq!(secs_to_next_minute(179), 1.0);
+    }
+
+    fn labels(v: &[(&str, u32)]) -> Vec<(String, u32)> {
+        v.iter().map(|(s, i)| (s.to_string(), *i)).collect()
+    }
+
+    #[test]
+    fn クリック領域はセル幅で数える() {
+        // ASCIIのみ: "main | " = 7セル
+        assert_eq!(
+            build_click_regions("main | ", &labels(&[(" 2:a ", 3), (" 3:b ", 1)])),
+            vec![(7, 12, 3), (12, 17, 1)]
+        );
+    }
+
+    #[test]
+    fn 全角文字は2セルとして数える() {
+        // " 3:日本語 " = 1+2+2*3+1 = 10セル（文字数は7）
+        assert_eq!(
+            build_click_regions("m | ", &labels(&[(" 3:日本語 ", 1), (" 4:x ", 2)])),
+            vec![(4, 14, 1), (14, 19, 2)]
+        );
+        assert_eq!(cell_width("あa"), 3);
     }
 }
