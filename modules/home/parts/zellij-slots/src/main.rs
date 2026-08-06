@@ -306,7 +306,7 @@ impl ZellijPlugin for State {
             Event::PaneUpdate(manifest) => {
                 self.panes = manifest.panes;
                 // 閉じたペインの上書きタイトルを掃除する
-                let live: Vec<u32> = self
+                let live: std::collections::HashSet<u32> = self
                     .panes
                     .values()
                     .flatten()

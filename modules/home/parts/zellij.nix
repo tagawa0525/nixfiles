@@ -180,7 +180,7 @@ in
       function __zellij_slots_notify --argument-names title
         # 隠れているタブのバーが処理を終えるまでCLIパイプはブロックする
         # ことがあるため、タイムアウトを付けてバックグラウンドで流す
-        command timeout 2 zellij pipe --name slots -- "title:$ZELLIJ_PANE_ID:$title" >/dev/null 2>&1 &
+        command ${pkgs.coreutils}/bin/timeout 2 ${pkgs.zellij}/bin/zellij pipe --name slots -- "title:$ZELLIJ_PANE_ID:$title" >/dev/null 2>&1 &
         disown
       end
       function __zellij_slots_preexec --on-event fish_preexec
