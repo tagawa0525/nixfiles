@@ -163,20 +163,22 @@ fn now_epoch() -> u64 {
         .unwrap_or_default()
 }
 
+/// 「title:<pane_id>:<コマンド名>」形式のパイプペイロードを解析する。
+/// fishのフック（fish_preexec / fish_prompt）がコマンドの開始・終了を
+/// このペイロードで通知してくる（Zellijはペインタイトルの変更だけでは
+/// イベントを発行しないため、シェル側から押し込む必要がある）
+fn parse_title_payload(payload: &str) -> Option<(u32, &str)> {
+    let _ = payload;
+    todo!()
+}
+
 /// タブに表示するタイトル（tmuxの#W相当）。フォーカス中のペインを優先し、
-/// 自分自身を含むプラグインペイン（ステータスバー）は除外する
-#[cfg(target_arch = "wasm32")]
-fn title_for_tab(panes: Option<&Vec<PaneInfo>>) -> String {
-    let Some(panes) = panes else {
-        return String::new();
-    };
-    let terminals: Vec<&PaneInfo> = panes.iter().filter(|p| !p.is_plugin).collect();
-    terminals
-        .iter()
-        .find(|p| p.is_focused)
-        .or_else(|| terminals.first())
-        .map(|p| p.title.clone())
-        .unwrap_or_default()
+/// 自分自身を含むプラグインペイン（ステータスバー）は除外する。
+/// overrides（fishフック由来のペインID→コマンド名）があればそちらを優先する
+/// （PaneInfo.titleは構造変化時にしか更新されず古いため）
+fn title_for_tab(panes: Option<&Vec<PaneInfo>>, overrides: &HashMap<u32, String>) -> String {
+    let _ = (panes, overrides);
+    todo!()
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -452,6 +454,50 @@ mod tests {
             build_click_regions("main | ", &labels(&[(" 2:a ", 3), (" 3:b ", 1)])),
             vec![(7, 12, 3), (12, 17, 1)]
         );
+    }
+
+    #[test]
+    fn タイトルペイロードを解析できる() {
+        assert_eq!(parse_title_payload("title:3:vim"), Some((3, "vim")));
+        // コマンド名にコロンが含まれても最初の区切りだけで分割する
+        assert_eq!(parse_title_payload("title:12:a:b"), Some((12, "a:b")));
+        assert_eq!(parse_title_payload("title:x:vim"), None);
+        assert_eq!(parse_title_payload("title:3"), None);
+        assert_eq!(parse_title_payload("new"), None);
+    }
+
+    #[test]
+    fn タイトルはフック由来を優先しペイン情報にフォールバックする() {
+        let pane = |id: u32, focused: bool, title: &str| PaneInfo {
+            id,
+            is_focused: focused,
+            title: title.to_string(),
+            ..Default::default()
+        };
+        let plugin_pane = |id: u32| PaneInfo {
+            id,
+            is_plugin: true,
+            title: "bar".to_string(),
+            ..Default::default()
+        };
+        let panes = vec![
+            plugin_pane(9),
+            pane(1, false, "old-title"),
+            pane(2, true, "osc-title"),
+        ];
+        let mut overrides: HashMap<u32, String> = HashMap::new();
+
+        // フック未通知: フォーカス中の端末ペインのタイトル（プラグインペインは除外）
+        assert_eq!(title_for_tab(Some(&panes), &overrides), "osc-title");
+        // フック通知あり: そのペインの上書きタイトルを優先
+        overrides.insert(2, "vim".to_string());
+        assert_eq!(title_for_tab(Some(&panes), &overrides), "vim");
+        // 別ペインの上書きは影響しない
+        overrides.clear();
+        overrides.insert(1, "other".to_string());
+        assert_eq!(title_for_tab(Some(&panes), &overrides), "osc-title");
+        // ペイン情報なし
+        assert_eq!(title_for_tab(None, &overrides), "");
     }
 
     #[test]
