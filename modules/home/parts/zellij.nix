@@ -10,7 +10,8 @@
 # - グループセッション+未接続回収 → 1セッションへの多重アタッチ（標準機能）
 # - window番号の固定運用          → タブ名をスロット番号として扱う（プラグイン）
 # - prefix C-\ と各キーバインド   → locked/tmuxモードで再現
-# - status-left/right             → zjstatusプラグイン
+# - status-left/right、window一覧 → zellij-slotsが描画（番号順ソート・
+#                                   「N:実行中コマンド」表示・日時）
 # =============================================================================
 { pkgs, lib, ... }:
 
@@ -114,11 +115,6 @@ in
         }
     }
 
-    // スロット管理プラグインをセッション開始時にバックグラウンドでロードする
-    load_plugins {
-        "${slotsPlugin}"
-    }
-
     // tmux同様、通常時はすべてのキーをアプリに素通しする
     default_mode "locked"
     // tmux内ではfishを使用（デフォルトシェルはbashなのでVSCode-Serverも問題なし）
@@ -137,30 +133,17 @@ in
   # デフォルトレイアウト
   # ===========================================================================
   # - 初期タブはスロット「3」（tmuxのmove-window -t :3 相当）
-  # - ステータスラインはzjstatusで tmux の status-left/right を再現
+  # - ステータスラインはzellij-slotsが描画する。タブごとにインスタンス化され、
+  #   キーバインドのMessagePluginパイプもこのインスタンス群が処理する
   xdg.configFile."zellij/layouts/slots.kdl".text = ''
     layout {
         default_tab_template {
             children
             pane size=1 borderless=true {
-                plugin location="file:${pkgs.zellijPlugins.zjstatus}" {
-                    format_left   "{session} | {tabs}"
-                    format_right  "{mode}{datetime}"
-                    format_space  ""
-
-                    mode_locked       ""
-                    mode_tmux         "#[bg=yellow,fg=black] ^\\ "
-                    mode_scroll       "#[bg=blue,fg=black] SCROLL "
-                    mode_enter_search "#[bg=blue,fg=black] SEARCH "
-                    mode_search       "#[bg=blue,fg=black] SEARCH "
-                    mode_rename_tab   "#[bg=blue,fg=black] RENAME "
-
-                    tab_normal " {name} "
-                    tab_active "#[bg=white,fg=black] {name} "
-
-                    datetime          "{format}"
-                    datetime_format   "%Y/%m/%d %H:%M"
-                    datetime_timezone "Asia/Tokyo"
+                // role=bar は描画専用。パイプ（new/goto）は設定なしで起動される
+                // バックグラウンドのシングルトンが処理する（main.rsの役割分離を参照）
+                plugin location="${slotsPlugin}" {
+                    role "bar"
                 }
             }
         }
