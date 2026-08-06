@@ -11,3 +11,5 @@ edition = "2021"
 
 [dependencies]
 zellij-tile = "0.44.3"
+# 端末セル幅の計算（クリック判定と右寄せに使用）。stdに同等機能はない
+unicode-width = "0.2"

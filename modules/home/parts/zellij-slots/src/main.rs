@@ -100,13 +100,30 @@ fn secs_to_next_minute(epoch_secs: u64) -> f64 {
 /// マウスイベントの列は端末のセル列なので、文字数ではなくセル幅で数える。
 /// 文字数で数えると全角文字（日本語のタイトル等）でクリック位置がずれる
 fn build_click_regions(prefix: &str, labels: &[(String, u32)]) -> Vec<(usize, usize, u32)> {
-    let _ = (prefix, labels);
-    todo!()
+    let mut col = cell_width(prefix);
+    labels
+        .iter()
+        .map(|(label, idx)| {
+            let start = col;
+            col += cell_width(label);
+            (start, col, *idx)
+        })
+        .collect()
 }
 
 /// 文字列の端末上のセル幅（全角は2セル）
 fn cell_width(s: &str) -> usize {
-    let _ = s;
+    unicode_width::UnicodeWidthStr::width(s)
+}
+
+/// 自分（plugin_id）が置かれているタブのpositionを返す。
+/// パイプは全インスタンスに配送されるため、タブ作成のような冪等でない操作は
+/// position 0 のタブにいるインスタンスだけが担当する（リーダー方式）。
+/// 全員が処理すると、他インスタンスの作成に起因するTabUpdateを先に受け取った
+/// インスタンスが別の空きスロットを計算してしまい、1回の操作で複数タブが
+/// できるレースがある
+fn own_tab_position(panes: &HashMap<usize, Vec<PaneInfo>>, plugin_id: u32) -> Option<usize> {
+    let _ = (panes, plugin_id);
     todo!()
 }
 
@@ -232,31 +249,31 @@ impl ZellijPlugin for State {
     fn render(&mut self, _rows: usize, cols: usize) {
         // 左側: セッション名 + スロット番号順のタブ一覧（tmuxのstatus-left + window一覧相当）
         let session = self.mode_info.session_name.clone().unwrap_or_default();
-        let mut plain = format!("{} | ", session);
-        let mut ansi = plain.clone();
-        self.click_regions.clear();
+        let prefix = format!("{} | ", session);
+        let mut ansi = prefix.clone();
         let positions: Vec<(usize, String)> = self
             .tabs
             .iter()
             .map(|t| (t.position, t.name.clone()))
             .collect();
+        let mut labels: Vec<(String, u32)> = Vec::new();
         for position in display_order(&positions) {
             let Some(tab) = self.tabs.iter().find(|t| t.position == position) else {
                 continue;
             };
             let title = title_for_tab(self.panes.get(&position));
             let label = format!(" {} ", tab_label(&tab.name, &title));
-            let start = plain.chars().count();
-            plain.push_str(&label);
-            self.click_regions
-                .push((start, plain.chars().count(), position as u32 + 1));
             if tab.active {
                 // tmuxのwindow-status-current-style bg=white に合わせる
                 ansi.push_str(&format!("\u{1b}[47;30m{}\u{1b}[0m", label));
             } else {
                 ansi.push_str(&label);
             }
+            labels.push((label, position as u32 + 1));
         }
+        self.click_regions = build_click_regions(&prefix, &labels);
+        let left_width =
+            cell_width(&prefix) + labels.iter().map(|(l, _)| cell_width(l)).sum::<usize>();
 
         // 右側: モード表示 + 日時（tmuxのstatus-right相当）
         let marker = match self.mode_info.mode {
@@ -274,7 +291,7 @@ impl ZellijPlugin for State {
             format!("\u{1b}[43;30m{}\u{1b}[0m{}", marker, datetime)
         };
 
-        let used = plain.chars().count() + right_plain.chars().count();
+        let used = left_width + cell_width(&right_plain);
         print!(
             "{}{}{}",
             ansi,
@@ -393,6 +410,27 @@ mod tests {
             build_click_regions("main | ", &labels(&[(" 2:a ", 3), (" 3:b ", 1)])),
             vec![(7, 12, 3), (12, 17, 1)]
         );
+    }
+
+    #[test]
+    fn 自分のいるタブのpositionを特定できる() {
+        let mut panes: HashMap<usize, Vec<PaneInfo>> = HashMap::new();
+        let plugin_pane = |id: u32| PaneInfo {
+            id,
+            is_plugin: true,
+            ..Default::default()
+        };
+        let terminal_pane = |id: u32| PaneInfo {
+            id,
+            is_plugin: false,
+            ..Default::default()
+        };
+        // 端末ペインのidはプラグインとは別空間なので、同じ数値でも混同しないこと
+        panes.insert(0, vec![terminal_pane(7), plugin_pane(1)]);
+        panes.insert(1, vec![terminal_pane(1), plugin_pane(7)]);
+        assert_eq!(own_tab_position(&panes, 1), Some(0));
+        assert_eq!(own_tab_position(&panes, 7), Some(1));
+        assert_eq!(own_tab_position(&panes, 99), None);
     }
 
     #[test]
