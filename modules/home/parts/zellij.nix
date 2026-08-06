@@ -179,13 +179,17 @@ in
     permissions="''${XDG_CACHE_HOME:-$HOME/.cache}/zellij/permissions.kdl"
     wasm="${zellij-slots}/bin/zellij-slots.wasm"
     if ! grep -qF "\"$wasm\"" "$permissions" 2>/dev/null; then
-      mkdir -p "$(dirname "$permissions")"
-      {
-        echo "\"$wasm\" {"
-        echo "    ReadApplicationState"
-        echo "    ChangeApplicationState"
-        echo "}"
-      } >> "$permissions"
+      if [[ -v DRY_RUN ]]; then
+        verboseEcho "Would seed zellij plugin permissions into $permissions"
+      else
+        mkdir -p "$(dirname "$permissions")"
+        {
+          echo "\"$wasm\" {"
+          echo "    ReadApplicationState"
+          echo "    ChangeApplicationState"
+          echo "}"
+        } >> "$permissions"
+      fi
     fi
   '';
 
