@@ -168,6 +168,32 @@ in
   ];
 
   # ===========================================================================
+  # プラグイン権限の自動付与
+  # ===========================================================================
+  # rebuildでwasmのパスが変わるたびにZellijは権限を再要求するが、承認UIは
+  # 高さ1行のバー用ペインの中に描画されて実質見えず、プラグインは承認待ちの
+  # ままブロックする（バーが空になり、キーバインドも効かなくなる）。
+  # 必要な権限は決まっているので、rebuild時に権限キャッシュへ直接シードする。
+  # Zellijはこのファイルを承認時に全量書き直すため、追記形式はそれと互換
+  home.activation.zellijPluginPermissions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    permissions="''${XDG_CACHE_HOME:-$HOME/.cache}/zellij/permissions.kdl"
+    wasm="${zellij-slots}/bin/zellij-slots.wasm"
+    if ! grep -qF "\"$wasm\"" "$permissions" 2>/dev/null; then
+      if [[ -v DRY_RUN ]]; then
+        verboseEcho "Would seed zellij plugin permissions into $permissions"
+      else
+        mkdir -p "$(dirname "$permissions")"
+        {
+          echo "\"$wasm\" {"
+          echo "    ReadApplicationState"
+          echo "    ChangeApplicationState"
+          echo "}"
+        } >> "$permissions"
+      fi
+    fi
+  '';
+
+  # ===========================================================================
   # Zellij接続用ランチャーエントリ
   # ===========================================================================
   xdg.desktopEntries = {
