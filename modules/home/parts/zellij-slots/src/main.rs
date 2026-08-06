@@ -21,12 +21,50 @@ const SLOT_PRIORITY: [&str; 10] = ["3", "4", "2", "8", "7", "9", "5", "6", "1", 
 /// パイプの名前。キーバインド側の MessagePlugin と一致させる
 const PIPE_NAME: &str = "slots";
 
+/// タブラベルに表示するタイトルの最大文字数
+const TITLE_MAX: usize = 15;
+
 /// 優先順位で最初に空いているスロット番号を返す。全て使用中なら None
 fn find_free_slot(used: &[String]) -> Option<&'static str> {
     SLOT_PRIORITY
         .iter()
         .copied()
         .find(|slot| !used.iter().any(|name| name == slot))
+}
+
+/// タブ名がスロット番号（1桁の数字）ならその値を返す
+fn slot_of(name: &str) -> Option<u32> {
+    let _ = name;
+    todo!()
+}
+
+/// ステータスバーの表示順を返す（引数は (position, name) の列）。
+/// tmuxのwindow一覧と同様、スロット番号の昇順で並べる。作成順（position）
+/// とは無関係に番号と指の位置を一致させるため。スロット外の名前のタブは
+/// 末尾にposition順で置く
+fn display_order(tabs: &[(usize, String)]) -> Vec<usize> {
+    let _ = tabs;
+    todo!()
+}
+
+/// タブ1つ分の表示ラベルを作る。tmuxの「#I:#W」相当で「3:fish」の形式。
+/// タイトルは長すぎるとバーを圧迫するので TITLE_MAX 文字で切り詰める
+fn tab_label(name: &str, title: &str) -> String {
+    let _ = (name, title);
+    todo!()
+}
+
+/// エポック秒を日本時間の「%Y/%m/%d %H:%M」に整形する（tmuxのstatus-right相当。
+/// 日本にDSTはないので固定+9時間で足りる）
+fn format_datetime_jst(epoch_secs: u64) -> String {
+    let _ = epoch_secs;
+    todo!()
+}
+
+/// 次の分の頭までの秒数（時計表示の更新タイマー用）
+fn secs_to_next_minute(epoch_secs: u64) -> f64 {
+    let _ = epoch_secs;
+    todo!()
 }
 
 #[derive(Default)]
@@ -122,5 +160,65 @@ mod tests {
     fn 全スロット使用中はnoneを返す() {
         let all: Vec<String> = SLOT_PRIORITY.iter().map(|s| s.to_string()).collect();
         assert_eq!(find_free_slot(&all), None);
+    }
+
+    #[test]
+    fn スロット番号の判定() {
+        assert_eq!(slot_of("3"), Some(3));
+        assert_eq!(slot_of("0"), Some(0));
+        assert_eq!(slot_of("logs"), None);
+        assert_eq!(slot_of(""), None);
+        // 2桁はスロット外（優先順位は1桁のみ）
+        assert_eq!(slot_of("10"), None);
+    }
+
+    fn tabs(v: &[(usize, &str)]) -> Vec<(usize, String)> {
+        v.iter().map(|(p, n)| (*p, n.to_string())).collect()
+    }
+
+    #[test]
+    fn 表示順は作成順ではなくスロット番号の昇順() {
+        // 作成順 3 → 4 → 2 → 8 でも表示は 2 3 4 8
+        let t = tabs(&[(0, "3"), (1, "4"), (2, "2"), (3, "8")]);
+        assert_eq!(display_order(&t), vec![2, 0, 1, 3]);
+    }
+
+    #[test]
+    fn スロット外の名前は末尾にposition順で並ぶ() {
+        let t = tabs(&[(0, "logs"), (1, "3"), (2, "build"), (3, "2")]);
+        assert_eq!(display_order(&t), vec![3, 1, 0, 2]);
+    }
+
+    #[test]
+    fn ラベルはスロットとタイトルをコロンで繋ぐ() {
+        assert_eq!(tab_label("3", "fish"), "3:fish");
+        // タイトルが空ならスロット番号だけ
+        assert_eq!(tab_label("3", ""), "3");
+        // スロット外の名前はそのまま（タイトルは付けない）
+        assert_eq!(tab_label("logs", "fish"), "logs");
+    }
+
+    #[test]
+    fn ラベルのタイトルは切り詰められる() {
+        let long = "very-long-command-name-here";
+        let label = tab_label("3", long);
+        assert_eq!(label, format!("3:{}", &long[..TITLE_MAX]));
+    }
+
+    #[test]
+    fn 日時は日本時間で整形される() {
+        // 2026-08-05T17:30:00Z = JST 2026-08-06 02:30
+        assert_eq!(format_datetime_jst(1785951000), "2026/08/06 02:30");
+        // うるう年: 2024-02-28T15:30:00Z = JST 2024-02-29 00:30
+        assert_eq!(format_datetime_jst(1709134200), "2024/02/29 00:30");
+        // 年末年始のUTC跨ぎ: 2025-12-31T20:01:00Z = JST 2026-01-01 05:01
+        assert_eq!(format_datetime_jst(1767211260), "2026/01/01 05:01");
+    }
+
+    #[test]
+    fn 次の分までの秒数() {
+        assert_eq!(secs_to_next_minute(120), 60.0); // ちょうど分頭なら次の分まで60秒
+        assert_eq!(secs_to_next_minute(121), 59.0);
+        assert_eq!(secs_to_next_minute(179), 1.0);
     }
 }
