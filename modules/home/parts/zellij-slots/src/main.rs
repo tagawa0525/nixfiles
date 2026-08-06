@@ -34,8 +34,11 @@ fn find_free_slot(used: &[String]) -> Option<&'static str> {
 
 /// タブ名がスロット番号（1桁の数字）ならその値を返す
 fn slot_of(name: &str) -> Option<u32> {
-    let _ = name;
-    todo!()
+    if name.len() == 1 && SLOT_PRIORITY.contains(&name) {
+        name.parse().ok()
+    } else {
+        None
+    }
 }
 
 /// ステータスバーの表示順を返す（引数は (position, name) の列）。
@@ -43,28 +46,54 @@ fn slot_of(name: &str) -> Option<u32> {
 /// とは無関係に番号と指の位置を一致させるため。スロット外の名前のタブは
 /// 末尾にposition順で置く
 fn display_order(tabs: &[(usize, String)]) -> Vec<usize> {
-    let _ = tabs;
-    todo!()
+    let mut order: Vec<&(usize, String)> = tabs.iter().collect();
+    // スロットは (0, 番号)、スロット外は (1, position) をキーに安定ソート
+    order.sort_by_key(|(position, name)| match slot_of(name) {
+        Some(slot) => (0, slot as usize),
+        None => (1, *position),
+    });
+    order.into_iter().map(|(position, _)| *position).collect()
 }
 
 /// タブ1つ分の表示ラベルを作る。tmuxの「#I:#W」相当で「3:fish」の形式。
 /// タイトルは長すぎるとバーを圧迫するので TITLE_MAX 文字で切り詰める
 fn tab_label(name: &str, title: &str) -> String {
-    let _ = (name, title);
-    todo!()
+    if slot_of(name).is_none() || title.is_empty() {
+        return name.to_string();
+    }
+    let short: String = title.chars().take(TITLE_MAX).collect();
+    format!("{}:{}", name, short)
 }
 
 /// エポック秒を日本時間の「%Y/%m/%d %H:%M」に整形する（tmuxのstatus-right相当。
 /// 日本にDSTはないので固定+9時間で足りる）
 fn format_datetime_jst(epoch_secs: u64) -> String {
-    let _ = epoch_secs;
-    todo!()
+    let jst = epoch_secs + 9 * 3600;
+    let (days, secs) = (jst / 86400, jst % 86400);
+    // civil-from-days（Howard Hinnantのアルゴリズム）
+    let z = days as i64 + 719_468;
+    let era = z / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let year = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = if month <= 2 { year + 1 } else { year };
+    format!(
+        "{:04}/{:02}/{:02} {:02}:{:02}",
+        year,
+        month,
+        day,
+        secs / 3600,
+        (secs % 3600) / 60
+    )
 }
 
 /// 次の分の頭までの秒数（時計表示の更新タイマー用）
 fn secs_to_next_minute(epoch_secs: u64) -> f64 {
-    let _ = epoch_secs;
-    todo!()
+    (60 - epoch_secs % 60) as f64
 }
 
 #[derive(Default)]
