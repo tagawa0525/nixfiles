@@ -116,23 +116,33 @@ fn cell_width(s: &str) -> usize {
     unicode_width::UnicodeWidthStr::width(s)
 }
 
-/// 自分（plugin_id）が置かれているタブのpositionを返す。
-/// パイプは全インスタンスに配送されるため、タブ作成のような冪等でない操作は
-/// position 0 のタブにいるインスタンスだけが担当する（リーダー方式）。
-/// 全員が処理すると、他インスタンスの作成に起因するTabUpdateを先に受け取った
-/// インスタンスが別の空きスロットを計算してしまい、1回の操作で複数タブが
-/// できるレースがある
-fn own_tab_position(panes: &HashMap<usize, Vec<PaneInfo>>, plugin_id: u32) -> Option<usize> {
-    let _ = (panes, plugin_id);
-    todo!()
-}
-
+// =============================================================================
+// 役割の分離
+// =============================================================================
+// このwasmは設定によって2つの役割で動く:
+// - bar:   レイアウトからタブごとにインスタンス化され、ステータスバーを描画する。
+//          隠れているタブのインスタンスにはイベントが届かず状態が古くなるため、
+//          パイプの処理はしない（古い状態で空きスロットを計算すると、1回の
+//          prefix+cで複数タブができる・空き番号を再利用しないなどの不整合が
+//          起きることを実測で確認済み）
+// - actor: キーバインドのMessagePlugin（設定なし）が最初のパイプで起動する
+//          バックグラウンドのシングルトン。パイプ（new/goto）を一手に担う。
+//          Zellijのパイプは (URL, 設定) が一致するインスタンスへ配送されるため、
+//          barと設定を分けることで唯一の宛先になる
 #[derive(Default)]
 struct State {
+    is_bar: bool,
     tabs: Vec<TabInfo>,
     panes: HashMap<usize, Vec<PaneInfo>>,
     mode_info: ModeInfo,
-    /// 直近のrenderで確定したクリック領域: [start, end) 表示列 → switch_tab_to用の1-based index
+    /// actor: 初回のTabUpdateを受け取るまでtabsは空で信用できない。
+    /// その間に来た new は積んでおき、状態が届いてから処理する
+    got_tab_state: bool,
+    queued_news: usize,
+    /// actor: 作成したがまだTabUpdateに現れていないスロット。
+    /// 直前の作成が反映される前に次のnewが来ても同じ番号を選ばないための帳簿
+    pending_created: Vec<String>,
+    /// bar: 直近のrenderで確定したクリック領域: [start, end) 表示列 → switch_tab_to用の1-based index
     click_regions: Vec<(usize, usize, u32)>,
 }
 
@@ -170,28 +180,60 @@ fn title_for_tab(panes: Option<&Vec<PaneInfo>>) -> String {
 }
 
 #[cfg(target_arch = "wasm32")]
+impl State {
+    /// 優先順位の空きスロットに新規タブを作る（tmuxのnew-window相当）。
+    /// 直前の作成がTabUpdateに反映される前に次のnewが来ても同じ番号を
+    /// 選ばないよう、pending_createdを合算して空きを計算する。
+    /// 全スロット使用中は何もしない（10タブが上限）
+    fn create_slot_tab(&mut self) {
+        let mut used: Vec<String> = self.tabs.iter().map(|t| t.name.clone()).collect();
+        used.extend(self.pending_created.iter().cloned());
+        if let Some(slot) = find_free_slot(&used) {
+            focus_or_create_tab(slot);
+            self.pending_created.push(slot.to_string());
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
 impl ZellijPlugin for State {
-    fn load(&mut self, _configuration: BTreeMap<String, String>) {
+    fn load(&mut self, configuration: BTreeMap<String, String>) {
         request_permission(&[
             PermissionType::ReadApplicationState,
             PermissionType::ChangeApplicationState,
         ]);
-        set_selectable(false);
-        subscribe(&[
-            EventType::TabUpdate,
-            EventType::PaneUpdate,
-            EventType::ModeUpdate,
-            EventType::Timer,
-            EventType::Mouse,
-        ]);
-        // 時計の更新タイマー。初回発火時に分頭へ揃える
-        set_timeout(1.0);
+        self.is_bar = configuration.get("role").map(String::as_str) == Some("bar");
+        if self.is_bar {
+            set_selectable(false);
+            subscribe(&[
+                EventType::TabUpdate,
+                EventType::PaneUpdate,
+                EventType::ModeUpdate,
+                EventType::Timer,
+                EventType::Mouse,
+            ]);
+            // 時計の更新タイマー。初回発火時に分頭へ揃える
+            set_timeout(1.0);
+        } else {
+            subscribe(&[EventType::TabUpdate]);
+            // パイプ起動でフローティングペインが付いた場合に備えて隠す
+            hide_self();
+        }
     }
 
     fn update(&mut self, event: Event) -> bool {
         match event {
             Event::TabUpdate(tabs) => {
                 self.tabs = tabs;
+                self.got_tab_state = true;
+                // 作成がタブ一覧に反映されたらpendingから外す
+                self.pending_created
+                    .retain(|slot| !self.tabs.iter().any(|t| &t.name == slot));
+                // 起動直後（状態が届く前）に受けた new をここで処理する
+                while self.queued_news > 0 {
+                    self.queued_news -= 1;
+                    self.create_slot_tab();
+                }
                 true
             }
             Event::PaneUpdate(manifest) => {
@@ -221,19 +263,19 @@ impl ZellijPlugin for State {
     }
 
     fn pipe(&mut self, message: PipeMessage) -> bool {
-        if message.name != PIPE_NAME {
+        // パイプはactorだけが処理する（barは状態が古くなり得るため）
+        if self.is_bar || message.name != PIPE_NAME {
             return false;
         }
-        let tab_names: Vec<String> = self.tabs.iter().map(|t| t.name.clone()).collect();
         match message.payload.as_deref() {
             Some("new") => {
-                // このプラグインはタブごとにインスタンス化され、パイプは
-                // 全インスタンスに配送される。new_tab だと1回の操作で
-                // インスタンス数だけタブが並ぶため、冪等な
-                // focus_or_create_tab を使う（最初の1つが作成、残りはフォーカス）。
-                // 全スロット使用中は何もしない（10タブが上限）
-                if let Some(slot) = find_free_slot(&tab_names) {
-                    focus_or_create_tab(slot);
+                if self.got_tab_state {
+                    self.create_slot_tab();
+                } else {
+                    // 起動直後でタブ状態が届いていない。空のused（=スロット3が
+                    // 空きに見える）で計算すると既存タブへのフォーカスに化ける
+                    // ため、TabUpdate後に処理する
+                    self.queued_news += 1;
                 }
             }
             Some(payload) => {
@@ -410,27 +452,6 @@ mod tests {
             build_click_regions("main | ", &labels(&[(" 2:a ", 3), (" 3:b ", 1)])),
             vec![(7, 12, 3), (12, 17, 1)]
         );
-    }
-
-    #[test]
-    fn 自分のいるタブのpositionを特定できる() {
-        let mut panes: HashMap<usize, Vec<PaneInfo>> = HashMap::new();
-        let plugin_pane = |id: u32| PaneInfo {
-            id,
-            is_plugin: true,
-            ..Default::default()
-        };
-        let terminal_pane = |id: u32| PaneInfo {
-            id,
-            is_plugin: false,
-            ..Default::default()
-        };
-        // 端末ペインのidはプラグインとは別空間なので、同じ数値でも混同しないこと
-        panes.insert(0, vec![terminal_pane(7), plugin_pane(1)]);
-        panes.insert(1, vec![terminal_pane(1), plugin_pane(7)]);
-        assert_eq!(own_tab_position(&panes, 1), Some(0));
-        assert_eq!(own_tab_position(&panes, 7), Some(1));
-        assert_eq!(own_tab_position(&panes, 99), None);
     }
 
     #[test]

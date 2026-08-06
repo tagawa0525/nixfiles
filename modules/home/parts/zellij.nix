@@ -140,7 +140,11 @@ in
         default_tab_template {
             children
             pane size=1 borderless=true {
-                plugin location="${slotsPlugin}"
+                // role=bar は描画専用。パイプ（new/goto）は設定なしで起動される
+                // バックグラウンドのシングルトンが処理する（main.rsの役割分離を参照）
+                plugin location="${slotsPlugin}" {
+                    role "bar"
+                }
             }
         }
         tab name="3" focus=true
