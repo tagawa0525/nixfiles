@@ -168,6 +168,31 @@ in
   ];
 
   # ===========================================================================
+  # タブラベルへのコマンド名通知（tmuxの#W相当）
+  # ===========================================================================
+  # Zellijはペインタイトルの変更（OSC）だけではプラグインにイベントを
+  # 発行しないため、fishのフックでコマンドの開始（fish_preexec）と
+  # プロンプト復帰（fish_prompt）をステータスバーへパイプで通知する。
+  # プラグイン指定なしのパイプは起動済みの全インスタンスに届き、
+  # 描画役のbarが取り込む
+  programs.fish.interactiveShellInit = ''
+    if set -q ZELLIJ; and set -q ZELLIJ_PANE_ID
+      function __zellij_slots_notify --argument-names title
+        # 隠れているタブのバーが処理を終えるまでCLIパイプはブロックする
+        # ことがあるため、タイムアウトを付けてバックグラウンドで流す
+        command ${pkgs.coreutils}/bin/timeout 2 ${pkgs.zellij}/bin/zellij pipe --name slots -- "title:$ZELLIJ_PANE_ID:$title" >/dev/null 2>&1 &
+        disown
+      end
+      function __zellij_slots_preexec --on-event fish_preexec
+        __zellij_slots_notify (string split -m1 ' ' -- $argv[1])[1]
+      end
+      function __zellij_slots_prompt --on-event fish_prompt
+        __zellij_slots_notify fish
+      end
+    end
+  '';
+
+  # ===========================================================================
   # プラグイン権限の自動付与
   # ===========================================================================
   # rebuildでwasmのパスが変わるたびにZellijは権限を再要求するが、承認UIは
