@@ -96,6 +96,15 @@ fn secs_to_next_minute(epoch_secs: u64) -> f64 {
     (60 - epoch_secs % 60) as f64
 }
 
+/// タブラベル列を利用可能なセル幅に収める。
+/// 溢れる場合はタイトルを均等予算で切り詰め、スロット番号は常に全て表示する
+/// （番号が指の位置と対応するのがこのバーの主目的のため）。
+/// 入力は (タブ名, タイトル)、出力は前後に空白を含む表示ラベル
+fn fit_labels(tabs: &[(String, String)], available: usize) -> Vec<String> {
+    let _ = (tabs, available);
+    todo!()
+}
+
 /// バー左側のクリック領域を組み立てる（(ラベル, switch_tab_to用index) の列から）。
 /// マウスイベントの列は端末のセル列なので、文字数ではなくセル幅で数える。
 /// 文字数で数えると全角文字（日本語のタイトル等）でクリック位置がずれる
@@ -144,6 +153,8 @@ struct State {
     pending_created: Vec<String>,
     /// bar: 直近のrenderで確定したクリック領域: [start, end) 表示列 → switch_tab_to用の1-based index
     click_regions: Vec<(usize, usize, u32)>,
+    /// bar: fishフック由来のペインID→実行中コマンド名（PaneInfo.titleより優先）
+    titles: HashMap<u32, String>,
 }
 
 // Zellijのホスト関数はwasm実行環境にしか存在せず、ホスト向けの
@@ -168,8 +179,9 @@ fn now_epoch() -> u64 {
 /// このペイロードで通知してくる（Zellijはペインタイトルの変更だけでは
 /// イベントを発行しないため、シェル側から押し込む必要がある）
 fn parse_title_payload(payload: &str) -> Option<(u32, &str)> {
-    let _ = payload;
-    todo!()
+    let rest = payload.strip_prefix("title:")?;
+    let (pane_id, title) = rest.split_once(':')?;
+    Some((pane_id.parse().ok()?, title))
 }
 
 /// タブに表示するタイトル（tmuxの#W相当）。フォーカス中のペインを優先し、
@@ -177,8 +189,21 @@ fn parse_title_payload(payload: &str) -> Option<(u32, &str)> {
 /// overrides（fishフック由来のペインID→コマンド名）があればそちらを優先する
 /// （PaneInfo.titleは構造変化時にしか更新されず古いため）
 fn title_for_tab(panes: Option<&Vec<PaneInfo>>, overrides: &HashMap<u32, String>) -> String {
-    let _ = (panes, overrides);
-    todo!()
+    let Some(panes) = panes else {
+        return String::new();
+    };
+    let terminals: Vec<&PaneInfo> = panes.iter().filter(|p| !p.is_plugin).collect();
+    terminals
+        .iter()
+        .find(|p| p.is_focused)
+        .or_else(|| terminals.first())
+        .map(|p| {
+            overrides
+                .get(&p.id)
+                .cloned()
+                .unwrap_or_else(|| p.title.clone())
+        })
+        .unwrap_or_default()
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -240,6 +265,15 @@ impl ZellijPlugin for State {
             }
             Event::PaneUpdate(manifest) => {
                 self.panes = manifest.panes;
+                // 閉じたペインの上書きタイトルを掃除する
+                let live: Vec<u32> = self
+                    .panes
+                    .values()
+                    .flatten()
+                    .filter(|p| !p.is_plugin)
+                    .map(|p| p.id)
+                    .collect();
+                self.titles.retain(|id, _| live.contains(id));
                 true
             }
             Event::ModeUpdate(mode_info) => {
@@ -265,8 +299,16 @@ impl ZellijPlugin for State {
     }
 
     fn pipe(&mut self, message: PipeMessage) -> bool {
-        // パイプはactorだけが処理する（barは状態が古くなり得るため）
-        if self.is_bar || message.name != PIPE_NAME {
+        if message.name != PIPE_NAME {
+            return false;
+        }
+        // title通知は描画のためbarが取り込む（actorに届いても無害）。
+        // それ以外の操作系パイプは状態が新鮮なactorだけが処理する
+        if let Some((pane_id, title)) = message.payload.as_deref().and_then(parse_title_payload) {
+            self.titles.insert(pane_id, title.to_string());
+            return self.is_bar;
+        }
+        if self.is_bar {
             return false;
         }
         match message.payload.as_deref() {
@@ -305,7 +347,7 @@ impl ZellijPlugin for State {
             let Some(tab) = self.tabs.iter().find(|t| t.position == position) else {
                 continue;
             };
-            let title = title_for_tab(self.panes.get(&position));
+            let title = title_for_tab(self.panes.get(&position), &self.titles);
             let label = format!(" {} ", tab_label(&tab.name, &title));
             if tab.active {
                 // tmuxのwindow-status-current-style bg=white に合わせる
@@ -498,6 +540,46 @@ mod tests {
         assert_eq!(title_for_tab(Some(&panes), &overrides), "osc-title");
         // ペイン情報なし
         assert_eq!(title_for_tab(None, &overrides), "");
+    }
+
+    fn nt(v: &[(&str, &str)]) -> Vec<(String, String)> {
+        v.iter()
+            .map(|(n, t)| (n.to_string(), t.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn 幅が足りればラベルはそのまま() {
+        assert_eq!(
+            fit_labels(&nt(&[("3", "vim"), ("4", "fish")]), 80),
+            vec![" 3:vim ", " 4:fish "]
+        );
+    }
+
+    #[test]
+    fn 幅が足りなければタイトルを均等に切り詰める() {
+        // 固定部: " N "×2=6 + コロン2 = 8。available=16 → タイトル予算 8/2=4
+        assert_eq!(
+            fit_labels(&nt(&[("3", "abcdefgh"), ("4", "xyzxyzxy")]), 16),
+            vec![" 3:abcd ", " 4:xyzx "]
+        );
+    }
+
+    #[test]
+    fn 切り詰めてもスロット番号は全て残る() {
+        let labels = fit_labels(&nt(&[("3", "aaaa"), ("4", "bbbb"), ("2", "cccc")]), 9);
+        assert_eq!(labels.len(), 3);
+        assert!(labels[0].contains('3'));
+        assert!(labels[1].contains('4'));
+        assert!(labels[2].contains('2'));
+    }
+
+    #[test]
+    fn タイトルなしやスロット外の名前も維持される() {
+        assert_eq!(
+            fit_labels(&nt(&[("3", ""), ("logs", "x")]), 80),
+            vec![" 3 ", " logs "]
+        );
     }
 
     #[test]
