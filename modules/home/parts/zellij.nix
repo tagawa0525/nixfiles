@@ -1,12 +1,12 @@
 # =============================================================================
 # Zellij設定
 # =============================================================================
-# ターミナル多重化ツールの設定と接続スクリプト（tmuxからの移行検証用に併存）
+# ターミナル多重化ツールの設定と接続スクリプト
 # - zellij-slots: スロット式タブ管理プラグイン（./zellij-slots からビルド）
 # - local-zellij: ローカルZellijセッションに接続
 # - ssh-*-zellij: リモートホストのZellijセッションに接続
 #
-# tmuxとの対応:
+# 旧tmux運用との対応:
 # - グループセッション+未接続回収 → 1セッションへの多重アタッチ（標準機能）
 # - window番号の固定運用          → タブ名をスロット番号として扱う（プラグイン）
 # - prefix C-\ と各キーバインド   → locked/tmuxモードで再現
@@ -19,8 +19,8 @@ let
   # ===========================================================================
   # スロット式タブ管理プラグイン
   # ===========================================================================
-  # タブ番号の優先順位（3 4 2 8 7 9 5 6 1 0）はプラグイン側に定義がある
-  # （tmux.nix の windowPriority と同じ値。詳細は zellij-slots/src/main.rs）
+  # タブ番号の優先順位（3 4 2 8 7 9 5 6 1 0）はプラグイン側の
+  # SLOT_PRIORITY（zellij-slots/src/main.rs）に定義がある。旧tmux運用と同じ値
   zellij-slots = pkgs.pkgsCross.wasm32-wasip1.rustPlatform.buildRustPackage {
     pname = "zellij-slots";
     version = "0.1.0";
@@ -36,7 +36,7 @@ let
   };
   slotsPlugin = "file:${zellij-slots}/bin/zellij-slots.wasm";
 
-  # スロットNへのジャンプ（プレフィックス+数字。tmuxのselect-window相当）。
+  # スロットNへのジャンプ（プレフィックス+数字。旧tmuxのselect-window相当）。
   # プレフィックスからCtrlを離さず押した場合（Ctrl+N）でも効くよう両方束ねる
   gotoBinds = lib.concatMapStrings (n: ''
     bind "${n}" "Ctrl ${n}" { MessagePlugin "${slotsPlugin}" { name "slots"; payload "goto:${n}"; }; SwitchToMode "Locked"; }
@@ -46,8 +46,8 @@ in
   # ===========================================================================
   # Zellij本体の設定
   # ===========================================================================
-  # キーバインドはtmuxの運用に合わせる:
-  # - 通常はlockedモード（tmux同様、プレフィックス以外を素通しする）
+  # キーバインドは旧tmuxの運用に合わせる:
+  # - 通常はlockedモード（旧tmux同様、プレフィックス以外を素通しする）
   # - Ctrl+\ でプレフィックス（tmuxモード）に入り、1キー実行して戻る
   xdg.configFile."zellij/config.kdl".text = ''
     keybinds clear-defaults=true {
@@ -60,7 +60,7 @@ in
             bind "Ctrl \\" "\u{1c}" { SwitchToMode "Tmux"; }
         }
         tmux {
-            // 2回押しで直前のタブに戻る（tmuxのlast-window相当）
+            // 2回押しで直前のタブに戻る（旧tmuxのlast-window相当）
             bind "Ctrl \\" "\u{1c}" { ToggleTab; SwitchToMode "Locked"; }
             bind "Esc" "Enter" { SwitchToMode "Locked"; }
             // 優先順位で空いているスロット番号に新規タブを作成
@@ -115,14 +115,14 @@ in
         }
     }
 
-    // tmux同様、通常時はすべてのキーをアプリに素通しする
+    // 旧tmux同様、通常時はすべてのキーをアプリに素通しする
     default_mode "locked"
-    // tmux内ではfishを使用（デフォルトシェルはbashなのでVSCode-Serverも問題なし）
+    // zellij内ではfishを使用（デフォルトシェルはbashなのでVSCode-Serverも問題なし）
     default_shell "${pkgs.fish}/bin/fish"
     // 新規セッションはスロット3の1タブから始まる（layouts/slots.kdl）
     default_layout "slots"
     scroll_buffer_size 50000
-    // tmuxに枠線はないので合わせる（ペイン分割時は色付きの境界線が入る）
+    // 旧tmuxに枠線はなかったので合わせる（ペイン分割時は色付きの境界線が入る）
     pane_frames false
     // 起動時のTipsやリリースノートで初回タブを汚さない
     show_startup_tips false
@@ -132,7 +132,7 @@ in
   # ===========================================================================
   # デフォルトレイアウト
   # ===========================================================================
-  # - 初期タブはスロット「3」（tmuxのmove-window -t :3 相当）
+  # - 初期タブはスロット「3」（旧tmuxのmove-window -t :3 相当）
   # - ステータスラインはzellij-slotsが描画する。タブごとにインスタンス化され、
   #   キーバインドのMessagePluginパイプもこのインスタンス群が処理する
   xdg.configFile."zellij/layouts/slots.kdl".text = ''
@@ -168,7 +168,7 @@ in
   ];
 
   # ===========================================================================
-  # タブラベルへのコマンド名通知（tmuxの#W相当）
+  # タブラベルへのコマンド名通知（旧tmuxの#W相当）
   # ===========================================================================
   # Zellijはペインタイトルの変更（OSC）だけではプラグインにイベントを
   # 発行しないため、fishのフックでコマンドの開始（fish_preexec）と
