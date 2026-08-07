@@ -19,8 +19,8 @@ let
   # ===========================================================================
   # スロット式タブ管理プラグイン
   # ===========================================================================
-  # タブ番号の優先順位（3 4 2 8 7 9 5 6 1 0）はプラグイン側に定義がある
-  # （旧tmux運用の windowPriority と同じ値。詳細は zellij-slots/src/main.rs）
+  # タブ番号の優先順位（3 4 2 8 7 9 5 6 1 0）はプラグイン側の
+  # SLOT_PRIORITY（zellij-slots/src/main.rs）に定義がある。旧tmux運用と同じ値
   zellij-slots = pkgs.pkgsCross.wasm32-wasip1.rustPlatform.buildRustPackage {
     pname = "zellij-slots";
     version = "0.1.0";
