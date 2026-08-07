@@ -212,6 +212,7 @@ in
           echo "\"$wasm\" {"
           echo "    ReadApplicationState"
           echo "    ChangeApplicationState"
+          echo "    ReadCliPipes"
           echo "}"
         } >> "$permissions"
       fi
