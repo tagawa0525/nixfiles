@@ -203,7 +203,8 @@ in
   # 古い可能性があるため、スキップせずあるべき内容に書き直す（他プラグインの
   # エントリは保持）。Zellijはこのファイルを承認時に全量書き直すため互換。
   # 権限リストは src/main.rs の request_permission と一致させること
-  # （乖離は tests/local-zellij.sh が実activationスクリプトでシードして検出する）
+  # （乖離は tests/local-zellij.sh が実activationスクリプトでシードして検出する）。
+  # activationは限られたPATHで実行されるため、外部コマンドはストアパスで参照する
   home.activation.zellijPluginPermissions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     permissions="''${XDG_CACHE_HOME:-$HOME/.cache}/zellij/permissions.kdl"
     wasm="${zellij-slots}/bin/zellij-slots.wasm"
@@ -214,9 +215,9 @@ in
     desired+=$'\n'"}"
     current=""
     if [ -f "$permissions" ]; then
-      current=$(cat "$permissions")
+      current=$(${pkgs.coreutils}/bin/cat "$permissions")
     fi
-    rest=$(printf '%s\n' "$current" | awk -v start="\"$wasm\" {" '
+    rest=$(printf '%s\n' "$current" | ${pkgs.gawk}/bin/awk -v start="\"$wasm\" {" '
       $0 == start { skip=1; next }
       skip { if ($0 == "}") skip=0; next }
       { print }
@@ -230,7 +231,7 @@ in
       if [[ -v DRY_RUN ]]; then
         verboseEcho "Would seed zellij plugin permissions into $permissions"
       else
-        mkdir -p "$(dirname "$permissions")"
+        ${pkgs.coreutils}/bin/mkdir -p "$(${pkgs.coreutils}/bin/dirname "$permissions")"
         printf '%s\n' "$new" > "$permissions"
       fi
     fi
