@@ -195,25 +195,46 @@ in
   # ===========================================================================
   # プラグイン権限の自動付与
   # ===========================================================================
-  # rebuildでwasmのパスが変わるたびにZellijは権限を再要求するが、承認UIは
-  # 高さ1行のバー用ペインの中に描画されて実質見えず、プラグインは承認待ちの
-  # ままブロックする（バーが空になり、キーバインドも効かなくなる）。
-  # 必要な権限は決まっているので、rebuild時に権限キャッシュへ直接シードする。
-  # Zellijはこのファイルを承認時に全量書き直すため、追記形式はそれと互換
+  # rebuildでwasmのパスが変わる・プラグインの要求権限が増えると、Zellijは
+  # 権限を再要求するが、承認UIは高さ1行のバー用ペインの中に描画されて実質
+  # 見えず、プラグインは承認待ちのままブロックする（バーが空になり、
+  # キーバインドも効かなくなる）。必要な権限は決まっているので、rebuild時に
+  # 権限キャッシュへ直接シードする。同じwasmパスの既存エントリは内容が
+  # 古い可能性があるため、スキップせずあるべき内容に書き直す（他プラグインの
+  # エントリは保持）。Zellijはこのファイルを承認時に全量書き直すため互換。
+  # 権限リストは src/main.rs の request_permission と一致させること
+  # （乖離は tests/local-zellij.sh が実activationスクリプトでシードして検出する）。
+  # activationは限られたPATHで実行されるため、外部コマンドはストアパスで参照する
   home.activation.zellijPluginPermissions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     permissions="''${XDG_CACHE_HOME:-$HOME/.cache}/zellij/permissions.kdl"
     wasm="${zellij-slots}/bin/zellij-slots.wasm"
-    if ! grep -qF "\"$wasm\"" "$permissions" 2>/dev/null; then
+    desired="\"$wasm\" {"
+    for p in ReadApplicationState ChangeApplicationState ReadCliPipes; do
+      desired+=$'\n'"    $p"
+    done
+    desired+=$'\n'"}"
+    current=""
+    if [ -f "$permissions" ]; then
+      current=$(${pkgs.coreutils}/bin/cat "$permissions")
+    fi
+    # Zellij側の書式ゆらぎで判定を逃さないよう、前後の空白を除いて比較する
+    rest=$(printf '%s\n' "$current" | ${pkgs.gawk}/bin/awk -v start="\"$wasm\" {" '
+      function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+      trim($0) == start { skip=1; next }
+      skip { if (trim($0) == "}") skip=0; next }
+      { print }
+    ')
+    new="$rest"
+    if [ -n "$new" ]; then
+      new+=$'\n'
+    fi
+    new+="$desired"
+    if [ "$new" != "$current" ]; then
       if [[ -v DRY_RUN ]]; then
         verboseEcho "Would seed zellij plugin permissions into $permissions"
       else
-        mkdir -p "$(dirname "$permissions")"
-        {
-          echo "\"$wasm\" {"
-          echo "    ReadApplicationState"
-          echo "    ChangeApplicationState"
-          echo "}"
-        } >> "$permissions"
+        ${pkgs.coreutils}/bin/mkdir -p "$(${pkgs.coreutils}/bin/dirname "$permissions")"
+        printf '%s\n' "$new" > "$permissions"
       fi
     fi
   '';
