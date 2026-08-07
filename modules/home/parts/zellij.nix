@@ -217,9 +217,11 @@ in
     if [ -f "$permissions" ]; then
       current=$(${pkgs.coreutils}/bin/cat "$permissions")
     fi
+    # Zellij側の書式ゆらぎで判定を逃さないよう、前後の空白を除いて比較する
     rest=$(printf '%s\n' "$current" | ${pkgs.gawk}/bin/awk -v start="\"$wasm\" {" '
-      $0 == start { skip=1; next }
-      skip { if ($0 == "}") skip=0; next }
+      function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+      trim($0) == start { skip=1; next }
+      skip { if (trim($0) == "}") skip=0; next }
       { print }
     ')
     new="$rest"
