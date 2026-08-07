@@ -1,12 +1,12 @@
 # =============================================================================
 # Zellij設定
 # =============================================================================
-# ターミナル多重化ツールの設定と接続スクリプト（tmuxからの移行検証用に併存）
+# ターミナル多重化ツールの設定と接続スクリプト
 # - zellij-slots: スロット式タブ管理プラグイン（./zellij-slots からビルド）
 # - local-zellij: ローカルZellijセッションに接続
 # - ssh-*-zellij: リモートホストのZellijセッションに接続
 #
-# tmuxとの対応:
+# 旧tmux運用との対応:
 # - グループセッション+未接続回収 → 1セッションへの多重アタッチ（標準機能）
 # - window番号の固定運用          → タブ名をスロット番号として扱う（プラグイン）
 # - prefix C-\ と各キーバインド   → locked/tmuxモードで再現
@@ -20,7 +20,7 @@ let
   # スロット式タブ管理プラグイン
   # ===========================================================================
   # タブ番号の優先順位（3 4 2 8 7 9 5 6 1 0）はプラグイン側に定義がある
-  # （tmux.nix の windowPriority と同じ値。詳細は zellij-slots/src/main.rs）
+  # （旧tmux運用の windowPriority と同じ値。詳細は zellij-slots/src/main.rs）
   zellij-slots = pkgs.pkgsCross.wasm32-wasip1.rustPlatform.buildRustPackage {
     pname = "zellij-slots";
     version = "0.1.0";
@@ -117,7 +117,7 @@ in
 
     // tmux同様、通常時はすべてのキーをアプリに素通しする
     default_mode "locked"
-    // tmux内ではfishを使用（デフォルトシェルはbashなのでVSCode-Serverも問題なし）
+    // zellij内ではfishを使用（デフォルトシェルはbashなのでVSCode-Serverも問題なし）
     default_shell "${pkgs.fish}/bin/fish"
     // 新規セッションはスロット3の1タブから始まる（layouts/slots.kdl）
     default_layout "slots"
