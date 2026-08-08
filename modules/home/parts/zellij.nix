@@ -10,6 +10,9 @@
 # - グループセッション+未接続回収 → 1セッションへの多重アタッチ（標準機能）
 # - window番号の固定運用          → タブ名をスロット番号として扱う（プラグイン）
 # - prefix C-\ と各キーバインド   → locked/tmuxモードで再現
+# - 各端末が別windowを見られる    → タブの移動も作成も、押した本人の
+#                                   クライアントにだけ効かせる（作成は標準
+#                                   アクション、移動はzellij-slotsが判定）
 # - status-left/right、window一覧 → zellij-slotsが描画（番号順ソート・
 #                                   「N:実行中コマンド」表示・日時）
 # =============================================================================
@@ -41,7 +44,8 @@ let
   # プラグインを指定しないパイプは起動済みの全インスタンスへ配送され、
   # ステータスバーのうち「プレフィックスを押したクライアントのもの」だけが
   # 実行する。lockedへ戻すのもプラグイン側の仕事になる（先に戻すと押した
-  # 本人を見分けられなくなるため）。詳細は zellij-slots/src/main.rs を参照
+  # 本人を見分けられなくなるため）。詳細は zellij-slots/src/main.rs の
+  # 「クライアント独立の設計」を参照
   gotoBinds = lib.concatMapStrings (n: ''
     bind "${n}" "Ctrl ${n}" { MessagePlugin { name "slots"; payload "goto:${n}"; }; }
   '') (map toString (lib.range 0 9));
@@ -67,10 +71,10 @@ in
             // 2回押しで直前のタブに戻る（旧tmuxのlast-window相当）
             bind "Ctrl \\" "\u{1c}" { ToggleTab; SwitchToMode "Locked"; }
             bind "Esc" "Enter" { SwitchToMode "Locked"; }
-            // 優先順位で空いているスロット番号に新規タブを作成。
-            // 空きスロットの計算には最新のタブ一覧が要るので、状態が新鮮な
-            // バックグラウンドのインスタンス（actor）に処理させる
-            bind "c" { MessagePlugin "${slotsPlugin}" { name "slots"; payload "new"; }; SwitchToMode "Locked"; }
+            // 新規タブは標準アクションで作る（押した本人のクライアントだけが
+            // 新タブへ移動する）。「Tab #N」の初期名は、zellij-slotsが優先順位で
+            // 空いているスロット番号にリネームする
+            bind "c" { NewTab; SwitchToMode "Locked"; }
     ${gotoBinds}
             bind "d" { Detach; }
             bind "[" { SwitchToMode "Scroll"; }
@@ -139,18 +143,15 @@ in
   # デフォルトレイアウト
   # ===========================================================================
   # - 初期タブはスロット「3」（旧tmuxのmove-window -t :3 相当）
-  # - ステータスラインはzellij-slotsが描画する。タブごとにインスタンス化され、
-  #   キーバインドのMessagePluginパイプもこのインスタンス群が処理する
+  # - ステータスラインはzellij-slotsが描画する。タブごと・クライアントごとに
+  #   インスタンス化され、キーバインドのパイプ（goto）もこのインスタンス群が
+  #   受け取る
   xdg.configFile."zellij/layouts/slots.kdl".text = ''
     layout {
         default_tab_template {
             children
             pane size=1 borderless=true {
-                // role=bar は描画専用。パイプ（new/goto）は設定なしで起動される
-                // バックグラウンドのシングルトンが処理する（main.rsの役割分離を参照）
-                plugin location="${slotsPlugin}" {
-                    role "bar"
-                }
+                plugin location="${slotsPlugin}"
             }
         }
         tab name="3" focus=true
