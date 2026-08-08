@@ -37,9 +37,13 @@ let
   slotsPlugin = "file:${zellij-slots}/bin/zellij-slots.wasm";
 
   # スロットNへのジャンプ（プレフィックス+数字。旧tmuxのselect-window相当）。
-  # プレフィックスからCtrlを離さず押した場合（Ctrl+N）でも効くよう両方束ねる
+  # プレフィックスからCtrlを離さず押した場合（Ctrl+N）でも効くよう両方束ねる。
+  # プラグインを指定しないパイプは起動済みの全インスタンスへ配送され、
+  # ステータスバーのうち「プレフィックスを押したクライアントのもの」だけが
+  # 実行する。lockedへ戻すのもプラグイン側の仕事になる（先に戻すと押した
+  # 本人を見分けられなくなるため）。詳細は zellij-slots/src/main.rs を参照
   gotoBinds = lib.concatMapStrings (n: ''
-    bind "${n}" "Ctrl ${n}" { MessagePlugin "${slotsPlugin}" { name "slots"; payload "goto:${n}"; }; SwitchToMode "Locked"; }
+    bind "${n}" "Ctrl ${n}" { MessagePlugin { name "slots"; payload "goto:${n}"; }; }
   '') (map toString (lib.range 0 9));
 in
 {
@@ -63,7 +67,9 @@ in
             // 2回押しで直前のタブに戻る（旧tmuxのlast-window相当）
             bind "Ctrl \\" "\u{1c}" { ToggleTab; SwitchToMode "Locked"; }
             bind "Esc" "Enter" { SwitchToMode "Locked"; }
-            // 優先順位で空いているスロット番号に新規タブを作成
+            // 優先順位で空いているスロット番号に新規タブを作成。
+            // 空きスロットの計算には最新のタブ一覧が要るので、状態が新鮮な
+            // バックグラウンドのインスタンス（actor）に処理させる
             bind "c" { MessagePlugin "${slotsPlugin}" { name "slots"; payload "new"; }; SwitchToMode "Locked"; }
     ${gotoBinds}
             bind "d" { Detach; }
