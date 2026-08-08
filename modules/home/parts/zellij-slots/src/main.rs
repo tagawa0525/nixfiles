@@ -41,19 +41,23 @@ fn is_default_tab_name(name: &str) -> bool {
 
 /// デフォルト名のタブへのスロット割り当てを決める（(position, スロット名) の列）。
 /// スロットの空きはデフォルト名以外の全タブ名を使用中として計算し、
-/// 複数あればposition順に割り当てる。空きがなければ割り当てない
-/// （デフォルト名のまま残り、バーには末尾に表示される）
+/// 複数あればposition順に割り当てる。入力の並びに依存すると、リネームを
+/// 実行する複数のインスタンス間で結果が食い違いうるため、明示的にソートして
+/// 決定的にする。空きがなければ割り当てない（デフォルト名のまま残り、
+/// バーには末尾に表示される）
 fn assign_slots(tabs: &[(usize, String)]) -> Vec<(usize, &'static str)> {
     let mut used: Vec<String> = tabs
         .iter()
         .filter(|(_, name)| !is_default_tab_name(name))
         .map(|(_, name)| name.clone())
         .collect();
+    let mut targets: Vec<&(usize, String)> = tabs
+        .iter()
+        .filter(|(_, name)| is_default_tab_name(name))
+        .collect();
+    targets.sort_by_key(|(position, _)| *position);
     let mut out = Vec::new();
-    for (position, name) in tabs {
-        if !is_default_tab_name(name) {
-            continue;
-        }
+    for (position, _) in targets {
         let Some(slot) = find_free_slot(&used) else {
             break;
         };
@@ -541,6 +545,10 @@ mod tests {
         assert_eq!(assign_slots(&t), vec![(1, "4")]);
         // 素早い連打で2つ同時でも別のスロットになる
         let t = tabs(&[(0, "3"), (1, "Tab #2"), (2, "Tab #3")]);
+        assert_eq!(assign_slots(&t), vec![(1, "4"), (2, "2")]);
+        // 入力の並びによらずposition順に割り当てる（インスタンス間で
+        // 同じ結果になることがリネームの冪等性の前提）
+        let t = tabs(&[(2, "Tab #3"), (0, "3"), (1, "Tab #2")]);
         assert_eq!(assign_slots(&t), vec![(1, "4"), (2, "2")]);
         // 空き番号の再利用（3,2,8 使用中 → 4）
         let t = tabs(&[(0, "3"), (1, "2"), (2, "8"), (3, "Tab #5")]);
