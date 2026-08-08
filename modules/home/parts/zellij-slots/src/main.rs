@@ -3,9 +3,10 @@
 // =============================================================================
 // Zellij のタブは位置ベースで、閉じると後続が詰められ固定番号を持てない。
 // そこでタブ「名」をスロット番号として扱い、tmux の window 番号運用を再現する:
-//   - new:    優先順位で空いているスロット番号を名前にしてタブを作成
-//   - goto:N: その名前のタブへフォーカス（不在なら何もしない）
-// キーバインドの MessagePlugin から name="slots" のパイプで呼び出される。
+//   - 作成:   キーバインドの標準アクション NewTab が作った「Tab #N」名のタブを
+//             検出し、優先順位で空いているスロット番号にリネームする
+//   - goto:N: その名前のタブへフォーカス（不在なら何もしない）。
+//             キーバインドの MessagePlugin から name="slots" のパイプで届く
 // =============================================================================
 // ホスト向けビルド（cargo test）ではプラグイン本体を除外するため、
 // 未使用importと未使用定義の警告をwasm外でだけ抑制する
@@ -30,6 +31,40 @@ fn find_free_slot(used: &[String]) -> Option<&'static str> {
         .iter()
         .copied()
         .find(|slot| !used.iter().any(|name| name == slot))
+}
+
+/// 標準アクションNewTabが付けるデフォルト名（"Tab #N"）ならtrue
+fn is_default_tab_name(name: &str) -> bool {
+    name.strip_prefix("Tab #")
+        .is_some_and(|rest| !rest.is_empty() && rest.chars().all(|c| c.is_ascii_digit()))
+}
+
+/// デフォルト名のタブへのスロット割り当てを決める（(position, スロット名) の列）。
+/// スロットの空きはデフォルト名以外の全タブ名を使用中として計算し、
+/// 複数あればposition順に割り当てる。入力の並びに依存すると、リネームを
+/// 実行する複数のインスタンス間で結果が食い違いうるため、明示的にソートして
+/// 決定的にする。空きがなければ割り当てない（デフォルト名のまま残り、
+/// バーには末尾に表示される）
+fn assign_slots(tabs: &[(usize, String)]) -> Vec<(usize, &'static str)> {
+    let mut used: Vec<String> = tabs
+        .iter()
+        .filter(|(_, name)| !is_default_tab_name(name))
+        .map(|(_, name)| name.clone())
+        .collect();
+    let mut targets: Vec<&(usize, String)> = tabs
+        .iter()
+        .filter(|(_, name)| is_default_tab_name(name))
+        .collect();
+    targets.sort_by_key(|(position, _)| *position);
+    let mut out = Vec::new();
+    for (position, _) in targets {
+        let Some(slot) = find_free_slot(&used) else {
+            break;
+        };
+        used.push(slot.to_string());
+        out.push((*position, slot));
+    }
+    out
 }
 
 /// タブ名がスロット番号（1桁の数字）ならその値を返す
@@ -164,34 +199,38 @@ fn cell_width(s: &str) -> usize {
 }
 
 // =============================================================================
-// 役割の分離
+// クライアント独立の設計
 // =============================================================================
-// このwasmは設定によって2つの役割で動く:
-// - bar:   レイアウトからタブごとにインスタンス化され、ステータスバーを描画する。
-//          隠れているタブのインスタンスにはイベントが届かず状態が古くなるため、
-//          パイプの処理はしない（古い状態で空きスロットを計算すると、1回の
-//          prefix+cで複数タブができる・空き番号を再利用しないなどの不整合が
-//          起きることを実測で確認済み）
-// - actor: キーバインドのMessagePlugin（設定なし）が最初のパイプで起動する
-//          バックグラウンドのシングルトン。パイプ（new/goto）を一手に担う。
-//          Zellijのパイプは (URL, 設定) が一致するインスタンスへ配送されるため、
-//          barと設定を分けることで唯一の宛先になる
+// このwasmはレイアウトからタブごと・クライアントごとにインスタンス化され、
+// ステータスバーを描画する。多重アタッチでは各クライアントが独立に動くべき
+// （旧tmuxのグループセッション相当）だが、プラグインAPI経由のフォーカス操作は
+// どのクライアント名義で実行されるかが不定という制約がある（実測。Zellij側に
+// クライアントを指定する手段がない）。そこで:
+// - タブ作成はプラグインを使わず、キーバインドの標準アクションNewTabで行う
+//   （標準アクションは押した本人のクライアントだけを動かす）。プラグインは
+//   「Tab #N」名で生まれたタブを空きスロット名にリネームするだけ。リネームは
+//   フォーカスを動かさない操作なのでクライアント帰属問題と無縁
+// - タブ移動（goto）はパイプで全インスタンスに届く。実行するのは
+//   「自分のクライアントのlocked→tmux遷移（=prefix押下）を観測し（armed）、
+//   かつ自分のタブがいま表示されている」インスタンスだけ。モードは
+//   クライアントごとに独立しているのでこれで押した本人に絞れる。
+//   モードの「値」ではなく「遷移」を見るのは、prefix押下中に生まれた
+//   新しいタブのバーは初期モードがtmuxのまま届き、隠れたバーはイベントが
+//   止まってtmuxのまま凍結するため。値だけで判定すると、そうした
+//   インスタンスが他クライアントの操作に反応してしまう（実測）
 #[derive(Default)]
 struct State {
-    is_bar: bool,
     tabs: Vec<TabInfo>,
     panes: HashMap<usize, Vec<PaneInfo>>,
     mode_info: ModeInfo,
-    /// actor: 初回のTabUpdateを受け取るまでtabsは空で信用できない。
-    /// その間に来た new は積んでおき、状態が届いてから処理する
-    got_tab_state: bool,
-    queued_news: usize,
-    /// actor: 作成したがまだTabUpdateに現れていないスロット。
-    /// 直前の作成が反映される前に次のnewが来ても同じ番号を選ばないための帳簿
-    pending_created: Vec<String>,
-    /// bar: 直近のrenderで確定したクリック領域: [start, end) 表示列 → switch_tab_to用の1-based index
+    /// ModeUpdateを一度でも受け取ったか（初回はlocked→tmuxの遷移判定に使えない）
+    got_mode: bool,
+    /// 自分のクライアントの「locked→tmuxの遷移」（=prefix押下）を観測済みか。
+    /// goto実行後・tmux以外への遷移で解除する（詳細は上の設計コメント）
+    prefix_armed: bool,
+    /// 直近のrenderで確定したクリック領域: [start, end) 表示列 → switch_tab_to用の1-based index
     click_regions: Vec<(usize, usize, u32)>,
-    /// bar: fishフック由来のペインID→実行中コマンド名（PaneInfo.titleより優先）
+    /// fishフック由来のペインID→実行中コマンド名（PaneInfo.titleより優先）
     titles: HashMap<u32, String>,
 }
 
@@ -246,60 +285,58 @@ fn title_for_tab(panes: Option<&Vec<PaneInfo>>, overrides: &HashMap<u32, String>
 
 #[cfg(target_arch = "wasm32")]
 impl State {
-    /// 優先順位の空きスロットに新規タブを作る（tmuxのnew-window相当）。
-    /// 直前の作成がTabUpdateに反映される前に次のnewが来ても同じ番号を
-    /// 選ばないよう、pending_createdを合算して空きを計算する。
-    /// 全スロット使用中は何もしない（10タブが上限）
-    fn create_slot_tab(&mut self) {
-        let mut used: Vec<String> = self.tabs.iter().map(|t| t.name.clone()).collect();
-        used.extend(self.pending_created.iter().cloned());
-        if let Some(slot) = find_free_slot(&used) {
-            focus_or_create_tab(slot);
-            self.pending_created.push(slot.to_string());
-        }
+    /// 自分の置かれたタブが、いま自分のクライアントに表示されているか。
+    /// 自分のタブはイベントで届いたTabInfo.active（受け取った当人のタブが
+    /// trueになる）から名前で覚え、ホストへの同期問い合わせと突き合わせる。
+    /// positionはタブを閉じると詰まって古い値とずれるため、名前で比べる
+    fn is_showing(&self) -> bool {
+        let Some(own) = self.tabs.iter().find(|t| t.active) else {
+            return false;
+        };
+        get_focused_pane_info()
+            .ok()
+            .and_then(|(tab_id, _)| get_tab_info(tab_id))
+            .is_some_and(|showing| showing.name == own.name)
     }
 }
 
 #[cfg(target_arch = "wasm32")]
 impl ZellijPlugin for State {
-    fn load(&mut self, configuration: BTreeMap<String, String>) {
+    fn load(&mut self, _configuration: BTreeMap<String, String>) {
         request_permission(&[
             PermissionType::ReadApplicationState,
             PermissionType::ChangeApplicationState,
             // CLIパイプ（fishフックのtitle通知）の受信とunblockに必要
             PermissionType::ReadCliPipes,
         ]);
-        self.is_bar = configuration.get("role").map(String::as_str) == Some("bar");
-        if self.is_bar {
-            set_selectable(false);
-            subscribe(&[
-                EventType::TabUpdate,
-                EventType::PaneUpdate,
-                EventType::ModeUpdate,
-                EventType::Timer,
-                EventType::Mouse,
-            ]);
-            // 時計の更新タイマー。初回発火時に分頭へ揃える
-            set_timeout(1.0);
-        } else {
-            subscribe(&[EventType::TabUpdate]);
-            // パイプ起動でフローティングペインが付いた場合に備えて隠す
-            hide_self();
-        }
+        set_selectable(false);
+        subscribe(&[
+            EventType::TabUpdate,
+            EventType::PaneUpdate,
+            EventType::ModeUpdate,
+            EventType::Timer,
+            EventType::Mouse,
+        ]);
+        // 時計の更新タイマー。初回発火時に分頭へ揃える
+        set_timeout(1.0);
     }
 
     fn update(&mut self, event: Event) -> bool {
         match event {
             Event::TabUpdate(tabs) => {
                 self.tabs = tabs;
-                self.got_tab_state = true;
-                // 作成がタブ一覧に反映されたらpendingから外す
-                self.pending_created
-                    .retain(|slot| !self.tabs.iter().any(|t| &t.name == slot));
-                // 起動直後（状態が届く前）に受けた new をここで処理する
-                while self.queued_news > 0 {
-                    self.queued_news -= 1;
-                    self.create_slot_tab();
+                // 標準アクションNewTabで生まれた「Tab #N」名のタブに空きスロット
+                // 名を付ける。イベントが届くのは表示中のインスタンスだけで、
+                // どれも同じタブ一覧から同じ割り当てを計算するため、複数の
+                // インスタンスが同時にリネームしても結果は変わらない（冪等）
+                let positions: Vec<(usize, String)> = self
+                    .tabs
+                    .iter()
+                    .map(|t| (t.position, t.name.clone()))
+                    .collect();
+                for (position, slot) in assign_slots(&positions) {
+                    // rename_tabの位置は1-based（Zellij側でsaturating_sub(1)される）
+                    rename_tab(position as u32 + 1, slot);
                 }
                 true
             }
@@ -317,7 +354,17 @@ impl ZellijPlugin for State {
                 true
             }
             Event::ModeUpdate(mode_info) => {
+                let was = self.mode_info.mode;
                 self.mode_info = mode_info;
+                if self.mode_info.mode != InputMode::Tmux {
+                    self.prefix_armed = false;
+                } else if self.got_mode && was != InputMode::Tmux {
+                    // 自分のクライアントがprefixを押した瞬間だけ武装する。
+                    // 初回のModeUpdate（インスタンス生成時の現在値）は遷移では
+                    // ないので対象外
+                    self.prefix_armed = true;
+                }
+                self.got_mode = true;
                 true
             }
             Event::Timer(_) => {
@@ -342,38 +389,35 @@ impl ZellijPlugin for State {
         if message.name != PIPE_NAME {
             return false;
         }
-        // title通知は描画のためbarが取り込む（actorに届いても無害）。
-        // それ以外の操作系パイプは状態が新鮮なactorだけが処理する
         // CLI経由のパイプは、受信側がunblockしないと送信コマンドが
         // 終了せずブロックし続ける（fishフックのプロセスが溜まる）
         if let PipeSource::Cli(pipe_id) = &message.source {
             unblock_cli_pipe_input(pipe_id);
         }
+        // title通知は描画に取り込む
         if let Some((pane_id, title)) = message.payload.as_deref().and_then(parse_title_payload) {
             self.titles.insert(pane_id, title.to_string());
-            return self.is_bar;
+            return true;
         }
-        if self.is_bar {
+        // タブ移動（goto）は全インスタンスに配送される。実行するのは
+        // 押した本人のクライアントの、表示中のインスタンスだけ
+        // （判定の根拠は上の「クライアント独立の設計」を参照）
+        if !self.prefix_armed || !self.is_showing() {
             return false;
         }
-        match message.payload.as_deref() {
-            Some("new") => {
-                if self.got_tab_state {
-                    self.create_slot_tab();
-                } else {
-                    // 起動直後でタブ状態が届いていない。空のused（=スロット3が
-                    // 空きに見える）で計算すると既存タブへのフォーカスに化ける
-                    // ため、TabUpdate後に処理する
-                    self.queued_news += 1;
-                }
-            }
-            Some(payload) => {
-                if let Some(slot) = payload.strip_prefix("goto:") {
-                    go_to_tab_name(slot);
-                }
-            }
-            None => {}
+        self.prefix_armed = false;
+        if let Some(slot) = message
+            .payload
+            .as_deref()
+            .and_then(|p| p.strip_prefix("goto:"))
+        {
+            go_to_tab_name(slot);
         }
+        // lockedへの復帰はキーバインドではなくここで行う。キーバインドに
+        // SwitchToModeを置くと、パイプが届く前にlockedへ戻ってしまい、
+        // 上の判定が成立しなくなる。移動先が無いときも必ず戻す
+        // （戻さないと以降のキーがすべてprefix扱いになる）
+        switch_to_input_mode(&InputMode::Locked);
         false
     }
 
@@ -482,6 +526,51 @@ mod tests {
     fn 全スロット使用中はnoneを返す() {
         let all: Vec<String> = SLOT_PRIORITY.iter().map(|s| s.to_string()).collect();
         assert_eq!(find_free_slot(&all), None);
+    }
+
+    #[test]
+    fn デフォルトタブ名の判定() {
+        assert!(is_default_tab_name("Tab #1"));
+        assert!(is_default_tab_name("Tab #12"));
+        assert!(!is_default_tab_name("3"));
+        assert!(!is_default_tab_name("logs"));
+        assert!(!is_default_tab_name("Tab #"));
+        assert!(!is_default_tab_name("Tab #x"));
+    }
+
+    #[test]
+    fn デフォルト名のタブに優先順位でスロットを割り当てる() {
+        // 「3」使用中に NewTab で生まれた Tab #2 → 次の優先「4」
+        let t = tabs(&[(0, "3"), (1, "Tab #2")]);
+        assert_eq!(assign_slots(&t), vec![(1, "4")]);
+        // 素早い連打で2つ同時でも別のスロットになる
+        let t = tabs(&[(0, "3"), (1, "Tab #2"), (2, "Tab #3")]);
+        assert_eq!(assign_slots(&t), vec![(1, "4"), (2, "2")]);
+        // 入力の並びによらずposition順に割り当てる（インスタンス間で
+        // 同じ結果になることがリネームの冪等性の前提）
+        let t = tabs(&[(2, "Tab #3"), (0, "3"), (1, "Tab #2")]);
+        assert_eq!(assign_slots(&t), vec![(1, "4"), (2, "2")]);
+        // 空き番号の再利用（3,2,8 使用中 → 4）
+        let t = tabs(&[(0, "3"), (1, "2"), (2, "8"), (3, "Tab #5")]);
+        assert_eq!(assign_slots(&t), vec![(3, "4")]);
+    }
+
+    #[test]
+    fn スロット割り当ての対象外と枯渇() {
+        // デフォルト名のタブがなければ何もしない
+        let t = tabs(&[(0, "3"), (1, "logs")]);
+        assert_eq!(assign_slots(&t), vec![]);
+        // 手動リネームされた名前は使用中として避ける
+        let t = tabs(&[(0, "4"), (1, "Tab #9")]);
+        assert_eq!(assign_slots(&t), vec![(1, "3")]);
+        // 全スロット使用中は割り当てない（デフォルト名のまま残る）
+        let mut all: Vec<(usize, String)> = SLOT_PRIORITY
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (i, s.to_string()))
+            .collect();
+        all.push((10, "Tab #11".to_string()));
+        assert_eq!(assign_slots(&all), vec![]);
     }
 
     #[test]
