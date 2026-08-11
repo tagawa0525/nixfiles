@@ -318,8 +318,12 @@
         "type": "github"
       }
     },
-    "openlogi-src": {
-      "flake": false,
+    "openlogi": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
       "locked": {
         "lastModified": 1786407136,
         "narHash": "sha256-ZBZUkmh20AMkJaXjEpvCIJZk28KLwVxs855eNvxHzWw=",
@@ -388,7 +392,7 @@
         "nixos-vscode-server": "nixos-vscode-server",
         "nixpkgs": "nixpkgs_3",
         "nur-vscode-latest": "nur-vscode-latest",
-        "openlogi-src": "openlogi-src",
+        "openlogi": "openlogi",
         "qmpo": "qmpo"
       }
     },
