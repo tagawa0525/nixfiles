@@ -127,7 +127,13 @@
       # ─────────────────────────────────────────────────────────────────────────
       # overlay（各ホストの pkgs.openlogi）と packages 出力の両方がここを参照する。
       # nixpkgs は follows でこちらに揃えてあるので、fork 側の nixpkgs が実体化
-      # されることはない
+      # されることはない。
+      #
+      # meta.mainProgram は fork 側の "openlogi"（CLI）を採用する。以前の
+      # ローカル定義は "openlogi-gui" だったので `nix run .#openlogi` の起動対象が
+      # 変わるが、この出力は CI（openlogi-cargo-deps）と単体ビルド用で、
+      # GUI の起動は .desktop（Exec=openlogi-gui）が担うため実害はない。
+      # 上書きするとまた fork との差分を抱えるので置かない
       openlogiPkg = openlogi.packages.x86_64-linux.openlogi;
 
       # ─────────────────────────────────────────────────────────────────────────
