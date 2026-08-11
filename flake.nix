@@ -83,11 +83,13 @@
     };
 
     # OpenLogi: Logitech Options+ 代替（fork 運用）
-    # upstream は自前 flake を #262 で削除済み、nixpkgs 版は macOS 専用のため、
-    # ソースだけ取り込んで ./pkgs/openlogi/package.nix で Linux 向けにビルドする
-    openlogi-src = {
+    # nixpkgs 版は macOS 専用。fork の master は自前 flake で Linux 向け
+    # パッケージを出しており（upstream #491、#262 で消えた flake の復活）、
+    # ハッシュずれは向こうの Nix CI が master push / PR で弾くので、
+    # こちらは packages 出力をそのまま使う（定義を二重に持たない）
+    openlogi = {
       url = "github:tagawa0525/OpenLogi";
-      flake = false;
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
@@ -107,7 +109,7 @@
       qmpo,
       cc-bar,
       kikitori,
-      openlogi-src,
+      openlogi,
       ...
     }:
     let
@@ -121,12 +123,12 @@
       );
 
       # ─────────────────────────────────────────────────────────────────────────
-      # OpenLogi パッケージの単一定義
+      # OpenLogi パッケージ（fork の flake 出力）
       # ─────────────────────────────────────────────────────────────────────────
-      # overlay（各ホストの pkgs.openlogi）と packages 出力（CI・単体ビルド）の
-      # 両方がここを参照する。定義を2箇所に持つと package.nix の引数変更時に
-      # 片方だけ更新される事故が起きるため一元化している
-      mkOpenlogi = pkgs: pkgs.callPackage ./pkgs/openlogi/package.nix { src = openlogi-src; };
+      # overlay（各ホストの pkgs.openlogi）と packages 出力の両方がここを参照する。
+      # nixpkgs は follows でこちらに揃えてあるので、fork 側の nixpkgs が実体化
+      # されることはない
+      openlogiPkg = openlogi.packages.x86_64-linux.openlogi;
 
       # ─────────────────────────────────────────────────────────────────────────
       # mkHost: ホスト設定を生成するヘルパー関数
@@ -165,8 +167,8 @@
                 (final: prev: {
                   kikitori = kikitori.packages.${prev.stdenv.hostPlatform.system}.kikitori;
                 })
-                # OpenLogi: fork のソースを Linux 向けにビルド（modules/openlogi.nix が参照）
-                (final: _prev: { openlogi = mkOpenlogi final; })
+                # OpenLogi: fork の flake が出す Linux パッケージ（modules/openlogi.nix が参照）
+                (_final: _prev: { openlogi = openlogiPkg; })
                 # cc-bar の overlay は ./modules/cc-bar.nix に集約済み
               ];
               # Home Manager設定
@@ -194,13 +196,9 @@
       # の vendor ディレクトリで、これのビルド = 全依存の取得とハッシュ検証。
       # rust のコンパイルを伴わないため、gpui 等の rev bump によるハッシュずれを
       # 数分で検知できる（コンパイルまで通るかは通常の update フローが担う）
-      packages.x86_64-linux =
-        let
-          openlogi = mkOpenlogi nixpkgs.legacyPackages.x86_64-linux;
-        in
-        {
-          inherit openlogi;
-          openlogi-cargo-deps = openlogi.cargoDeps;
-        };
+      packages.x86_64-linux = {
+        openlogi = openlogiPkg;
+        openlogi-cargo-deps = openlogiPkg.cargoDeps;
+      };
     };
 }

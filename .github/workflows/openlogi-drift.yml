@@ -2,13 +2,17 @@
 # OpenLogi fork の drift 検知
 # =============================================================================
 # fork (tagawa0525/OpenLogi) の master HEAD に対して cargo vendor の取得を
-# 毎日検証する。pkgs/openlogi/package.nix の outputHashes は git 依存
-# （gpui 等）の rev が動くと無効になるが、fork には nix ビルドの CI が無い
-# ため、放置すると次の flake update まで気づけない。このワークフローが
-# 落ちたら、エラーログに印字される正しいハッシュを outputHashes に反映する。
-# gpui-component の rev が動いていた場合は、themes 用の gpuiComponentRev も
-# fork の Cargo.lock に合わせて更新する（このジョブのログには出ないので
-# lock を見る。放置しても rev 不一致はハッシュ不一致として検出される）。
+# 毎日検証する。fork の nix/package.nix の outputHashes は git 依存（gpui 等）
+# の rev が動くと無効になる。
+#
+# fork 側にも Nix CI（master への push と PR で .#openlogi をビルド）がある
+# ので一次的な防波堤はそちらだが、赤くなっても気づかず放置される（実際に
+# 2026-08-04 の gpui-updater 0.0.5→0.0.6 は 1 週間気づかれなかった）。
+# こちらは「毎日、自分が見るリポジトリで落ちる」ための二重化で、次の
+# nix flake update より前に気づくのが目的。
+#
+# 落ちたら fork 側の nix/package.nix を直す（このリポジトリには
+# パッケージ定義を持たない）。エラーログに正しいハッシュが印字される。
 #
 # vendor 取得（openlogi-cargo-deps）だけを対象にし、rust のコンパイルは
 # しない。ハッシュずれの検知には十分で、数分で終わる。コンパイルまで通る
@@ -37,5 +41,5 @@ jobs:
         # 変わった場合に意図しないブランチを検証してしまう）
         run: |
           nix build .#openlogi-cargo-deps \
-            --override-input openlogi-src github:tagawa0525/OpenLogi/master \
+            --override-input openlogi github:tagawa0525/OpenLogi/master \
             --no-link --print-build-logs

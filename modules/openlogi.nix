@@ -3,10 +3,11 @@
 # =============================================================================
 # https://github.com/tagawa0525/OpenLogi （upstream: AprilNEA/OpenLogi の fork）
 #
-# パッケージ本体は ./pkgs/openlogi/package.nix で flake input `openlogi-src`
-# からビルドする。以前はローカルの cargo 成果物（~/github/OpenLogi/target）を
-# 直接参照していたが、そのパスを持たない x1ng1 / t14g4 では動かせず、
-# nix flake update でも更新されなかったため input 化した。
+# パッケージ本体は flake input `openlogi`（fork の flake）が出す Linux 向け
+# パッケージを flake.nix の overlay 経由で受け取る。以前はローカルの cargo
+# 成果物（~/github/OpenLogi/target）を直接参照していたが、そのパスを持たない
+# x1ng1 / t14g4 では動かせず、nix flake update でも更新されなかったため
+# input 化した。
 #
 # このモジュールが持つのは「システム側に要る設定」だけ:
 #   - デバイスアクセス許可 (udev + uinput)
@@ -36,12 +37,14 @@
   # uinput カーネルモジュールのロード（ボタンリマップ用の仮想入力デバイス作成に必要）
   hardware.uinput.enable = true;
 
-  # openlogi (CLI) / openlogi-agent / openlogi-gui と .desktop・アイコンを含む
+  # openlogi (CLI) / openlogi-agent / openlogi-gui と .desktop・アイコンを含む。
+  # パッケージは udev ルールと systemd user unit も同梱するが、どちらも
+  # services.udev.packages / systemd.packages に載せない限り効かないので、
+  # 下の宣言（簡約した udev ルールと unit）だけが実際に使われる
   environment.systemPackages = [ pkgs.openlogi ];
 
-  # エージェントの常駐。upstream 同梱の
-  # packaging/linux/systemd/openlogi-agent.service は ExecStart が /usr/bin
-  # 固定で NixOS では使えないため、同等の内容を宣言的に持つ。
+  # エージェントの常駐。パッケージ同梱の unit は使わず、順序と再起動条件を
+  # 明示した同等の内容をここに持つ（ExecStart は overlay 経由の store パス）。
   #
   # GUI の「ログイン時に起動」設定は agent 自身に
   # $XDG_CONFIG_HOME/systemd/user/openlogi-agent.service を書かせる。そちらは
