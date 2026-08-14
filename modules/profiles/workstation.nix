@@ -143,7 +143,10 @@
     # v4l2loopback カーネルモジュールの組み込みと設定も行われる
     enableVirtualCamera = true;
     plugins = with pkgs.obs-studio-plugins; [
-      obs-pipewire-audio-capture # Wayland 環境でのアプリ別音声キャプチャ
+      # Wayland 環境でのアプリ別音声キャプチャ。前提の PipeWire / rtkit は
+      # nixpkgs の graphical-desktop.nix（COSMIC 有効時に自動 import）が
+      # 有効化するため、ここでの明示的な設定は不要
+      obs-pipewire-audio-capture
     ];
   };
 
