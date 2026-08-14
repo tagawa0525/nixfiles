@@ -131,6 +131,23 @@
   programs.firefox.enable = true;
 
   # ===========================================================================
+  # Webカメラ / 配信 (OBS Studio)
+  # ===========================================================================
+  # Insta360 Link2 Pro は UVC 準拠のためカーネル標準の uvcvideo で認識される。
+  # ジンバル制御・AIトラッキングはカメラ本体で完結するため専用ソフトは不要
+  # （Insta360 Link Controller は Linux 非対応）。
+  # パン・チルト・ズームは UVC 標準コマンドのため v4l2-ctl で手動制御できる。
+  programs.obs-studio = {
+    enable = true;
+    # OBS の合成映像を仮想カメラ (/dev/videoN) としてブラウザ会議等に流す。
+    # v4l2loopback カーネルモジュールの組み込みと設定も行われる
+    enableVirtualCamera = true;
+    plugins = with pkgs.obs-studio-plugins; [
+      obs-pipewire-audio-capture # Wayland 環境でのアプリ別音声キャプチャ
+    ];
+  };
+
+  # ===========================================================================
   # GUI パッケージ
   # ===========================================================================
   environment.systemPackages = with pkgs; [
@@ -154,6 +171,9 @@
     podman-desktop # コンテナ管理GUI。Docker Desktopの代替
     meld # ファイル/ディレクトリの差分比較・マージ
     dbeaver-bin # 多数のDBに対応したGUIクライアント
+
+    # カメラユーティリティ
+    v4l-utils # v4l2-ctl による UVC カメラの設定・PTZ 制御
   ];
 
   # ===========================================================================
