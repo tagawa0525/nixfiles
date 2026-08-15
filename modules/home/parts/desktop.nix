@@ -25,6 +25,10 @@ let
   xdg-open-handlr = pkgs.writeShellScriptBin "xdg-open" ''
     exec ${handlr}/bin/handlr open "$@"
   '';
+
+  # システム側で fcitx5 が入力メソッドとして構成されているか
+  # （下記の service 定義と autostart 無効化で条件を揃えるため）
+  fcitx5Managed = osConfig.i18n.inputMethod.enable && osConfig.i18n.inputMethod.type == "fcitx5";
 in
 {
   # handlr本体と xdg-open シムをユーザープロファイルに導入
@@ -117,35 +121,35 @@ in
   # （2026-08-15 にセッション終了・cosmic-comp クラッシュの2パターンで再現）。
   # systemd user service にして Restart=always を付けることで、fcitx5 が
   # Wayland 接続を失って終了するたびに自動で再起動されるようにする。
-  systemd.user.services.fcitx5 =
-    lib.mkIf (osConfig.i18n.inputMethod.enable && osConfig.i18n.inputMethod.type == "fcitx5")
-      {
-        Unit = {
-          Description = "Fcitx5 input method framework";
-          PartOf = [ "graphical-session.target" ];
-          After = [ "graphical-session.target" ];
-          # コンポジタ停止中は再起動を繰り返すため、起動回数制限で
-          # ユニットが failed に落ちないようにする
-          StartLimitIntervalSec = 0;
-        };
-        Service = {
-          # システム側 i18n.inputMethod が組んだ fcitx5-with-addons を使う
-          # （アドオン構成を home 側で二重定義しないため）
-          ExecStart = "${osConfig.i18n.inputMethod.package}/bin/fcitx5";
-          Restart = "always";
-          RestartSec = 2;
-        };
-        Install.WantedBy = [ "graphical-session.target" ];
-      };
+  systemd.user.services.fcitx5 = lib.mkIf fcitx5Managed {
+    Unit = {
+      Description = "Fcitx5 input method framework";
+      PartOf = [ "graphical-session.target" ];
+      After = [ "graphical-session.target" ];
+      # コンポジタ停止中は再起動を繰り返すため、起動回数制限で
+      # ユニットが failed に落ちないようにする
+      StartLimitIntervalSec = 0;
+    };
+    Service = {
+      # システム側 i18n.inputMethod が組んだ fcitx5-with-addons を使う
+      # （アドオン構成を home 側で二重定義しないため）
+      ExecStart = "${osConfig.i18n.inputMethod.package}/bin/fcitx5";
+      Restart = "always";
+      RestartSec = 2;
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
 
   # システム側 (/etc/xdg/autostart) の org.fcitx.Fcitx5.desktop をユーザー側で
   # 上書きして無効化し、上記 service との二重起動を防ぐ
-  xdg.configFile."autostart/org.fcitx.Fcitx5.desktop".text = ''
-    [Desktop Entry]
-    Type=Application
-    Name=Fcitx 5
-    Hidden=true
-  '';
+  xdg.configFile."autostart/org.fcitx.Fcitx5.desktop" = lib.mkIf fcitx5Managed {
+    text = ''
+      [Desktop Entry]
+      Type=Application
+      Name=Fcitx 5
+      Hidden=true
+    '';
+  };
 
   # fcitx5のホットキー設定
   xdg.configFile."fcitx5/config".text = ''
