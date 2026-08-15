@@ -152,12 +152,15 @@ in
   };
 
   # fcitx5のホットキー設定
+  # IMの切替は右Alt=有効化 / 左Alt=無効化のみ。トグルキーは使わない。
+  # TriggerKeys は空セクションを明示的に残すこと: セクションごと消すと
+  # fcitx5 のデフォルト（Ctrl+Space 等）が復活してしまう
+  # （iniparser が空セクションでもノードを生成し、空リストとして読むため）
   xdg.configFile."fcitx5/config".text = ''
     [Hotkey]
     EnumerateWithTriggerKeys=True
 
     [Hotkey/TriggerKeys]
-    0=Control+space
 
     [Hotkey/ActivateKeys]
     0=Alt+Alt_R
