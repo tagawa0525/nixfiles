@@ -175,6 +175,19 @@
                 })
                 # OpenLogi: fork の flake が出す Linux パッケージ（modules/openlogi.nix が参照）
                 (_final: _prev: { openlogi = openlogiPkg; })
+                # waypipe: FFmpeg 9 ではビルド不可（AVVulkanDeviceContext の
+                # deprecated フィールド削除のため）。nixpkgs master は 74fe2ec248 で
+                # ffmpeg_8 に固定済みだが nixpkgs-unstable 未着なので、到着まで同じ
+                # ピンをこちらで適用する。修正到着後は waypipe が ffmpeg 引数を
+                # 取らなくなり自動で no-op になる（確認したらこのオーバーレイを削除）
+                (_final: prev: {
+                  waypipe =
+                    if prev.waypipe.override.__functionArgs ? ffmpeg then
+                      # 現行 lock には ffmpeg_8 属性がない（ffmpeg 自体が 8.x）ため fallback
+                      prev.waypipe.override { ffmpeg = prev.ffmpeg_8 or prev.ffmpeg; }
+                    else
+                      prev.waypipe;
+                })
                 # cc-bar の overlay は ./modules/cc-bar.nix に集約済み
               ];
               # Home Manager設定
