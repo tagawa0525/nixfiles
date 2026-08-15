@@ -4,7 +4,12 @@
 # COSMIC DE, XDG, fcitx5, mimeApps などデスクトップ関連の設定
 # =============================================================================
 
-{ pkgs, ... }:
+{
+  pkgs,
+  osConfig,
+  lib,
+  ...
+}:
 let
   # ===========================================================================
   # handlr-regex: Rust製の「より良い xdg-utils」
@@ -104,6 +109,42 @@ in
 
     [GroupOrder]
     0=デフォルト
+  '';
+
+  # fcitx5の起動管理（systemd user service）
+  # 既定の XDG autostart 起動には「COSMICセッションやcosmic-compが再起動しても
+  # ユニットが active のまま残留し、fcitx5 が再起動されない」問題がある
+  # （2026-08-15 にセッション終了・cosmic-comp クラッシュの2パターンで再現）。
+  # systemd user service にして Restart=always を付けることで、fcitx5 が
+  # Wayland 接続を失って終了するたびに自動で再起動されるようにする。
+  systemd.user.services.fcitx5 =
+    lib.mkIf (osConfig.i18n.inputMethod.enable && osConfig.i18n.inputMethod.type == "fcitx5")
+      {
+        Unit = {
+          Description = "Fcitx5 input method framework";
+          PartOf = [ "graphical-session.target" ];
+          After = [ "graphical-session.target" ];
+          # コンポジタ停止中は再起動を繰り返すため、起動回数制限で
+          # ユニットが failed に落ちないようにする
+          StartLimitIntervalSec = 0;
+        };
+        Service = {
+          # システム側 i18n.inputMethod が組んだ fcitx5-with-addons を使う
+          # （アドオン構成を home 側で二重定義しないため）
+          ExecStart = "${osConfig.i18n.inputMethod.package}/bin/fcitx5";
+          Restart = "always";
+          RestartSec = 2;
+        };
+        Install.WantedBy = [ "graphical-session.target" ];
+      };
+
+  # システム側 (/etc/xdg/autostart) の org.fcitx.Fcitx5.desktop をユーザー側で
+  # 上書きして無効化し、上記 service との二重起動を防ぐ
+  xdg.configFile."autostart/org.fcitx.Fcitx5.desktop".text = ''
+    [Desktop Entry]
+    Type=Application
+    Name=Fcitx 5
+    Hidden=true
   '';
 
   # fcitx5のホットキー設定
