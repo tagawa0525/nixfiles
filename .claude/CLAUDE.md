@@ -59,3 +59,4 @@
 ### ツール
 
 - コンテナランタイムは Podman を優先する（Docker より好み）
+- 大きなソースファイルの構造把握は全文 Read より先に `zat <file>`。ただし Rust は pub シンボル限定で、private 関数・`#[test]`・trait impl メソッドはエラーなく静かに省かれる点に注意
