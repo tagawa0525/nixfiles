@@ -32,6 +32,9 @@
     dates = "weekly";
     options = "--delete-older-than 30d";
   };
+  # ストアの自動最適化: 同一内容のファイルをハードリンクで重複排除（週次）。
+  # 毎朝の flake update + 全ホスト検証でストアが育ちやすいため、GCと併用する
+  nix.optimise.automatic = true;
   # プロプライエタリソフトウェア（Chrome、VSCode等）のインストールを許可
   nixpkgs.config.allowUnfree = true;
 
