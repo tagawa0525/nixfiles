@@ -54,20 +54,13 @@ if [ "$(hid_count "$hub")" -ge 2 ]; then
   exit 0
 fi
 
-echo "ハブ $hub 配下のHIDデバイスが欠落しています。unbind/rebind を試します..."
-echo "$hub" >/sys/bus/usb/drivers/usb/unbind
-sleep 1
-echo "$hub" >/sys/bus/usb/drivers/usb/bind
-sleep 3
-
-if [ "$(hid_count "$hub")" -ge 2 ]; then
-  recovered "$hub"
-  exit 0
-fi
-
-# ハブのsysfsパスを上に辿ってxhciコントローラのPCIアドレスを特定する
+# xhciコントローラのPCIアドレスは、unbind操作でハブが消える可能性がある
+# 前（ハブが確実に存在するここ）で、sysfsパスを上に辿って特定しておく
 pci=""
-p=$(readlink -f "/sys/bus/usb/devices/$hub")
+p=$(readlink -f "/sys/bus/usb/devices/$hub") || {
+  echo "ハブ $hub のsysfsパスを解決できませんでした。" >&2
+  exit 1
+}
 while [ "$p" != "/" ]; do
   b=$(basename "$p")
   if [ -e "/sys/bus/pci/drivers/xhci_hcd/$b" ]; then
@@ -79,6 +72,17 @@ done
 if [ -z "$pci" ]; then
   echo "xhciコントローラを特定できませんでした。" >&2
   exit 1
+fi
+
+echo "ハブ $hub 配下のHIDデバイスが欠落しています。unbind/rebind を試します..."
+echo "$hub" >/sys/bus/usb/drivers/usb/unbind
+sleep 1
+echo "$hub" >/sys/bus/usb/drivers/usb/bind
+sleep 3
+
+if [ "$(hid_count "$hub")" -ge 2 ]; then
+  recovered "$hub"
+  exit 0
 fi
 
 echo "効果なし。xhciコントローラ $pci をリセットします（同コントローラ配下の全USB機器が数秒切断されます）..."
