@@ -4,8 +4,16 @@
 # Ryzen 9950X + AMD Radeon Graphics のハイエンドデスクトップ設定。
 # 共通設定は modules/profiles/、ブート設定は modules/boot-lanzaboote.nix を参照。
 # =============================================================================
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 
+let
+  # KVM HIDハブ復旧スクリプト。手動実行（SSH経由）と自動復旧サービスの両方で使う
+  kvm-hid-reset = pkgs.writeShellApplication {
+    name = "kvm-hid-reset";
+    runtimeInputs = [ pkgs.coreutils ];
+    text = builtins.readFile ./kvm-hid-reset.sh;
+  };
+in
 {
   imports = [
     ./hardware-configuration.nix # nixos-generate-config で生成されたハードウェア設定
@@ -84,18 +92,36 @@
   ];
 
   # ===========================================================================
-  # KVM HIDハブ復旧コマンド
+  # KVM HIDハブ復旧（手動コマンド + 自動復旧）
   # ===========================================================================
   # EIZO EV3895 内蔵KVMのHID用ハブは切替時にハングすることがあり、
   # キーボード・マウスが認識されなくなる。SSHから `kvm-hid-reset` を
   # 実行すれば再起動なしで復旧を試みられる。詳細は kvm-hid-reset.sh 参照。
-  environment.systemPackages = [
-    (pkgs.writeShellApplication {
-      name = "kvm-hid-reset";
-      runtimeInputs = [ pkgs.coreutils ];
-      text = builtins.readFile ./kvm-hid-reset.sh;
-    })
-  ];
+  environment.systemPackages = [ kvm-hid-reset ];
+
+  # KVM切替でHID用ハブ (2109:2817, 2ポート) が現れたら kvm-hid-watch を起動し、
+  # 列挙の完了を待ってからHID欠落時のみ復旧を実行する。キーボードが死んだ
+  # 状態では手動操作ができないため、ホスト側で自動復旧させる。
+  # 同じ 2109:2817 の上流側ハブ (4ポート) は maxchild で除外する。
+  services.udev.extraRules = ''
+    ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="2109", ATTR{idProduct}=="2817", ATTR{maxchild}=="2", TAG+="systemd", ENV{SYSTEMD_WANTS}+="kvm-hid-watch.service"
+  '';
+
+  systemd.services.kvm-hid-watch = {
+    description = "KVM HIDハブのハング検知と自動復旧";
+    # 復旧のxhciリセットがハブ再列挙→udev再トリガーを誘発するため、
+    # 復旧不能な場合に無限リセットループへ陥らないよう起動回数を制限する。
+    # 復旧成功後の再トリガーは列挙済み判定で何もせず終了するので無害。
+    startLimitIntervalSec = 600;
+    startLimitBurst = 3;
+    serviceConfig = {
+      Type = "oneshot";
+      # KVM切替後、正常なら全デバイスの列挙は5秒程度で完了する。
+      # それを待ってから判定する（正常時は何もしない）。
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 10";
+      ExecStart = lib.getExe kvm-hid-reset;
+    };
+  };
 
   # ===========================================================================
   # システムバージョン
