@@ -28,20 +28,11 @@ in
   # ===========================================================================
   # AMD GPU設定
   # ===========================================================================
-  # AMDGPUドライバーを使用（オープンソース）
-  services.xserver.videoDrivers = [ "amdgpu" ];
-
-  # Vulkan / OpenGL サポート
-  hardware.graphics = {
-    enable = true;
-    enable32Bit = true; # 32ビットアプリ（Steam等）のサポート
-  };
-
-  # AMD GPU用の追加パッケージ
-  hardware.graphics.extraPackages = with pkgs; [
-    # amdvlk           # AMD公式Vulkanドライバー
-    rocmPackages.clr # OpenCLサポート（GPGPU計算用）
-  ];
+  # ドライバはカーネルの amdgpu + Mesa が自動で使われるため明示指定は不要。
+  # enable32Bit は Steam/Wine 等の32bitアプリを使う場合に programs.steam.enable
+  # 等が自動で有効化する。OpenCL (rocmPackages.clr) は開発用途ならプロジェクトの
+  # devShell で OCL_ICD_VENDORS を指定すれば足りるためシステム側には置かない。
+  hardware.graphics.enable = true; # Vulkan / OpenGL サポート
 
   # ===========================================================================
   # Bluetooth (MediaTek mt7925e コンボチップ)
