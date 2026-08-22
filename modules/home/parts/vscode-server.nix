@@ -8,9 +8,7 @@
 
 {
   imports = [
-    # vscode-server は flake = false のソース取得（理由は flake.nix 参照）
-    # のため、flake 出力ではなくソースパスからモジュールを直接 import する
-    "${vscode-server}/modules/vscode-server/home.nix"
+    vscode-server.homeModules.default
   ];
 
   services.vscode-server = {
