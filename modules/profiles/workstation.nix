@@ -6,7 +6,7 @@
 # Laptop でも Desktop でも乗る（profile = ホストの「種類」、本ファイル = 用途）。
 # サーバー/最小ホストには適用しない。
 # =============================================================================
-{ pkgs, lib, ... }:
+{ pkgs, ... }:
 
 {
   imports = [
@@ -110,20 +110,8 @@
   # ユーザーの libvirtd グループ加入は user モジュール側で
   # config.virtualisation.libvirtd.enable をトリガーに条件付き追加する
   # （workstation profile を username 非依存に保つため）
-  # NixOSではFHS準拠の/usr/binが存在しないため、このサービスを明示的に上書きする
-  # ExecStartはリスト型なので空文字で既存エントリをクリアしてから置換する
-  systemd.services.virt-secret-init-encryption.serviceConfig.ExecStart =
-    let
-      script = pkgs.writeShellScript "virt-secret-init-encryption" ''
-        umask 0077
-        dd if=/dev/random status=none bs=32 count=1 \
-          | ${pkgs.systemd}/bin/systemd-creds encrypt --name=secrets-encryption-key - /var/lib/libvirt/secrets/secrets-encryption-key
-      '';
-    in
-    lib.mkForce [
-      ""
-      "${script}"
-    ];
+  # virt-secret-init-encryption の /usr/bin/sh 問題は nixpkgs の libvirt 12.6.0 が
+  # runtimeShell + coreutils/systemd 入りラッパーへの置換で修正済みのため上書き不要
 
   # ===========================================================================
   # ブラウザ

@@ -55,14 +55,9 @@
     };
 
     # VS Code Server for NixOS: リモートSSH接続時のNode.jsバイナリ自動パッチ
-    # flake として評価すると上流の eachSystem が x86_64-darwin を含む全システムで
-    # nixpkgs を実体化し「26.05 が x86_64-darwin 対応最後のリリース」という評価警告が
-    # 出るため、ソース取得のみにしてモジュールをパスで直接 import する
-    # （modules/home/parts/vscode-server.nix 参照）
-    nixos-vscode-server = {
-      url = "github:nix-community/nixos-vscode-server";
-      flake = false;
-    };
+    # 上流 #101 (flake-parts 化) で評価対象が Linux のみになり、以前あった
+    # x86_64-darwin の評価警告は解消したため通常の flake として利用する
+    nixos-vscode-server.url = "github:nix-community/nixos-vscode-server";
 
     # qmpo: directory:// URIハンドラ
     qmpo = {
@@ -175,19 +170,6 @@
                 })
                 # OpenLogi: fork の flake が出す Linux パッケージ（modules/openlogi.nix が参照）
                 (_final: _prev: { openlogi = openlogiPkg; })
-                # waypipe: FFmpeg 9 ではビルド不可（AVVulkanDeviceContext の
-                # deprecated フィールド削除のため）。nixpkgs master は 74fe2ec248 で
-                # ffmpeg_8 に固定済みだが nixpkgs-unstable 未着なので、到着まで同じ
-                # ピンをこちらで適用する。修正到着後は waypipe が ffmpeg 引数を
-                # 取らなくなり自動で no-op になる（確認したらこのオーバーレイを削除）
-                (_final: prev: {
-                  waypipe =
-                    if prev.waypipe.override.__functionArgs ? ffmpeg then
-                      # 現行 lock には ffmpeg_8 属性がない（ffmpeg 自体が 8.x）ため fallback
-                      prev.waypipe.override { ffmpeg = prev.ffmpeg_8 or prev.ffmpeg; }
-                    else
-                      prev.waypipe;
-                })
                 # cc-bar の overlay は ./modules/cc-bar.nix に集約済み
               ];
               # Home Manager設定
