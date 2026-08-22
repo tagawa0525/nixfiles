@@ -51,9 +51,12 @@ in
 
   # MT7925のファームウェアはUSB autosuspendのremote wakeupを正しく処理できず、
   # BT USBインターフェースが応答しなくなる既知の不具合がある。
-  # デスクトップPCではautosuspendの省電力効果は不要なので無効化する。
   # https://bugzilla.redhat.com/show_bug.cgi?id=2372880
-  boot.kernelParams = [ "usbcore.autosuspend=-1" ];
+  # 対策は当該デバイス (13d3:3602) 限定の udev ルール（下記
+  # services.udev.extraRules）。以前は usbcore.autosuspend=-1 で全USBの
+  # autosuspend を止めていたが、KVM・ハブ等の無関係なデバイスまで巻き込む
+  # ため範囲を絞った。BTハングが再発する場合は btusb.enable_autosuspend=0
+  # （btusb 全体）への拡大を検討する。
 
   # networking.hostName はディレクトリ名から flake.nix の mkHost が自動設定する
 
@@ -105,6 +108,8 @@ in
   # 同じ 2109:2817 の上流側ハブ (4ポート) は maxchild で除外する。
   services.udev.extraRules = ''
     ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="2109", ATTR{idProduct}=="2817", ATTR{maxchild}=="2", TAG+="systemd", ENV{SYSTEMD_WANTS}+="kvm-hid-watch.service"
+    # MT7925 BT: btusb が probe 時に有効化する autosuspend を打ち消す（Bluetoothセクション参照）
+    ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="13d3", ATTR{idProduct}=="3602", ATTR{power/control}="on"
   '';
 
   systemd.services.kvm-hid-watch = {
