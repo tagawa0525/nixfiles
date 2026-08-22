@@ -99,10 +99,43 @@ in
   # atuin 用に作られる PostgreSQL を既定の 5432 から退避させ、衝突を避ける。
   services.postgresql.settings.port = 15432;
 
-  # Atuin サーバーへの接続は Tailscale 経由のみ許可する。
+  # ===========================================================================
+  # NetBox（DCIM/IPAM: サーバ・ネットワーク構成の管理台帳）
+  # ===========================================================================
+  # 常時通電のデスクトップ機でホストし、他ホストからは Tailscale 経由で
+  # http://r995/ にアクセスする。PostgreSQL・Redis・nginx・DBマイグレーションは
+  # モジュールがローカルに自動構成する。
+  # SECRET_KEY と API トークン pepper は初回起動時に /var/lib/netbox/ 配下へ
+  # 自動生成されるため、リポジトリに秘密情報を置く必要はない。
+  # 初回のみ管理ユーザーの手動作成が必要: sudo netbox-manage createsuperuser
+  services.netbox = {
+    enable = true;
+    settings = {
+      # DATABASES を定義するとオプションのデフォルト値ごと置き換わるため全項目を書く。
+      # PostgreSQL は atuin 用に 15432 へ退避済み（上記）。UNIX ソケットの
+      # ファイル名がポート番号を含む（.s.PGSQL.15432）ため、PORT の明示が必要
+      DATABASES.default = {
+        NAME = "netbox";
+        USER = "netbox"; # UNIX ソケットの peer 認証（パスワード不要）
+        HOST = "/run/postgresql";
+        PORT = "15432";
+      };
+    };
+    nginx = {
+      enable = true;
+      hostname = "r995";
+    };
+  };
+
+  # Tailscale の MagicDNS FQDN（r995.<tailnet>.ts.net）で来たリクエストも
+  # NetBox の vhost に落とすため、default server にしておく
+  services.nginx.virtualHosts."r995".default = true;
+
+  # Atuin サーバー・NetBox への接続は Tailscale 経由のみ許可する。
   # openFirewall = true は全インターフェースに穴を開けるため使わず、
   # tailscale0 インターフェース限定でポートを開放する。
   networking.firewall.interfaces."tailscale0".allowedTCPPorts = [
+    80 # NetBox（nginx 経由）
     8888
     41717 # kikitori エンジン（x1ng1 / t14g4 が tailnet 経由で使う。LAN 直は不可）
   ];
