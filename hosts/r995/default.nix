@@ -13,6 +13,26 @@ let
     runtimeInputs = [ pkgs.coreutils ];
     text = builtins.readFile ./kvm-hid-reset.sh;
   };
+
+  # devcoredump 退避スクリプト。udev 経由の devcoredump-save@ サービスから使う
+  devcoredump-save = pkgs.writeShellApplication {
+    name = "devcoredump-save";
+    runtimeInputs = [ pkgs.coreutils ];
+    text = ''
+      dev="$1" # 例: devcd1
+      src="/sys/class/devcoredump/$dev"
+      dest=/var/lib/devcoredump
+      mkdir -p "$dest"
+      # failing_device は障害元デバイス（例: PCI の 0000:72:00.0）への symlink
+      failing="$(basename "$(readlink -f "$src/failing_device")")"
+      out="$dest/$(date +%Y%m%d-%H%M%S)-$failing.dump"
+      cp "$src/data" "$out"
+      # data への書き込みは dump の解放。保持したままだと同一デバイスの
+      # 次の障害が capture されないため、退避後は即座に解放する
+      echo 1 > "$src/data"
+      echo "saved: $out"
+    '';
+  };
 in
 {
   imports = [
@@ -101,6 +121,8 @@ in
     ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="2109", ATTR{idProduct}=="2817", ATTR{maxchild}=="2", TAG+="systemd", ENV{SYSTEMD_WANTS}+="kvm-hid-watch.service"
     # MT7925 BT: btusb が probe 時に有効化する autosuspend を打ち消す（Bluetoothセクション参照）
     ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="13d3", ATTR{idProduct}=="3602", ATTR{power/control}="on"
+    # devcoredump が生成されたら退避サービスを起動する（下記 devcoredump-save@ 参照）
+    ACTION=="add", SUBSYSTEM=="devcoredump", TAG+="systemd", ENV{SYSTEMD_WANTS}+="devcoredump-save@%k.service"
   '';
 
   systemd.services.kvm-hid-watch = {
@@ -116,6 +138,23 @@ in
       # それを待ってから判定する（正常時は何もしない）。
       ExecStartPre = "${pkgs.coreutils}/bin/sleep 10";
       ExecStart = lib.getExe kvm-hid-reset;
+    };
+  };
+
+  # ===========================================================================
+  # devcoredump の自動退避
+  # ===========================================================================
+  # kernel 7.2 化（2026-08-22 未明の再起動）以降、amdgpu の GPU ページフォルト
+  # → gfx ring timeout でセッションが落ちる事象が同日中に2件発生した（7.1.8
+  # 時代の4日間はゼロ件）。上流 (drm/amd) 報告には devcoredump の添付がほぼ
+  # 必須だが、カーネルは dump を既定5分で破棄するため手動では間に合わない。
+  # udev で生成を検知し /var/lib/devcoredump/ へ即時退避する。
+  # 発生が収まって不要になったらルールごと削除してよい。
+  systemd.services."devcoredump-save@" = {
+    description = "devcoredumpの退避 (%i)";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${lib.getExe devcoredump-save} %i";
     };
   };
 
