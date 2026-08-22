@@ -25,7 +25,9 @@ let
       mkdir -p "$dest"
       # failing_device は障害元デバイス（例: PCI の 0000:72:00.0）への symlink
       failing="$(basename "$(readlink -f "$src/failing_device")")"
-      out="$dest/$(date +%Y%m%d-%H%M%S)-$failing.dump"
+      # $dev を含めることで同一秒内に複数の dump が発生しても衝突しない
+      # （devcdN は解放されるまで再利用されないため同時存在中は一意）
+      out="$dest/$(date +%Y%m%d-%H%M%S)-$dev-$failing.dump"
       cp "$src/data" "$out"
       # data への書き込みは dump の解放。保持したままだと同一デバイスの
       # 次の障害が capture されないため、退避後は即座に解放する
