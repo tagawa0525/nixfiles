@@ -96,6 +96,18 @@ in
     database.uri = "postgresql:///atuin?host=/run/postgresql&port=15432";
   };
 
+  # atuin-server は起動時に一度だけ DB へ接続し、失敗するとそのまま終了する。
+  # NixOS モジュールは Restart を設定しないため、接続が一瞬でも通らないと
+  # 次回の再起動まで failed のまま放置される。
+  # 実際に踏んだのは nscd の一時停止中に DynamicUser 名を解決できず
+  # peer 認証が user "unknown" で拒否されるレース（nscd 側は
+  # modules/profiles/base.nix で対処済み）。PostgreSQL 側の起動遅れでも
+  # 同じことが起きうるため、失敗時は間隔を空けて再試行させる。
+  systemd.services.atuin.serviceConfig = {
+    Restart = "on-failure";
+    RestartSec = "10s";
+  };
+
   # atuin 用に作られる PostgreSQL を既定の 5432 から退避させ、衝突を避ける。
   services.postgresql.settings.port = 15432;
 

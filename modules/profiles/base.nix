@@ -64,6 +64,18 @@
     "8.8.8.8"
   ];
 
+  # nscd（nsncd）は resolv.conf が書き換わるたびに再起動される。
+  # /etc/resolvconf.conf の libc_restart が `systemctl try-restart nscd` を
+  # 撃つ設計のため、起動直後に NetworkManager が IPv4・IPv6・DNS を順に
+  # 確定させる数秒間だけで既定の上限（10秒に5回）を超え、nscd が
+  # start-limit-hit で永久 failed に落ちる。
+  # NixOS では nsswitch の systemd/mdns 等のモジュールが nscd 経由でしか
+  # 解決されないため、これが落ちると DynamicUser 名の getpwuid() 等が
+  # 静かに失敗する（例: atuin の PostgreSQL peer 認証が user "unknown" で拒否）。
+  # 外部要因による再起動は正常動作なので、クラッシュループ検知の意味は
+  # 残しつつ上限だけを引き上げる。
+  systemd.services.nscd.startLimitBurst = 20;
+
   # ===========================================================================
   # タイムゾーンとロケール
   # ===========================================================================
