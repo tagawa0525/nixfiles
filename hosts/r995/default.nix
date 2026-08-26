@@ -122,6 +122,9 @@ in
   # 初回のみ管理ユーザーの手動作成が必要: sudo netbox-manage createsuperuser
   services.netbox = {
     enable = true;
+    # stateVersion 26.05 のデフォルトは netbox_4_5 だが、4.5系は EOL で
+    # insecure 指定されたため 4.6 を明示。DBマイグレーションは起動時に自動実行
+    package = pkgs.netbox_4_6;
     settings = {
       # DATABASES を定義するとオプションのデフォルト値ごと置き換わるため全項目を書く。
       # PostgreSQL は atuin 用に 15432 へ退避済み（上記）。UNIX ソケットの
