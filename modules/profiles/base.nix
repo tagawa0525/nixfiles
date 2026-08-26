@@ -95,9 +95,6 @@
     dockerCompat = true; # dockerコマンドをpodmanにエイリアス
     defaultNetwork.settings.dns_enabled = true; # コンテナ間DNS解決
   };
-  # Rootlessコンテナに必要なユーザー名前空間を許可
-  security.unprivilegedUsernsClone = true;
-
   # ===========================================================================
   # プログラム
   # ===========================================================================
