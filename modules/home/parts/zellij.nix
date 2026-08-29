@@ -16,12 +16,7 @@
 # - status-left/right、window一覧 → zellij-slotsが描画（番号順ソート・
 #                                   「N:実行中コマンド」表示・日時）
 # =============================================================================
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}:
+{ pkgs, lib, ... }:
 
 let
   # ===========================================================================
@@ -48,12 +43,15 @@ let
   # 「rebuild でパスが変わる → 旧世代が GC される → 再起動でキャッシュから
   # 復元」の流れで wasm が見つからず、全タブのバーが ERROR IN PLUGIN になる。
   # 置き場は Zellij 自身のユーザープラグインディレクトリ
-  # （$XDG_DATA_HOME/zellij/plugins）。
+  # （~/.local/share/zellij/plugins）。ホーム相対で1箇所に定め、レイアウト・
+  # home.file・permissions.kdl のキーがずれないようにする。
   # `~` は Zellij がレイアウト解析時に $HOME で展開する（shellexpand）ので、
   # HOME を隔離する tests/local-zellij.sh でもそのまま使える。展開後の
-  # 絶対パスが permissions.kdl のキーになる（下の activation と一致させる）
-  slotsPluginFile = "zellij/plugins/zellij-slots.wasm";
-  slotsPlugin = "file:~/.local/share/${slotsPluginFile}";
+  # 絶対パスが permissions.kdl のキーになる（下の activation と一致させる）。
+  # 切り替え前から動いているセッションは旧 store パスをキャッシュに書き
+  # 続けるため、一度だけ `zellij delete-session main --force` で作り直す
+  slotsPluginHomeRel = ".local/share/zellij/plugins/zellij-slots.wasm";
+  slotsPlugin = "file:~/${slotsPluginHomeRel}";
 
   # スロットNへのジャンプ（プレフィックス+数字。旧tmuxのselect-window相当）。
   # プレフィックスからCtrlを離さず押した場合（Ctrl+N）でも効くよう両方束ねる。
@@ -71,14 +69,7 @@ in
   # プラグインの配置
   # ===========================================================================
   # slotsPlugin が指す固定パスへ、ビルドした wasm をリンクする
-  xdg.dataFile.${slotsPluginFile}.source = "${zellij-slots}/bin/zellij-slots.wasm";
-  # slotsPlugin の `~/.local/share` は xdg.dataHome の既定値を前提にしている
-  assertions = [
-    {
-      assertion = config.xdg.dataHome == "${config.home.homeDirectory}/.local/share";
-      message = "zellij: slotsPlugin は xdg.dataHome が ~/.local/share であることを前提にしている（現在: ${config.xdg.dataHome}）";
-    }
-  ];
+  home.file.${slotsPluginHomeRel}.source = "${zellij-slots}/bin/zellij-slots.wasm";
 
   # ===========================================================================
   # Zellij本体の設定
@@ -244,7 +235,7 @@ in
   home.activation.zellijPluginPermissions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     permissions="''${XDG_CACHE_HOME:-$HOME/.cache}/zellij/permissions.kdl"
     # キーは Zellij が slotsPlugin の `~` を $HOME で展開した絶対パス
-    wasm="$HOME/.local/share/${slotsPluginFile}"
+    wasm="$HOME/${slotsPluginHomeRel}"
     desired="\"$wasm\" {"
     for p in ReadApplicationState ChangeApplicationState ReadCliPipes; do
       desired+=$'\n'"    $p"
