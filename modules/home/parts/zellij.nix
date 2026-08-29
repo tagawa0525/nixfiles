@@ -254,10 +254,13 @@ in
     if [ -f "$permissions" ]; then
       current=$(${pkgs.coreutils}/bin/cat "$permissions")
     fi
-    # Zellij側の書式ゆらぎで判定を逃さないよう、前後の空白を除いて比較する
+    # Zellij側の書式ゆらぎで判定を逃さないよう、前後の空白を除いて比較する。
+    # 固定パスに切り替える前の rebuild で溜まった、旧世代の store パスを
+    # キーにした zellij-slots のエントリも併せて消す
     rest=$(printf '%s\n' "$current" | ${pkgs.gawk}/bin/awk -v start="\"$wasm\" {" '
       function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
       trim($0) == start { skip=1; next }
+      trim($0) ~ /^"\/nix\/store\/[^"]*-zellij-slots-[^"]*\/zellij-slots\.wasm" \{$/ { skip=1; next }
       skip { if (trim($0) == "}") skip=0; next }
       { print }
     ')
