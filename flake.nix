@@ -86,6 +86,14 @@
       url = "github:tagawa0525/OpenLogi";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # mattpocock/skills: Claude Code 向けスキル集。grilling / grill-me を
+    # ~/.claude/skills に配備する（対象は modules/home/parts/claude-code.nix の
+    # externalSkills）。flake ではないので出所と rev の記録のためだけに input にする
+    mattpocock-skills = {
+      url = "github:mattpocock/skills";
+      flake = false;
+    };
   };
 
   # ===========================================================================
@@ -105,6 +113,7 @@
       cc-bar,
       kikitori,
       openlogi,
+      mattpocock-skills,
       ...
     }:
     let
@@ -181,6 +190,7 @@
               home-manager.sharedModules = [ kikitori.homeManagerModules.default ];
               home-manager.extraSpecialArgs = {
                 claudeCodeSource = self; # flakeルートを渡す（Claude Code設定用）
+                inherit mattpocock-skills; # 外部スキルの取得元（claude-code.nix の externalSkills）
                 vscode-server = nixos-vscode-server; # VS Code Server自動パッチモジュール
               };
               # 各ユーザーの home-manager.users.<name> は modules/users/<name>.nix が
