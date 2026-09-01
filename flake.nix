@@ -155,7 +155,7 @@
             ./hosts/${hostName} # ホスト固有設定（ブート、ハードウェア等）
             { networking.hostName = nixpkgs.lib.mkDefault hostName; }
             ./modules/profiles/base.nix # 全ホスト共通の最小ベース設定
-            # ./modules/cc-bar.nix # cc-bar 統合（有効化するにはこの行のコメントを外す）
+            ./modules/cc-bar.nix # cc-bar 統合（無効化するにはこの行をコメントアウト）
             lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
             home-manager.nixosModules.home-manager
             {

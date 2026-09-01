@@ -25,7 +25,7 @@
   # COSMICパネル用 Claude Code コンテキストモニター本体
   environment.systemPackages = [ pkgs.cc-bar ];
 
-  # Claude Code settings.json に statusLine と SubagentStop hooks を設定
+  # Claude Code settings.json に statusLine と SubagentStop / SessionEnd hooks を設定
   # nixos-rebuild 時にスクリプトのパスを最新のNixストアパスに更新
   # lib.hm.dag は home-manager モジュール内でのみ利用可能なため
   # home-manager.users.tagawa をモジュール関数として渡す
@@ -40,43 +40,37 @@
         fi
         RELAY="${pkgs.cc-bar}/bin/cc-bar-relay.sh"
         HOOK="${pkgs.cc-bar}/bin/cc-bar-subagent-hook.sh"
+        CLEANUP="${pkgs.cc-bar}/bin/cc-bar-session-cleanup.sh"
+        # ensure_hook: event 配下に script（ファイル名で同定）の command hook を1つ保証する。
+        # 既にあればパスだけ最新の Nix ストアパスに差し替え、無ければ末尾に追加する
         ${pkgs.jq}/bin/jq \
           --arg relay "$RELAY" \
           --arg hook "$HOOK" \
-          '.statusLine |= (
-             if (. == null or (.type == "command" and (.command | tostring | contains("cc-bar-relay.sh")))) then
+          --arg cleanup "$CLEANUP" \
+          '
+           def is_script($name): .type == "command" and (.command | tostring | contains($name));
+           def ensure_hook($event; $script; $name):
+             .hooks |= (
+               . // {} |
+               .[$event] |= (
+                 ( . // [] ) as $arr
+                 | if any($arr[]?.hooks[]?; is_script($name)) then
+                     [ $arr[] | .hooks |= ((. // []) | map(if is_script($name) then .command = $script else . end)) ]
+                   else
+                     $arr + [ { "hooks": [ { "type": "command", "command": $script } ] } ]
+                   end
+               )
+             );
+           .statusLine |= (
+             if (. == null or is_script("cc-bar-relay.sh")) then
                {"type": "command", "command": $relay}
              else
                .
              end
-           ) |
-           .hooks |= (
-             . // {} |
-             .SubagentStop |= (
-               ( . // [] ) as $arr
-               | ( any( $arr[]?.hooks[]?; .type == "command" and (.command | tostring | contains("cc-bar-subagent-hook.sh")) ) ) as $hasCcBar
-               | if $hasCcBar then
-                   [ $arr[] |
-                     if any(.hooks[]?; .type == "command" and (.command | tostring | contains("cc-bar-subagent-hook.sh"))) then
-                       .hooks |= (
-                         (.hooks // []) |
-                         map(
-                           if .type == "command" and (.command | tostring | contains("cc-bar-subagent-hook.sh")) then
-                             .command = $hook
-                           else
-                             .
-                           end
-                         )
-                       )
-                     else
-                       .
-                     end
-                   ]
-                 else
-                   $arr + [ { "hooks": [ { "type": "command", "command": $hook } ] } ]
-                 end
-             )
-           )' \
+           )
+           | ensure_hook("SubagentStop"; $hook; "cc-bar-subagent-hook.sh")
+           | ensure_hook("SessionEnd"; $cleanup; "cc-bar-session-cleanup.sh")
+          ' \
           "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
         echo "cc-bar: Claude Code settings updated"
       else
