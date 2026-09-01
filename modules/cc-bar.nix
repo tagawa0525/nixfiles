@@ -55,7 +55,7 @@
                .[$event] |= (
                  ( . // [] ) as $arr
                  | if any($arr[]?.hooks[]?; is_script($name)) then
-                     [ $arr[] | .hooks |= map(if is_script($name) then .command = $script else . end) ]
+                     [ $arr[] | .hooks |= ((. // []) | map(if is_script($name) then .command = $script else . end)) ]
                    else
                      $arr + [ { "hooks": [ { "type": "command", "command": $script } ] } ]
                    end
