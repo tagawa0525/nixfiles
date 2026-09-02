@@ -10,5 +10,6 @@
   home.packages = with pkgs; [
     discord # ボイス・テキストチャット
     zoom-us # ビデオ会議
+    zulip # チームチャット（デスクトップクライアント）
   ];
 }
