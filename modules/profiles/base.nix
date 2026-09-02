@@ -147,6 +147,8 @@
     # ─────────────────────────────────────────────────────────────
     clang # C/C++コンパイラ。GCCより高速でエラーメッセージが分かりやすい
     rustup # Rustツールチェーン管理。rustc, cargo, rustfmt等を管理
+    go # Go言語のツールチェーン。gopls と、lsp-det の gopls 写像の実測に使用
+    gopls # Go言語サーバー。lsp-det の写像と準拠テストの対象
     ruby # Ruby言語の最新安定版
     python3 # Python 3の最新安定版
     uv # Rust製Python環境管理。pip/venvより10-100倍高速
