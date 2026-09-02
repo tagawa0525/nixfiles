@@ -178,7 +178,9 @@ update() {
   if ! git diff --quiet flake.lock 2>/dev/null; then
     echo "📤 Committing and pushing flake.lock..."
     git add flake.lock
-    git commit -m "flake: update ($HOSTNAME)"
+    # Conventional Commits（commit-msg hook が検証する）。`flake:` は型として無効で、
+    # Claude Code セッションからの update が最後のコミットで必ず失敗していた
+    git commit -m "chore(flake): update ($HOSTNAME)"
     # 検証済みの lock の内容を記録（リトライ時の変化検出に使う）
     lock_hash=$(git hash-object flake.lock)
     # プッシュ失敗時は一度だけリトライ
