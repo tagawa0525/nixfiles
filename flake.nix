@@ -210,6 +210,11 @@
       packages.x86_64-linux = {
         openlogi = openlogiPkg;
         openlogi-cargo-deps = openlogiPkg.cargoDeps;
+        # Claude Code の PreToolUse hook（modules/home/parts/claude-code.nix が home に配置する）。
+        # nix build .#claude-hooks で単体ビルドし、テストから CLAUDE_HOOKS_BIN で参照する
+        claude-hooks =
+          nixpkgs.legacyPackages.x86_64-linux.callPackage ./modules/home/parts/claude-hooks/package.nix
+            { };
       };
     };
 }
