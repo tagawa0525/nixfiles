@@ -14,9 +14,8 @@
     llm-agents.opencode # Open Code CLI（自動更新）
     llm-agents.copilot-cli # GitHub Copilot CLI（自動更新）
     llm-agents.codex # OpenAI Codex CLI（自動更新）
-    # Codex app（GUI）。Linux では ChatGPT デスクトップアプリとして配布されており、
-    # upstream の pname が chatgpt のためこの名前になっている
-    llm-agents.chatgpt
+    # Linux では ChatGPT デスクトップアプリとして配布されるため upstream の pname が chatgpt
+    llm-agents.chatgpt # Codex app（GUI、自動更新）
     mold # 高速リンカー（Rustのコンパイル時間短縮）
     sccache # コンパイルキャッシュ（依存クレートをプロジェクト間で再利用）
     bacon # ファイル監視＆自動ビルド（cargo-watchの代替）
