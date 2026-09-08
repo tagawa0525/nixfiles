@@ -18,7 +18,7 @@
 use super::Rule;
 use crate::input::Input;
 use crate::output::Finding;
-use crate::shell::{Cmd, Shell};
+use crate::shell::{Arg, Cmd, Shell};
 
 pub struct RequireBackgroundWait;
 
@@ -30,14 +30,26 @@ fn basename(path: &str) -> &str {
     path.rsplit('/').next().unwrap_or(path)
 }
 
+/// `bash` / `sh` に渡されたスクリプトのパス。`bash -x <path>` のように
+/// オプションを挟めるので、`--` を挟んだ場合も含め最初の非オプション引数を採る
+fn script_arg(args: &[Arg]) -> Option<&str> {
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        if a.text == "--" {
+            return it.next().map(|a| a.text.as_str());
+        }
+        if !a.text.starts_with('-') {
+            return Some(a.text.as_str());
+        }
+    }
+    None
+}
+
 /// 実行しているスクリプト名（直接、または `bash <path>` / `sh <path>` 経由）
 fn wait_script(cmd: &Cmd) -> Option<&'static str> {
-    let name = if (cmd.name == "bash" || cmd.name == "sh")
-        && let Some(first) = cmd.args.first()
-    {
-        basename(&first.text)
-    } else {
-        basename(&cmd.name)
+    let name = match (cmd.name.as_str(), script_arg(&cmd.args)) {
+        ("bash" | "sh", Some(path)) => basename(path),
+        _ => basename(&cmd.name),
     };
     SCRIPTS.iter().find(|s| **s == name).copied()
 }
