@@ -35,9 +35,9 @@ fn wait_script(cmd: &Cmd) -> Option<&'static str> {
     let name = if (cmd.name == "bash" || cmd.name == "sh")
         && let Some(first) = cmd.args.first()
     {
-        basename(&first.text).to_string()
+        basename(&first.text)
     } else {
-        basename(&cmd.name).to_string()
+        basename(&cmd.name)
     };
     SCRIPTS.iter().find(|s| **s == name).copied()
 }
