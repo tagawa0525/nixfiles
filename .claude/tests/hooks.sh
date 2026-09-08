@@ -799,4 +799,46 @@ out=$(run_hook pre-merge-check "$MERGE_CMD")
 assert_eq deny "$(decision "$out")"
 assert_contains "$(reason "$out")" "確認できません"
 
+# ===========================================================================
+# require-background-wait: 待機スクリプトの起動のしかた
+# ===========================================================================
+# request-rereview.sh は要求から待機まで一体で行う。後ろに gh-wait-review.sh を
+# 続けると、直前に届いたレビューを基準に「次のレビュー」を待つことになり、要求を
+# していない以上必ず約10分タイムアウトする。その間モデルは待機中だと思い込み、
+# 既に届いているレビューに気づけない。パイプにつなぐと終了コードが tail 等のものに
+# なり、到着(0)とタイムアウト(1)を区別できなくなる
+
+WAIT_SH='~/.claude/scripts/gh-wait-review.sh'
+REREVIEW_SH='~/.claude/skills/gh-pr-review/scripts/request-rereview.sh'
+
+it "require-background-wait: 単体のバックグラウンド実行は通す"
+out=$(run_hook require-background-wait "$REREVIEW_SH 186" true)
+assert_eq allow "$(decision "$out")"
+out=$(run_hook require-background-wait "$WAIT_SH 186" true)
+assert_eq allow "$(decision "$out")"
+
+it "require-background-wait: フォアグラウンド実行は deny"
+out=$(run_hook require-background-wait "$WAIT_SH 186")
+assert_eq deny "$(decision "$out")"
+
+it "require-background-wait: request-rereview.sh に gh-wait-review.sh を続けたら deny"
+out=$(run_hook require-background-wait "$REREVIEW_SH 186 && $WAIT_SH 186" true)
+assert_eq deny "$(decision "$out")"
+assert_contains "$(reason "$out")" "待機まで"
+
+it "require-background-wait: 同じ並びを ; でつないでも deny"
+out=$(run_hook require-background-wait "$REREVIEW_SH 186; $WAIT_SH 186" true)
+assert_eq deny "$(decision "$out")"
+
+it "require-background-wait: 待機スクリプトをパイプの左に置いたら deny"
+out=$(run_hook require-background-wait "$WAIT_SH 186 2>&1 | tail -3" true)
+assert_eq deny "$(decision "$out")"
+assert_contains "$(reason "$out")" "終了コード"
+out=$(run_hook require-background-wait "$REREVIEW_SH 186 | tail -1" true)
+assert_eq deny "$(decision "$out")"
+
+it "require-background-wait: リダイレクトで出力を保存するのは通す"
+out=$(run_hook require-background-wait "$WAIT_SH 186 > /tmp/wait.log 2>&1" true)
+assert_eq allow "$(decision "$out")"
+
 finish
