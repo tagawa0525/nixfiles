@@ -852,6 +852,12 @@ it "require-background-wait: パイプの途中に置いても deny"
 out=$(run_hook require-background-wait "$WAIT_SH 186 | tee /tmp/wait.log | tail -3" true)
 assert_eq deny "$(decision "$out")"
 
+it "require-background-wait: bash のオプションを挟んでも待機スクリプトと分かる"
+out=$(run_hook require-background-wait "bash -x $WAIT_SH 186")
+assert_eq deny "$(decision "$out")"
+out=$(run_hook require-background-wait "bash -- $REREVIEW_SH 186 | tail -1" true)
+assert_eq deny "$(decision "$out")"
+
 it "require-background-wait: リダイレクトで出力を保存するのは通す"
 out=$(run_hook require-background-wait "$WAIT_SH 186 > /tmp/wait.log 2>&1" true)
 assert_eq allow "$(decision "$out")"
