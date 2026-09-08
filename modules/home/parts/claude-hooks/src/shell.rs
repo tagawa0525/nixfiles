@@ -50,9 +50,9 @@ fn piped_out(node: Node) -> bool {
         match parent.kind() {
             "pipeline" => {
                 let mut c = parent.walk();
-                return parent
-                    .children(&mut c)
-                    .any(|ch| ch.kind() == "|" && ch.start_byte() >= cur.end_byte());
+                return parent.children(&mut c).any(|ch| {
+                    matches!(ch.kind(), "|" | "|&") && ch.start_byte() >= cur.end_byte()
+                });
             }
             "redirected_statement" | "negated_command" => cur = parent,
             _ => return false,
