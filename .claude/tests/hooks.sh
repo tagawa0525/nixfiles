@@ -842,6 +842,16 @@ out=$(run_hook require-background-wait "$WAIT_SH 186 |& tail -3" true)
 assert_eq deny "$(decision "$out")"
 assert_contains "$(reason "$out")" "終了コード"
 
+it "require-background-wait: subshell やグループで包んでパイプにつないでも deny"
+out=$(run_hook require-background-wait "($WAIT_SH 186) | tail -3" true)
+assert_eq deny "$(decision "$out")"
+out=$(run_hook require-background-wait "{ $WAIT_SH 186; } | tail -3" true)
+assert_eq deny "$(decision "$out")"
+
+it "require-background-wait: パイプの途中に置いても deny"
+out=$(run_hook require-background-wait "$WAIT_SH 186 | tee /tmp/wait.log | tail -3" true)
+assert_eq deny "$(decision "$out")"
+
 it "require-background-wait: リダイレクトで出力を保存するのは通す"
 out=$(run_hook require-background-wait "$WAIT_SH 186 > /tmp/wait.log 2>&1" true)
 assert_eq allow "$(decision "$out")"
