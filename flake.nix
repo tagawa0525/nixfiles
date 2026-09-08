@@ -94,6 +94,14 @@
       url = "github:mattpocock/skills";
       flake = false;
     };
+
+    # lsp-det: 言語サーバーの状態を示す透過プロキシ（自作）。packages.default を
+    # Claude Code の LSP の経路に挟んでドッグフーディングする（claude-code.nix）。
+    # 更新は nix flake update lsp-det → rebuild
+    lsp-det = {
+      url = "github:tagawa0525/lsp-det";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # ===========================================================================
@@ -114,6 +122,7 @@
       kikitori,
       openlogi,
       mattpocock-skills,
+      lsp-det,
       ...
     }:
     let
@@ -191,6 +200,7 @@
               home-manager.extraSpecialArgs = {
                 claudeCodeSource = self; # flakeルートを渡す（Claude Code設定用）
                 inherit mattpocock-skills; # 外部スキルの取得元（claude-code.nix の externalSkills）
+                inherit lsp-det; # ドッグフーディングの lsp-det（claude-code.nix）
                 vscode-server = nixos-vscode-server; # VS Code Server自動パッチモジュール
               };
               # 各ユーザーの home-manager.users.<name> は modules/users/<name>.nix が
