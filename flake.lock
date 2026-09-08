@@ -240,11 +240,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1788875272,
-        "narHash": "sha256-VAD8Rp4z7f/vqq5B/Re9pBIeX5wfHFhZLT93rVD3Fj4=",
+        "lastModified": 1788877285,
+        "narHash": "sha256-3RpXm60SqCUbCDu7EDNmJ2Kznux3Yb8/C7Oh5EKBvfw=",
         "owner": "tagawa0525",
         "repo": "lsp-det",
-        "rev": "649528f62b1711ab3458b2a169246057e54faebe",
+        "rev": "bd822dd7a5a9bf65923beb6069dcc43ee1c4cfe8",
         "type": "github"
       },
       "original": {
