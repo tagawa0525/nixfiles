@@ -233,6 +233,26 @@
         "type": "github"
       }
     },
+    "lsp-det": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1788875272,
+        "narHash": "sha256-VAD8Rp4z7f/vqq5B/Re9pBIeX5wfHFhZLT93rVD3Fj4=",
+        "owner": "tagawa0525",
+        "repo": "lsp-det",
+        "rev": "649528f62b1711ab3458b2a169246057e54faebe",
+        "type": "github"
+      },
+      "original": {
+        "owner": "tagawa0525",
+        "repo": "lsp-det",
+        "type": "github"
+      }
+    },
     "mattpocock-skills": {
       "flake": false,
       "locked": {
@@ -441,6 +461,7 @@
         "kikitori": "kikitori",
         "lanzaboote": "lanzaboote",
         "llm-agents": "llm-agents",
+        "lsp-det": "lsp-det",
         "mattpocock-skills": "mattpocock-skills",
         "nix-vscode-extensions": "nix-vscode-extensions",
         "nixos-vscode-server": "nixos-vscode-server",
