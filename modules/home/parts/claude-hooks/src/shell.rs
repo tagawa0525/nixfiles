@@ -43,20 +43,22 @@ pub struct Cmd {
 }
 
 /// 出力をパイプで次のコマンドに渡しているか。
-/// リダイレクトや `!` を挟んでいても、そのコマンドの出力はパイプに入る
+/// リダイレクト・`!`・subshell `( … )`・グループ `{ …; }` を挟んでいても、
+/// そのコマンドの出力はパイプに入るので、祖先の pipeline をすべて調べる
+/// （`a | b | c` の入れ子も、外側の pipeline で b の後ろの `|` を見つける）
 fn piped_out(node: Node) -> bool {
     let mut cur = node;
     while let Some(parent) = cur.parent() {
-        match parent.kind() {
-            "pipeline" => {
-                let mut c = parent.walk();
-                return parent.children(&mut c).any(|ch| {
-                    matches!(ch.kind(), "|" | "|&") && ch.start_byte() >= cur.end_byte()
-                });
+        if parent.kind() == "pipeline" {
+            let mut c = parent.walk();
+            let feeds_pipe = parent
+                .children(&mut c)
+                .any(|ch| matches!(ch.kind(), "|" | "|&") && ch.start_byte() >= cur.end_byte());
+            if feeds_pipe {
+                return true;
             }
-            "redirected_statement" | "negated_command" => cur = parent,
-            _ => return false,
         }
+        cur = parent;
     }
     false
 }
