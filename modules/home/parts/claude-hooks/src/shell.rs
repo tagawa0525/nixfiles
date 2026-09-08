@@ -37,6 +37,28 @@ pub struct Cmd {
     /// 属するシェルのスコープ（最も近い `$(…)` / `(…)` / `<(…)` のノード ID）。トップレベルは None。
     /// これらの中で実行した `cd` は親のカレントディレクトリを変えない
     pub scope: Option<usize>,
+    /// 出力をパイプで次のコマンドに渡している（`cmd | tail` の `cmd`）。
+    /// パイプにつなぐと終了コードが右端のコマンドのものになる
+    pub piped_out: bool,
+}
+
+/// 出力をパイプで次のコマンドに渡しているか。
+/// リダイレクトや `!` を挟んでいても、そのコマンドの出力はパイプに入る
+fn piped_out(node: Node) -> bool {
+    let mut cur = node;
+    while let Some(parent) = cur.parent() {
+        match parent.kind() {
+            "pipeline" => {
+                let mut c = parent.walk();
+                return parent
+                    .children(&mut c)
+                    .any(|ch| ch.kind() == "|" && ch.start_byte() >= cur.end_byte());
+            }
+            "redirected_statement" | "negated_command" => cur = parent,
+            _ => return false,
+        }
+    }
+    false
 }
 
 impl Shell {
@@ -113,6 +135,7 @@ impl Shell {
             start: node.start_byte(),
             has_error: node.has_error() || trailing_error,
             scope,
+            piped_out: piped_out(node),
         })
     }
 
