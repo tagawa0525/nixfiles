@@ -30,16 +30,24 @@ fn basename(path: &str) -> &str {
     path.rsplit('/').next().unwrap_or(path)
 }
 
-/// `bash` / `sh` に渡されたスクリプトのパス。`bash -x <path>` のように
-/// オプションを挟めるので、`--` を挟んだ場合も含め最初の非オプション引数を採る
+/// 値を取る bash / sh のオプション。次の引数はスクリプトパスではない
+const OPTS_WITH_VALUE: &[&str] = &["-O", "+O", "-o", "+o", "--rcfile", "--init-file"];
+
+/// `bash` / `sh` に渡されたスクリプトのパス。`bash -x <path>` のようにオプションを
+/// 挟めるので、値を取るオプションの値を飛ばして最初の非オプション引数を採る。
+/// `-c` の後ろはコマンド文字列でパスではないため、スクリプトなしとして扱う
 fn script_arg(args: &[Arg]) -> Option<&str> {
     let mut it = args.iter();
     while let Some(a) = it.next() {
-        if a.text == "--" {
-            return it.next().map(|a| a.text.as_str());
-        }
-        if !a.text.starts_with('-') {
-            return Some(a.text.as_str());
+        let text = a.text.as_str();
+        match text {
+            "--" => return it.next().map(|a| a.text.as_str()),
+            "-c" => return None,
+            _ if OPTS_WITH_VALUE.contains(&text) => {
+                it.next();
+            }
+            _ if text.starts_with('-') || text.starts_with('+') => {}
+            _ => return Some(text),
         }
     }
     None
