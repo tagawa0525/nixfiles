@@ -858,6 +858,16 @@ assert_eq deny "$(decision "$out")"
 out=$(run_hook require-background-wait "bash -- $REREVIEW_SH 186 | tail -1" true)
 assert_eq deny "$(decision "$out")"
 
+it "require-background-wait: 値を取る bash オプションを挟んでも検出する"
+out=$(run_hook require-background-wait "bash -O extglob $WAIT_SH 186")
+assert_eq deny "$(decision "$out")"
+out=$(run_hook require-background-wait "bash --rcfile /dev/null $WAIT_SH 186")
+assert_eq deny "$(decision "$out")"
+
+it "require-background-wait: bash -c の中身はコマンド文字列なのでスクリプト扱いしない"
+out=$(run_hook require-background-wait "bash -c 'echo gh-wait-review.sh'")
+assert_eq allow "$(decision "$out")"
+
 it "require-background-wait: リダイレクトで出力を保存するのは通す"
 out=$(run_hook require-background-wait "$WAIT_SH 186 > /tmp/wait.log 2>&1" true)
 assert_eq allow "$(decision "$out")"
