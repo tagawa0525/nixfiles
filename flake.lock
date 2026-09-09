@@ -240,11 +240,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1788952049,
-        "narHash": "sha256-BZw17k+ASUeWVTWTGdkVThafG6CXwd6GlxWE6JnxLnE=",
+        "lastModified": 1788966874,
+        "narHash": "sha256-rLMlLSF3dQKDW+NYI8CGPL7NdvAs9N+tOsFSsWk+NMo=",
         "owner": "tagawa0525",
         "repo": "lsp-det",
-        "rev": "f0a3ef862cf7797d011ab46471cc23efff55a43f",
+        "rev": "9e8c64e2ea1c0acc1faa237e453367afdb416151",
         "type": "github"
       },
       "original": {
@@ -377,11 +377,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1788923010,
-        "narHash": "sha256-m9V/3xirGNZfKfWkhxrWEc7o3SKx+A48vvfFJbq6/Ww=",
+        "lastModified": 1788966197,
+        "narHash": "sha256-nxFucEpXx9yYjD10ufLkrQgJSK0gHxDXiKd3Yyb7JpM=",
         "owner": "tagawa0525",
         "repo": "nur-vscode-latest",
-        "rev": "c54b3893caaf59cb8724cb4c45dd04964dd1defb",
+        "rev": "9a5439f1a6f3fda36244400d2daf4d048269caba",
         "type": "github"
       },
       "original": {
