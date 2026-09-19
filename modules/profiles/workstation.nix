@@ -163,7 +163,7 @@
     cosmic-ext-applet-minimon # COSMICパネル用システムモニター
 
     # 開発用 GUI ツール
-    podman-desktop # コンテナ管理GUI。Docker Desktopの代替
+    # podman-desktop # コンテナ管理GUI。Docker Desktopの代替。使用頻度が低く nodejs のビルド失敗を引くため無効化
     meld # ファイル/ディレクトリの差分比較・マージ
     dbeaver-bin # 多数のDBに対応したGUIクライアント
 
