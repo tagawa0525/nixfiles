@@ -33,13 +33,17 @@
   # iosm (XMM7360 のカーネルドライバ) は読み込ませない。
   # 2026-09-07、iosm が IPC ハンドシェイクに失敗（`A-RUN: ipc_status(0) ne.
   # IPC_MEM_DEVICE_IPC_INIT`）した状態でサスペンドしたところ、s2idle から
-  # 一切復帰しなくなり強制電源断以外に手がなくなった。journal 13 boot 分で
-  # iosm の初期化成否と復帰成否が完全に一致している（成功時 15/15 復帰、
-  # 失敗時 0/1）。調査記録は docs/x1ng1-power-management.md を参照。
+  # 一切復帰しなくなり強制電源断以外に手がなくなった。当時は journal 13 boot
+  # 分で iosm の初期化成否と復帰成否が一致していたため、これを引き金と判断した。
   #
-  # 上記のとおり LTE は現状まったく使えないため、ドライバを読み込む利益はなく
-  # 復帰ハングのリスクだけが残る。LTE を再度試すとき（ModemManager 1.26.0
-  # stable 等）はこの行を消す。その場合は起動ごとに
+  # ただし blacklist 後も復帰ハングは再発しており（16 回中 2 回）、iosm が
+  # 原因だったという判断は崩れている。調査記録は
+  # docs/x1ng1-power-management.md を参照。
+  #
+  # それでも blacklist は残す。上記のとおり LTE は現状まったく使えず、
+  # ドライバを読み込む利益がない。また下の pm_trace で犯人を追う間は、
+  # 条件を動かさない方が結果を解釈しやすい。LTE を再度試すとき
+  # （ModemManager 1.26.0 stable 等）はこの行を消す。その場合は起動ごとに
   # `journalctl -b | grep iosm` で初期化の成否を確認すること。
   boot.blacklistedKernelModules = [ "iosm" ];
 
