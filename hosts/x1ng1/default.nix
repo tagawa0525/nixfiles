@@ -43,7 +43,8 @@
   # それでも blacklist は残す。上記のとおり LTE は現状まったく使えず、
   # ドライバを読み込む利益がない。また原因を調査している間は、条件を
   # 動かさない方が結果を解釈しやすい。LTE を再度試すとき
-  # （ModemManager 1.26.0 stable 等）はこの行を消す。その場合は起動ごとに
+  # （ModemManager 1.26.0 stable 等）はこの行を消し、BIOS の Wireless WAN も
+  # On に戻す（2026-09-23 から Off。docs/x1ng1-power-management.md 参照）。その場合は起動ごとに
   # `journalctl -b | grep iosm` で初期化の成否を確認すること。
   boot.blacklistedKernelModules = [ "iosm" ];
 
