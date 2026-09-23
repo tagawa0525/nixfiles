@@ -5,7 +5,7 @@
 # 共通設定は modules/profiles/、ブート設定は modules/boot-lanzaboote.nix を参照。
 # =============================================================================
 
-{ ... }:
+{ config, ... }:
 {
   imports = [
     ./hardware-configuration.nix # nixos-generate-config で生成されたハードウェア設定
@@ -33,15 +33,58 @@
   # iosm (XMM7360 のカーネルドライバ) は読み込ませない。
   # 2026-09-07、iosm が IPC ハンドシェイクに失敗（`A-RUN: ipc_status(0) ne.
   # IPC_MEM_DEVICE_IPC_INIT`）した状態でサスペンドしたところ、s2idle から
-  # 一切復帰しなくなり強制電源断以外に手がなくなった。journal 13 boot 分で
-  # iosm の初期化成否と復帰成否が完全に一致している（成功時 15/15 復帰、
-  # 失敗時 0/1）。調査記録は docs/x1ng1-power-management.md を参照。
+  # 一切復帰しなくなり強制電源断以外に手がなくなった。当時は journal 13 boot
+  # 分で iosm の初期化成否と復帰成否が一致していたため、これを引き金と判断した。
   #
-  # 上記のとおり LTE は現状まったく使えないため、ドライバを読み込む利益はなく
-  # 復帰ハングのリスクだけが残る。LTE を再度試すとき（ModemManager 1.26.0
-  # stable 等）はこの行を消す。その場合は起動ごとに
+  # ただし blacklist 後も復帰ハングは再発しており（16 回中 2 回）、iosm が
+  # 原因だったという判断は崩れている。調査記録は
+  # docs/x1ng1-power-management.md を参照。
+  #
+  # それでも blacklist は残す。上記のとおり LTE は現状まったく使えず、
+  # ドライバを読み込む利益がない。また下の pm_trace で犯人を追う間は、
+  # 条件を動かさない方が結果を解釈しやすい。LTE を再度試すとき
+  # （ModemManager 1.26.0 stable 等）はこの行を消す。その場合は起動ごとに
   # `journalctl -b | grep iosm` で初期化の成否を確認すること。
   boot.blacklistedKernelModules = [ "iosm" ];
+
+  # ===========================================================================
+  # s2idle 復帰ハングの犯人特定（調査中）
+  # ===========================================================================
+  # iosm を blacklist した後も s2idle からの復帰ハングが 16 回中 2 回で再発して
+  # おり、原因は特定できていない（docs/x1ng1-power-management.md）。ハング時は
+  # journald が既に凍結しているため、journal は `PM: suspend entry` で途切れて
+  # 手がかりが残らない。
+  #
+  # pm_trace: suspend/resume で処理中のデバイスのハッシュを RTC に書き込む。
+  # RTC は電池でバックアップされているため強制電源断でも消えず、次回起動時に
+  # カーネルが `hash matches` として該当デバイスを出力する。代償は 2 つある。
+  #   - サスペンドのたびに RTC の時刻が壊れる。復帰後、NTP 同期により数分以内に
+  #     正しい時刻へ戻る（2026-09-23 に実機で確認）
+  #   - デバイスの suspend/resume が同期実行になる（カーネルの is_async() が
+  #     pm_trace_is_enabled() を見るため）。タイミングが変わるので、ハングが
+  #     起きにくくなる可能性がある
+  #
+  # pm_print_times / pm_debug_messages: 復帰に成功した場合だけ journal に残る。
+  # 2026-09-23 10:05:42 のように遅れて戻ったレジュームで、どのデバイスに何 ms
+  # かかったかを記録する。
+  #
+  # 犯人が特定できたら 3 行とも外す。
+  systemd.tmpfiles.rules = [
+    "w /sys/power/pm_trace - - - - 1"
+    "w /sys/power/pm_print_times - - - - 1"
+    "w /sys/power/pm_debug_messages - - - - 1"
+  ];
+
+  # pm_trace はサスペンドのたびに RTC を壊し、それを直すのは NTP クライアント
+  # だけ。timesyncd は NixOS の既定で有効になっているにすぎないため、依存を
+  # 明示して崩れたらビルドを止める。別の NTP クライアントに替えるときは、
+  # この条件もあわせて替える。
+  assertions = [
+    {
+      assertion = config.services.timesyncd.enable;
+      message = "hosts/x1ng1: pm_trace が壊した RTC の時刻を直すため、services.timesyncd が必要";
+    }
+  ];
 
   # ===========================================================================
   # 電源管理（ホスト固有: TLP 充電閾値）
