@@ -5,7 +5,7 @@
 # 共通設定は modules/profiles/、ブート設定は modules/boot-lanzaboote.nix を参照。
 # =============================================================================
 
-{ config, ... }:
+{ ... }:
 {
   imports = [
     ./hardware-configuration.nix # nixos-generate-config で生成されたハードウェア設定
@@ -41,50 +41,43 @@
   # docs/x1ng1-power-management.md を参照。
   #
   # それでも blacklist は残す。上記のとおり LTE は現状まったく使えず、
-  # ドライバを読み込む利益がない。また下の pm_trace で犯人を追う間は、
-  # 条件を動かさない方が結果を解釈しやすい。LTE を再度試すとき
+  # ドライバを読み込む利益がない。また原因を調査している間は、条件を
+  # 動かさない方が結果を解釈しやすい。LTE を再度試すとき
   # （ModemManager 1.26.0 stable 等）はこの行を消す。その場合は起動ごとに
   # `journalctl -b | grep iosm` で初期化の成否を確認すること。
   boot.blacklistedKernelModules = [ "iosm" ];
 
   # ===========================================================================
-  # s2idle 復帰ハングの犯人特定（調査中）
+  # s2idle 周りのハングの調査（調査中）
   # ===========================================================================
-  # iosm を blacklist した後も s2idle からの復帰ハングが 16 回中 2 回で再発して
-  # おり、原因は特定できていない（docs/x1ng1-power-management.md）。ハング時は
-  # journald が既に凍結しているため、journal は `PM: suspend entry` で途切れて
-  # 手がかりが残らない。
+  # iosm を blacklist した後も s2idle 周りのハング・固まりが再発しており、原因は
+  # 特定できていない（docs/x1ng1-power-management.md）。
   #
-  # pm_trace: suspend/resume で処理中のデバイスのハッシュを RTC に書き込む。
-  # RTC は電池でバックアップされているため強制電源断でも消えず、次回起動時に
-  # カーネルが `hash matches` として該当デバイスを出力する。代償は 2 つある。
-  #   - サスペンドのたびに RTC の時刻が壊れる。復帰後、NTP 同期により数分以内に
-  #     正しい時刻へ戻る（2026-09-23 に実機で確認）
-  #   - デバイスの suspend/resume が同期実行になる（カーネルの is_async() が
-  #     pm_trace_is_enabled() を見るため）。タイミングが変わるので、ハングが
-  #     起きにくくなる可能性がある
+  # pm_print_times / pm_debug_messages: サスペンド・復帰でのデバイスごとの所要
+  # 時間と、段階ごとの集計を journal に残す。記録が残るのは、復帰してディスクに
+  # 書き出せた場合だけ。
   #
-  # pm_print_times / pm_debug_messages: 復帰に成功した場合だけ journal に残る。
-  # 2026-09-23 10:05:42 のように遅れて戻ったレジュームで、どのデバイスに何 ms
-  # かかったかを記録する。
-  #
-  # 犯人が特定できたら 3 行とも外す。
+  # pm_trace（ハング箇所を RTC に残す機構）は 2026-09-23 に外した。復帰した後に
+  # 固まるケースは記録の対象外で、強制断後の起動では RTC が 2001-01-01 に初期化
+  # されていて読めなかった。デバイス処理が同期化されてサスペンドも大きく遅くなる。
   systemd.tmpfiles.rules = [
-    "w /sys/power/pm_trace - - - - 1"
     "w /sys/power/pm_print_times - - - - 1"
     "w /sys/power/pm_debug_messages - - - - 1"
   ];
 
-  # pm_trace はサスペンドのたびに RTC を壊し、それを直すのは NTP クライアント
-  # だけ。timesyncd は NixOS の既定で有効になっているにすぎないため、依存を
-  # 明示して崩れたらビルドを止める。別の NTP クライアントに替えるときは、
-  # この条件もあわせて替える。
-  assertions = [
-    {
-      assertion = config.services.timesyncd.enable;
-      message = "hosts/x1ng1: pm_trace が壊した RTC の時刻を直すため、services.timesyncd が必要";
-    }
-  ];
+  # SysRq: 固まったときにカーネルの状態をログに残すため、systemd 既定の 16
+  # （S: ディスクへの書き出し）に次を加えて 184 にする。
+  #   8   W（固まっているタスクの一覧）/ L（CPU のバックトレース）/
+  #       C（クラッシュさせ、カーネルログを pstore に残す）
+  #   32  U（読み取り専用で再マウント）
+  #   128 B（即時再起動）
+  # 4（K: SAK）と 64（E / I: 全プロセスの終了）は許可しない。ロック画面を
+  # 回避される余地があるため。
+  #
+  # キーボードは（外付けも含め）keyd が独占しているので、keyd が独占したまま
+  # 止まると SysRq は効かない（keyd が終了すれば独占が解けて直接届く）。
+  # 使い方は docs/x1ng1-power-management.md を参照。
+  boot.kernel.sysctl."kernel.sysrq" = 184;
 
   # ===========================================================================
   # 電源管理（ホスト固有: TLP 充電閾値）
