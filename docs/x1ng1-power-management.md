@@ -412,12 +412,12 @@ ssh がつながらないときは、まず 30 秒ほど待ってからもう一
 | 1  | W    | 固まっているタスク (D 状態など) の一覧をカーネルログに出す                      |
 | 2  | C    | カーネルをクラッシュさせる。カーネルログの末尾が pstore (EFI 変数) に保存される |
 
-C の後はパニックしたまま止まる (`kernel.panic = 0`) ので、電源ボタンの長押しで強制断して起動する。保存されたログは、起動時に `systemd-pstore` が `/var/lib/systemd/pstore/` へ移す (`systemd-pstore.service` は有効で、`sysinit.target` から起動することを確認した。保存するものが無いときは条件で起動が省かれる)。C で実際に pstore に残るかは、まだ確かめていない。
+C の後はパニックしたまま止まる (`kernel.panic = 0`) ので、電源ボタンの長押しで強制断して起動する。保存されたログは、起動時に `systemd-pstore` が `/var/lib/systemd/pstore/` へ移す (`systemd-pstore.service` は有効で、`sysinit.target` から起動する)。ファイルは root しか読めないので、`sudo cat /var/lib/systemd/pstore/<番号>/001/dmesg.txt` で読む。
 
 - **keyd がキーボードを独占したまま止まっていると、SysRq は効かない。**キーボードは keyd が独占 (EVIOCGRAB) している (`/etc/keyd/default.conf` の `[ids] *` により、外付けを含む種類がキーボードのデバイスすべて。タッチパッドやトラックポイントは対象外)。カーネルの `input_pass_values()` は独占中のデバイスのイベントを独占している側にしか渡さない。独占中は、keyd が仮想キーボードへ送り直した入力だけが SysRq の処理に届く。keyd のプロセスが残ったまま止まっている (ユーザー空間ごと止まっているなど) と、どこからも届かない。一方で keyd が終了していれば、ファイルが閉じられて独占が解除され (`evdev_release()` → `evdev_ungrab()`)、物理キーボードのイベントが直接届く。また、keyd が止まった後につないだ USB キーボードは keyd が開けず独占されないので、SysRq が直接届くはず (仕組みから導いた推論で、未確認)
-- pstore に残るのはカーネルログの末尾 約 10 KB (`pstore.kmsg_bytes = 10240`)。L (全 CPU のバックトレース) は 8 CPU 分で数 KB になり W の出力を押し出しかねないため、手順に入れていない。SysRq が効く時点でカーネルはキー入力を処理できていて、完全に止まっている可能性は低いので、止まっているタスクを示す W を優先する
+- pstore に残せる量には上限がある。2026-09-23 の試験では 16 レコード、約 26 KB が残り、起動の約 4 秒後からパニックまでのカーネルログすべてに相当した (上限を決める仕組みは確かめていない)。起動から時間が経ってログが長いと、古い部分から落ちる。L (全 CPU のバックトレース) は 8 CPU 分で数 KB になり、残せる量を消費するため手順に入れていない。SysRq が効く時点でカーネルはキー入力を処理できていて、完全に止まっている可能性は低いので、止まっているタスクを示す W を優先する
 - K (SAK) と E / I (全プロセスの終了) は、ロック画面を回避される余地があるため許可していない
-- 2026-09-23 に Alt+PrtSc+S が keyd 経由で効くことを確認した (`sysrq: Emergency Sync`)
+- 2026-09-23 に実機で確認した。Alt+PrtSc+S (`sysrq: Emergency Sync`)、W (`sysrq: Show Blocked State`)、C (`Kernel panic - not syncing: sysrq triggered crash`) のいずれも効き、C の後の起動で `systemd-pstore` が 16 レコードを保存した。保存されたログには W の出力とパニック時のスタックトレースが含まれていた。スタックは `keyd` の `uinput_write` → `input_pass_values` → `sysrq_filter` で、SysRq が keyd の仮想キーボード経由で届くことも実機で裏付けられた
 
 ## hibernate が動作しなかった件
 
