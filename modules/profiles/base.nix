@@ -255,6 +255,19 @@
     settings = {
       PermitRootLogin = "no"; # rootログイン禁止
       PasswordAuthentication = false; # パスワード認証禁止（鍵認証のみ）
+
+      # サーバ側の死活監視。下の ServerAliveInterval と対になる設定で、
+      # 値を揃えて両側が同時に見切りをつけるようにしている。
+      #
+      # サーバ側が無いと、クライアントの休止・ネットワーク断でセッションが
+      # 片側だけ生き残る。分散ビルドのビルダー（r995）ではこれが実害になる:
+      # 取り残された nix-daemon --stdio が store path の .lock を保持したまま
+      # 永久に残り、以降のビルドが同じ path のロック待ちで停止する。
+      # ロック待ちは build-remote の upload-lock 越しに全ジョブへ波及するため、
+      # nix build にサイレントタイムアウトが無いこともあって
+      # `nix-rebuild update` が終わらなくなる。
+      ClientAliveInterval = 15;
+      ClientAliveCountMax = 3;
     };
   };
 
