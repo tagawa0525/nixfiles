@@ -5,7 +5,7 @@
 # 共通設定は modules/profiles/、ブート設定は modules/boot-lanzaboote.nix を参照。
 # =============================================================================
 
-{ ... }:
+{ config, ... }:
 {
   imports = [
     ./hardware-configuration.nix # nixos-generate-config で生成されたハードウェア設定
@@ -72,6 +72,17 @@
     "w /sys/power/pm_trace - - - - 1"
     "w /sys/power/pm_print_times - - - - 1"
     "w /sys/power/pm_debug_messages - - - - 1"
+  ];
+
+  # pm_trace はサスペンドのたびに RTC を壊し、それを直すのは NTP クライアント
+  # だけ。timesyncd は NixOS の既定で有効になっているにすぎないため、依存を
+  # 明示して崩れたらビルドを止める。別の NTP クライアントに替えるときは、
+  # この条件もあわせて替える。
+  assertions = [
+    {
+      assertion = config.services.timesyncd.enable;
+      message = "hosts/x1ng1: pm_trace が壊した RTC の時刻を直すため、services.timesyncd が必要";
+    }
   ];
 
   # ===========================================================================
