@@ -18,8 +18,6 @@ let
     pkgs.vscode-marketplace.anthropic.claude-code # Claude Code CLI連携（diff view）
 
     # Git
-    # gitlensはnixpkgs側が更新追従していないためmarketplace-releaseを使用
-    pkgs.vscode-marketplace-release.eamodio.gitlens # Git機能強化（blame、履歴、比較）
     pkgs.vscode-extensions.mhutchie.git-graph # Gitの履歴をグラフ表示
     pkgs.vscode-extensions.github.vscode-github-actions # GitHub Actionsワークフロー編集
 
