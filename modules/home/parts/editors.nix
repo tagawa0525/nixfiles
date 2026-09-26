@@ -18,8 +18,6 @@ let
     pkgs.vscode-marketplace.anthropic.claude-code # Claude Code CLI連携（diff view）
 
     # Git
-    # gitlensはnixpkgs側が更新追従していないためmarketplace-releaseを使用
-    pkgs.vscode-marketplace-release.eamodio.gitlens # Git機能強化（blame、履歴、比較）
     pkgs.vscode-extensions.mhutchie.git-graph # Gitの履歴をグラフ表示
     pkgs.vscode-extensions.github.vscode-github-actions # GitHub Actionsワークフロー編集
 
@@ -27,6 +25,7 @@ let
     pkgs.vscode-extensions.jnoortheen.nix-ide # Nix
     # rust-analyzerもnixpkgs側が古いためmarketplace-releaseを使用
     pkgs.vscode-marketplace-release.rust-lang.rust-analyzer # Rust
+    pkgs.vscode-extensions.golang.go # Go（gopls はシステム側のものを使用）
     pkgs.vscode-extensions.ms-python.python # Python
     pkgs.vscode-extensions.ms-python.vscode-pylance # Python型チェック・補完
     pkgs.vscode-extensions.charliermarsh.ruff # Python フォーマット・lint
