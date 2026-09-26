@@ -33,6 +33,7 @@ let
     pkgs.vscode-extensions.redhat.vscode-yaml # YAML
     pkgs.vscode-extensions.tamasfe.even-better-toml # TOML
     pkgs.vscode-extensions.davidanson.vscode-markdownlint # Markdownリンター
+    pkgs.vscode-extensions.dbaeumer.vscode-eslint # JS/TS リンター（プロジェクトの ESLint を使用）
 
     # 開発環境
     pkgs.vscode-extensions.mkhl.direnv # direnv環境変数の自動読み込み
