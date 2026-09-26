@@ -27,6 +27,7 @@ let
     pkgs.vscode-extensions.jnoortheen.nix-ide # Nix
     # rust-analyzerもnixpkgs側が古いためmarketplace-releaseを使用
     pkgs.vscode-marketplace-release.rust-lang.rust-analyzer # Rust
+    pkgs.vscode-extensions.golang.go # Go（gopls はシステム側のものを使用）
     pkgs.vscode-extensions.ms-python.python # Python
     pkgs.vscode-extensions.ms-python.vscode-pylance # Python型チェック・補完
     pkgs.vscode-extensions.charliermarsh.ruff # Python フォーマット・lint
