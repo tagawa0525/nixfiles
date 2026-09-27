@@ -146,13 +146,31 @@ in
   # NetBox の vhost に落とすため、default server にしておく
   services.nginx.virtualHosts."r995".default = true;
 
-  # Atuin サーバー・NetBox への接続は Tailscale 経由のみ許可する。
+  # ===========================================================================
+  # nucrawler（原子力ニュースの巡回・和訳・要約・推薦）
+  # ===========================================================================
+  # 常時通電のデスクトップ機で timer（巡回 03/10/16/22 時、依頼の和訳 15 分ごと）
+  # と Web UI を動かし、スマホからは Tailscale 経由で http://r995:8080 を開く。
+  # 要約・和訳は tagawa の claude（サブスクリプション）で行うので、tagawa の
+  # user unit として動かす。https://github.com/tagawa0525/nucrawler
+  home-manager.users.tagawa.services.nucrawler = {
+    enable = true;
+    # 0.0.0.0 で listen し、到達制御はファイアウォール（tailscale0 のみ）で行う。
+    # Web UI に認証は無いので、LAN には開けない
+    settings.web.bind = "0.0.0.0:8080";
+  };
+
+  # user unit の timer をログインしていない間も動かす
+  users.users.tagawa.linger = true;
+
+  # Atuin サーバー・NetBox・nucrawler への接続は Tailscale 経由のみ許可する。
   # openFirewall = true は全インターフェースに穴を開けるため使わず、
   # tailscale0 インターフェース限定でポートを開放する。
   networking.firewall.interfaces."tailscale0".allowedTCPPorts = [
     80 # NetBox（nginx 経由）
     8888
     41717 # kikitori エンジン（x1ng1 / t14g4 が tailnet 経由で使う。LAN 直は不可）
+    8080 # nucrawler の Web UI
   ];
 
   # ===========================================================================
