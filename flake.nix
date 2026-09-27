@@ -102,6 +102,14 @@
       url = "github:tagawa0525/lsp-det";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # nucrawler: 原子力（軽水炉）ニュースの巡回・和訳・要約・推薦（自作）。
+    # home-manager モジュール（services.nucrawler）を全ユーザーに公開し、
+    # 有効化は常時通電の r995 だけで行う（hosts/r995/default.nix）
+    nucrawler = {
+      url = "github:tagawa0525/nucrawler";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # ===========================================================================
@@ -123,6 +131,7 @@
       openlogi,
       mattpocock-skills,
       lsp-det,
+      nucrawler,
       ...
     }:
     let
@@ -196,7 +205,11 @@
               home-manager.backupFileExtension = "backup"; # 既存ファイルのバックアップ拡張子
               # flakeソースとVS Code ServerモジュールをHome Managerに渡す
               # kikitori の systemd サービス定義（services.kikitori.*）を全ユーザーに公開
-              home-manager.sharedModules = [ kikitori.homeManagerModules.default ];
+              # nucrawler の timer と Web UI の定義（services.nucrawler.*）も同様
+              home-manager.sharedModules = [
+                kikitori.homeManagerModules.default
+                nucrawler.homeManagerModules.default
+              ];
               home-manager.extraSpecialArgs = {
                 claudeCodeSource = self; # flakeルートを渡す（Claude Code設定用）
                 inherit mattpocock-skills; # 外部スキルの取得元（claude-code.nix の externalSkills）

@@ -370,6 +370,26 @@
         "type": "github"
       }
     },
+    "nucrawler": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1790467453,
+        "narHash": "sha256-jvVcnaqNBh0JLzfG1uteb4Z8nK8kUpI6jeUSAju0/LQ=",
+        "owner": "tagawa0525",
+        "repo": "nucrawler",
+        "rev": "b31789f5c96058ad3581740ce6610c25b7c2dfef",
+        "type": "github"
+      },
+      "original": {
+        "owner": "tagawa0525",
+        "repo": "nucrawler",
+        "type": "github"
+      }
+    },
     "nur-vscode-latest": {
       "inputs": {
         "nixpkgs": [
@@ -466,6 +486,7 @@
         "nix-vscode-extensions": "nix-vscode-extensions",
         "nixos-vscode-server": "nixos-vscode-server",
         "nixpkgs": "nixpkgs_3",
+        "nucrawler": "nucrawler",
         "nur-vscode-latest": "nur-vscode-latest",
         "openlogi": "openlogi",
         "qmpo": "qmpo"
