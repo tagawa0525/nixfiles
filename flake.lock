@@ -377,11 +377,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1790495331,
-        "narHash": "sha256-zdZNMbxnr7vlLW4MvmfQdv4Cykc53S+61/Ha8kbBBBA=",
+        "lastModified": 1790497492,
+        "narHash": "sha256-BbxepjyDjg+sXH4eeJFKDeUBn0tUPshnzwierN/jzEQ=",
         "owner": "tagawa0525",
         "repo": "nucrawler",
-        "rev": "3846294bfb8247ea947421b0c5dffc14bed8f8f8",
+        "rev": "3a5b80003499aae1c3d0f5a20c288a0284befd06",
         "type": "github"
       },
       "original": {
