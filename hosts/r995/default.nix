@@ -123,8 +123,9 @@ in
   services.netbox = {
     enable = true;
     # stateVersion 26.05 のデフォルトは netbox_4_5 だが、4.5系は EOL で
-    # insecure 指定されたため 4.6 を明示。DBマイグレーションは起動時に自動実行
-    package = pkgs.netbox_4_6;
+    # insecure 指定され、4.6系も nixpkgs から削除されたため 4.7 を明示。
+    # DBマイグレーションは起動時に自動実行
+    package = pkgs.netbox_4_7;
     settings = {
       # DATABASES を定義するとオプションのデフォルト値ごと置き換わるため全項目を書く。
       # PostgreSQL は atuin 用に 15432 へ退避済み（上記）。UNIX ソケットの
