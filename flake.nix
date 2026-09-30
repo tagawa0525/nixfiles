@@ -175,6 +175,7 @@
             ./modules/profiles/base.nix # 全ホスト共通の最小ベース設定
             ./modules/cc-bar.nix # cc-bar 統合（無効化するにはこの行をコメントアウト）
             ./modules/handlr-regex-fix.nix # handlr-regex のテスト期待値パッチ（撤去手順は同ファイル冒頭）
+            ./modules/gcc16-compat.nix # zat / ltrace を gcc15 でビルド（撤去手順は同ファイル冒頭）
             lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
             home-manager.nixosModules.home-manager
             {
