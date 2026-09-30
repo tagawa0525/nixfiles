@@ -13,7 +13,8 @@
 #     （bglgwyng/zat#3）。それが nixpkgs に入るまで -fno-strict-aliasing で回避する。
 #   - ltrace: demangle.exp のテスト用 C++ が gcc 16 の
 #     "'volatile'-qualified return type is deprecated" 警告でコンパイルできず 15 件失敗。
-#     戻り値の volatile はマングル名に含まれずテスト内容に影響しないため外す。
+#     戻り値の volatile はマングル名に含まれずテスト内容に影響しないため外す
+#     （上流 cespedes/ltrace!112。マージ後に nixpkgs へ取り込まれるまでの暫定）。
 #
 # 撤去する場合:
 #   zat は上流が tree-sitter-haskell 0.24 以上へ更新した版が nixpkgs に入った時、
