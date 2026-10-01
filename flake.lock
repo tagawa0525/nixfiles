@@ -390,6 +390,26 @@
         "type": "github"
       }
     },
+    "nur-openlogi-latest": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1790874632,
+        "narHash": "sha256-KuwlVZoMvkDE5jjXpf5eVtRh9aAg2c60w6dfMURsKe8=",
+        "owner": "tagawa0525",
+        "repo": "nur-openlogi-latest",
+        "rev": "346a783ff4411cf0e9ebfb909341a5e38c9d80a1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "tagawa0525",
+        "repo": "nur-openlogi-latest",
+        "type": "github"
+      }
+    },
     "nur-vscode-latest": {
       "inputs": {
         "nixpkgs": [
@@ -407,27 +427,6 @@
       "original": {
         "owner": "tagawa0525",
         "repo": "nur-vscode-latest",
-        "type": "github"
-      }
-    },
-    "openlogi": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ],
-        "rust-overlay": "rust-overlay_3"
-      },
-      "locked": {
-        "lastModified": 1790849722,
-        "narHash": "sha256-HY3ODuAJwYYiaKQcCE4Aa5nwYES2jfreObRmSrxdMeo=",
-        "owner": "AprilNEA",
-        "repo": "OpenLogi",
-        "rev": "ef164de65c639cdfa98b9bb08d1bc0ddf01b3dec",
-        "type": "github"
-      },
-      "original": {
-        "owner": "AprilNEA",
-        "repo": "OpenLogi",
         "type": "github"
       }
     },
@@ -487,8 +486,8 @@
         "nixos-vscode-server": "nixos-vscode-server",
         "nixpkgs": "nixpkgs_3",
         "nucrawler": "nucrawler",
+        "nur-openlogi-latest": "nur-openlogi-latest",
         "nur-vscode-latest": "nur-vscode-latest",
-        "openlogi": "openlogi",
         "qmpo": "qmpo"
       }
     },
@@ -523,27 +522,6 @@
         "owner": "oxalica",
         "repo": "rust-overlay",
         "rev": "8534567325bd8a8d2928e6afd81e0a87d19efd3c",
-        "type": "github"
-      },
-      "original": {
-        "owner": "oxalica",
-        "repo": "rust-overlay",
-        "type": "github"
-      }
-    },
-    "rust-overlay_3": {
-      "inputs": {
-        "nixpkgs": [
-          "openlogi",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1790756160,
-        "narHash": "sha256-NPs4nNLxCpho3Ctj8O7t/bzmX0zR8r0zndKghAFEz5U=",
-        "owner": "oxalica",
-        "repo": "rust-overlay",
-        "rev": "ed3a19fd0439ed618ec5fe1e12f0ba69a8be38b5",
         "type": "github"
       },
       "original": {
