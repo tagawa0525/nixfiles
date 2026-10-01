@@ -159,6 +159,11 @@ in
     # 0.0.0.0 で listen し、到達制御はファイアウォール（tailscale0 のみ）で行う。
     # Web UI に認証は無いので、LAN には開けない
     settings.web.bind = "0.0.0.0:8080";
+    # 記事と好みの embedding を作るローカルのサーバー（text-embeddings-inference で
+    # cl-nagoya/ruri-v3-310m を rootless の Podman で動かす。127.0.0.1:8090）。
+    # [embedding] もこれを呼ぶよう既定で設定される。LLM の枠を使わずに全員の記事を採点し、
+    # nucrawler eval で LLM の採点と比べる（nucrawler の計画 010）
+    embeddingServer.enable = true;
   };
 
   # user unit の timer をログインしていない間も動かす
