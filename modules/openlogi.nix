@@ -3,11 +3,10 @@
 # =============================================================================
 # https://github.com/AprilNEA/OpenLogi
 #
-# パッケージ本体は flake input `openlogi`（upstream の flake）が出す Linux 向け
-# パッケージを flake.nix の overlay 経由で受け取る。以前はローカルの cargo
-# 成果物（~/github/OpenLogi/target）を直接参照していたが、そのパスを持たない
-# x1ng1 / t14g4 では動かせず、nix flake update でも更新されなかったため
-# input 化した。
+# パッケージ本体は flake input `nur-openlogi-latest`（upstream の Release にある
+# ビルド済みパッケージを包み直した個人 NUR）から flake.nix の overlay 経由で
+# 受け取る。upstream の flake はソースからビルドするため、更新のたびに Rust の
+# コンパイルが走っていた。
 #
 # このモジュールが持つのは「システム側に要る設定」だけ:
 #   - デバイスアクセス許可 (udev + uinput)
@@ -37,7 +36,8 @@
   # uinput カーネルモジュールのロード（ボタンリマップ用の仮想入力デバイス作成に必要）
   hardware.uinput.enable = true;
 
-  # openlogi (CLI) / openlogi-agent / openlogi-gui と .desktop・アイコンを含む。
+  # openlogi (CLI) / openlogi-agent / openlogi-desktop / openlogi-overlay と
+  # .desktop・アイコンを含む。
   # パッケージは udev ルールと systemd user unit も同梱するが、どちらも
   # services.udev.packages / systemd.packages に載せない限り効かないので、
   # 下の宣言（簡約した udev ルールと unit）だけが実際に使われる

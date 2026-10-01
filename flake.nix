@@ -78,15 +78,13 @@
     };
 
     # OpenLogi: Logitech Options+ 代替
-    # nixpkgs 版は macOS 専用。upstream の master は自前 flake で Linux 向け
-    # パッケージを出しており（#491、#262 で消えた flake の復活）、
-    # ハッシュずれは向こうの Nix CI が（flake / packaging/linux を触る PR と
-    # 週次の schedule で）検知するので、定義は二重に持たず packages 出力を使う。
-    # ただし暫定で openlogiPkg に overrideAttrs を当てている（RUNPATH 補完。
-    # 撤去条件は openlogiPkg のコメント参照）。毎日の drift 検知は
-    # .github/workflows/openlogi-drift.yml
-    openlogi = {
-      url = "github:AprilNEA/OpenLogi";
+    # nixpkgs 版は macOS 専用。upstream の flake はソースからビルドするため
+    # GPUI を含む Rust のコンパイルが更新のたびに走る。個人 NUR が upstream の
+    # Release にあるビルド済みパッケージを包み直したものを使い、コンパイルを
+    # なくす（毎日 minisign 検証つきで最新リリースに追従。GPUI の実行時ライブラリ
+    # も全バイナリの RUNPATH に入っている）
+    nur-openlogi-latest = {
+      url = "github:tagawa0525/nur-openlogi-latest";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -131,7 +129,7 @@
       qmpo,
       cc-bar,
       kikitori,
-      openlogi,
+      nur-openlogi-latest,
       mattpocock-skills,
       lsp-det,
       nucrawler,
@@ -146,34 +144,6 @@
       hostNames = builtins.attrNames (
         nixpkgs.lib.filterAttrs (_: type: type == "directory") (builtins.readDir ./hosts)
       );
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # OpenLogi パッケージ（upstream の flake 出力）
-      # ─────────────────────────────────────────────────────────────────────────
-      # overlay（各ホストの pkgs.openlogi）と packages 出力の両方がここを参照する。
-      # nixpkgs は follows でこちらに揃えてあるので、upstream 側の nixpkgs が
-      # 実体化されることはない。
-      #
-      # 暫定: upstream の postFixup は openlogi-desktop にしか GPUI 実行時ライブラリの
-      # RUNPATH を付けず、openlogi-overlay が NoWaylandLib で panic して agent が
-      # 再起動ループになる。AprilNEA/OpenLogi#785 がマージされたらこの overrideAttrs
-      # ごと削除する（撤去時は上のコメントも「そのまま使う」に戻す）。
-      # ライブラリ一覧は upstream の runtimeLibs（libGL / wayland / vulkan-loader）と
-      # 同じものを手で複製しているので、upstream 側が変わったらずれうる
-      openlogiPkg = openlogi.packages.x86_64-linux.openlogi.overrideAttrs (old: {
-        postFixup = (old.postFixup or "") + ''
-          patchelf --add-rpath "${
-            nixpkgs.lib.makeLibraryPath (
-              with nixpkgs.legacyPackages.x86_64-linux;
-              [
-                libGL
-                wayland
-                vulkan-loader
-              ]
-            )
-          }" "$out/bin/openlogi-overlay"
-        '';
-      });
 
       # ─────────────────────────────────────────────────────────────────────────
       # mkHost: ホスト設定を生成するヘルパー関数
@@ -214,8 +184,10 @@
                 (final: prev: {
                   kikitori = kikitori.packages.${prev.stdenv.hostPlatform.system}.kikitori;
                 })
-                # OpenLogi: upstream の flake が出す Linux パッケージ（modules/openlogi.nix が参照）
-                (_final: _prev: { openlogi = openlogiPkg; })
+                # OpenLogi: 個人 NUR のビルド済みパッケージ（modules/openlogi.nix が参照）
+                (final: prev: {
+                  openlogi = nur-openlogi-latest.packages.${prev.stdenv.hostPlatform.system}.openlogi;
+                })
                 # cc-bar の overlay は ./modules/cc-bar.nix に集約済み
               ];
               # Home Manager設定
@@ -244,14 +216,7 @@
     {
       nixosConfigurations = nixpkgs.lib.genAttrs hostNames mkHost;
 
-      # CI (openlogi-drift.yml) が upstream の master HEAD に対して vendor 取得を
-      # 検証するためのエントリポイント。openlogi-cargo-deps は importCargoLock
-      # の vendor ディレクトリで、これのビルド = 全依存の取得とハッシュ検証。
-      # rust のコンパイルを伴わないため、gpui 等の rev bump によるハッシュずれを
-      # 数分で検知できる（コンパイルまで通るかは通常の update フローが担う）
       packages.x86_64-linux = {
-        openlogi = openlogiPkg;
-        openlogi-cargo-deps = openlogiPkg.cargoDeps;
         # Claude Code の PreToolUse hook（modules/home/parts/claude-code.nix が home に配置する）。
         # nix build .#claude-hooks で単体ビルドし、テストから CLAUDE_HOOKS_BIN で参照する
         claude-hooks =
