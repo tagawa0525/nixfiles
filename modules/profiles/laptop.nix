@@ -52,7 +52,7 @@
   services.upower = {
     # 既定は HybridSleep だが x1ng1 は hibernate がハングして使えず
     # （docs/x1ng1-power-management.md）、Suspend は放電を止められないため
-    # 最終的に汚い電源断になる（NixOS も allowRiskyCriticalPowerAction を
+    # 最終的に不正シャットダウンになる（NixOS も allowRiskyCriticalPowerAction を
     # 要求して止めてくる）。確実にクリーンへ倒せる PowerOff を選ぶ。
     criticalPowerAction = "PowerOff";
 

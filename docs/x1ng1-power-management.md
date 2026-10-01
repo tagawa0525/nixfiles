@@ -163,7 +163,7 @@ Event::OnBattery(value) => {
 | `percentageCritical`  | `10`       | 既定の 5 は `percentageAction` と同値で警告が機能しない             |
 | `percentageAction`    | `5`        | 停止に要するのは 0.2% 程度だが、残量計の再校正誤差 (10 pt) に備える |
 
-`Suspend` を選ばなかったのは、サスペンドしても放電 (0.3 W) が止まらず約 15 時間で完全放電し、結局は汚い電源断になるため。NixOS も `allowRiskyCriticalPowerAction` を要求して assertion で止めてくる。
+`Suspend` を選ばなかったのは、サスペンドしても放電 (0.3 W) が止まらず約 15 時間で完全放電し、結局は不正シャットダウンになるため。NixOS も `allowRiskyCriticalPowerAction` を要求して assertion で止めてくる。
 
 **「10% でサスペンドし 2% で電源を切る」という 2 段構えは標準機能では組めない。**サスペンド中は UPower 自身が停止しており残量を監視する主体がいないため。RTC アラームで定期的に起床して判定する仕組みを自作すれば可能だが (本機に `/sys/class/rtc/rtc0/wakealarm` は存在する)、cosmic-idle の修正で低残量まで落ちる状況自体が起きにくくなるため見送った。
 
@@ -359,7 +359,7 @@ tar -xJOf "$(nix build --no-link --print-out-paths .#nixosConfigurations.x1ng1.c
 代償が 2 つある。
 
 - サスペンドのたびに RTC の時刻が壊れる。実機では復帰後数分以内に正しい時刻へ戻った (2026-09-23 に確認。書き込み時にカーネルが `Possible incorrect RTC due to pm_trace` と警告する)。書き戻しには NTP 同期が要るため、`hosts/x1ng1/default.nix` で timesyncd を assertion により必須にしている
-- デバイスの suspend/resume が同期実行になる。カーネルの `is_async()` が `pm_trace_is_enabled()` を見るため。**タイミングが変わるので、ハングが起きにくくなる可能性がある。**起きなくなった場合、それ自体が「非同期実行時の競合」という手がかりになる。実測では、s2idle からの復帰時のデバイス処理に計約 5.3 秒かかった (noirq 2.1 秒 / early 1.2 秒 / 通常 2.0 秒)。hibernate の凍結では同期と非同期を比較でき、各段階が約 5〜85 倍遅くなった (freeze 5.3 倍 / late 85 倍 / noirq 38 倍) (下記「hibernate が動作しなかった件」)
+- デバイスの suspend/resume が同期実行になる。カーネルの `is_async()` が `pm_trace_is_enabled()` を見るため。**タイミングが変わるので、ハングが起きにくくなる可能性がある。**起きなくなった場合、それ自体が「非同期実行時の競合状態」という手がかりになる。実測では、s2idle からの復帰時のデバイス処理に計約 5.3 秒かかった (noirq 2.1 秒 / early 1.2 秒 / 通常 2.0 秒)。hibernate の凍結では同期と非同期を比較でき、各段階が約 5〜85 倍遅くなった (freeze 5.3 倍 / late 85 倍 / noirq 38 倍) (下記「hibernate が動作しなかった件」)
 
 あわせて `pm_print_times` / `pm_debug_messages` も有効にしている。こちらは復帰に成功した場合だけ journal に残り、2026-09-23 10:05:42 のように遅れて戻ったレジュームで、どのデバイスに何 ms かかったかを記録する。
 
@@ -482,7 +482,7 @@ BIOS の `Security` → `I/O Port Access` → `Wireless WAN` を `Off` にした
 
 **非同期でも成功したため、同期／非同期は直った理由ではない。**残る候補はカーネル更新と iosm の blacklist。7 月には iosm を unbind しても止まっていたので、カーネル更新が有力だが、unbind と blacklist でデバイスの状態が同じとは限らず、確定はしていない。
 
-この結果は、s2idle の復帰ハング (上記) を「非同期実行時の競合」とみる説の裏付けにもならない。ただし hibernate と s2idle は経路が違うため、否定まではできない。
+この結果は、s2idle の復帰ハング (上記) を「非同期実行時の競合状態」とみる説の裏付けにもならない。ただし hibernate と s2idle は経路が違うため、否定まではできない。
 
 凍結にかかった時間 (`pm_debug_messages` による集計) は次のとおりで、pm_trace による同期化の代償の実測にもなった。
 
