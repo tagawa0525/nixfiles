@@ -359,7 +359,7 @@ impl ZellijPlugin for State {
                 if self.mode_info.mode != InputMode::Tmux {
                     self.prefix_armed = false;
                 } else if self.got_mode && was != InputMode::Tmux {
-                    // 自分のクライアントがprefixを押した瞬間だけ武装する。
+                    // 自分のクライアントがprefixを押した瞬間だけ prefix_armed を立てる。
                     // 初回のModeUpdate（インスタンス生成時の現在値）は遷移では
                     // ないので対象外
                     self.prefix_armed = true;

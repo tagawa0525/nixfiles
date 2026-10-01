@@ -126,7 +126,7 @@ nix build --rebuild nixpkgs#hello -L
 
 `nix.settings.builders-use-substitutes = true` で、ビルダー側が
 `cache.nixos.org` から直接 substitute を取得する。クライアントから
-依存物を全部転送するより効率的。
+依存パッケージを全部転送するより効率的。
 
 ## トラブルシューティング
 

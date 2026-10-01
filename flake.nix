@@ -91,7 +91,7 @@
     };
 
     # mattpocock/skills: Claude Code 向けスキル集。grilling / grill-me を
-    # ~/.claude/skills に配備する（対象は modules/home/parts/claude-code.nix の
+    # ~/.claude/skills にデプロイする（対象は modules/home/parts/claude-code.nix の
     # externalSkills）。flake ではないので出所と rev の記録のためだけに input にする
     mattpocock-skills = {
       url = "github:mattpocock/skills";
