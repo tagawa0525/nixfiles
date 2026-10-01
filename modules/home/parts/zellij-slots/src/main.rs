@@ -151,11 +151,10 @@ fn fit_labels(tabs: &[(String, String)], available: usize) -> Vec<String> {
         .iter()
         .map(|(n, t)| cell_width(&format!(" {} ", n)) + usize::from(has_title(n, t)))
         .sum();
-    let budget = if titled > 0 {
-        available.saturating_sub(fixed) / titled
-    } else {
-        0
-    };
+    let budget = available
+        .saturating_sub(fixed)
+        .checked_div(titled)
+        .unwrap_or(0);
     tabs.iter()
         .map(|(name, title)| {
             if !has_title(name, title) || budget == 0 {
