@@ -80,8 +80,11 @@
     # OpenLogi: Logitech Options+ 代替
     # nixpkgs 版は macOS 専用。upstream の master は自前 flake で Linux 向け
     # パッケージを出しており（#491、#262 で消えた flake の復活）、
-    # ハッシュずれは向こうの Nix CI が master push / PR で弾くので、
-    # こちらは packages 出力をそのまま使う（定義を二重に持たない）
+    # ハッシュずれは向こうの Nix CI が（flake / packaging/linux を触る PR と
+    # 週次の schedule で）検知するので、定義は二重に持たず packages 出力を使う。
+    # ただし暫定で openlogiPkg に overrideAttrs を当てている（RUNPATH 補完。
+    # 撤去条件は openlogiPkg のコメント参照）。毎日の drift 検知は
+    # .github/workflows/openlogi-drift.yml
     openlogi = {
       url = "github:AprilNEA/OpenLogi";
       inputs.nixpkgs.follows = "nixpkgs";
