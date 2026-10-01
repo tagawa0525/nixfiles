@@ -1,17 +1,17 @@
 # =============================================================================
-# OpenLogi fork の drift 検知
+# OpenLogi upstream の drift 検知
 # =============================================================================
-# fork (tagawa0525/OpenLogi) の master HEAD に対して cargo vendor の取得を
-# 毎日検証する。fork の nix/package.nix の outputHashes は git 依存（gpui 等）
+# upstream (AprilNEA/OpenLogi) の master HEAD に対して cargo vendor の取得を
+# 毎日検証する。upstream の packaging/linux/package.nix の outputHashes は git 依存（gpui 等）
 # の rev が動くと無効になる。
 #
-# fork 側にも Nix CI（master への push と PR で .#openlogi をビルド）がある
+# upstream 側にも Nix CI（master への push と PR で .#openlogi をビルド）がある
 # ので一次的な防波堤はそちらだが、赤くなっても気づかず放置される（実際に
 # 2026-08-04 の gpui-updater 0.0.5→0.0.6 は 1 週間気づかれなかった）。
 # こちらは「毎日、自分が見るリポジトリで落ちる」ための二重化で、次の
 # nix flake update より前に気づくのが目的。
 #
-# 落ちたら fork 側の nix/package.nix を直す（このリポジトリには
+# 落ちたら upstream 側の packaging/linux/package.nix を直す（このリポジトリには
 # パッケージ定義を持たない）。エラーログに正しいハッシュが印字される。
 #
 # vendor 取得（openlogi-cargo-deps）だけを対象にし、rust のコンパイルは
@@ -36,10 +36,10 @@ jobs:
 
       - uses: cachix/install-nix-action@v31
 
-      - name: fork master HEAD に対して vendor 取得を検証
+      - name: upstream master HEAD に対して vendor 取得を検証
         # ブランチを明示する（省略すると既定ブランチ依存になり、既定が
         # 変わった場合に意図しないブランチを検証してしまう）
         run: |
           nix build .#openlogi-cargo-deps \
-            --override-input openlogi github:tagawa0525/OpenLogi/master \
+            --override-input openlogi github:AprilNEA/OpenLogi/master \
             --no-link --print-build-logs
