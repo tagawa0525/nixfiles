@@ -1,9 +1,9 @@
 # =============================================================================
 # OpenLogi (Logitech Options+ 代替) の統合
 # =============================================================================
-# https://github.com/tagawa0525/OpenLogi （upstream: AprilNEA/OpenLogi の fork）
+# https://github.com/AprilNEA/OpenLogi
 #
-# パッケージ本体は flake input `openlogi`（fork の flake）が出す Linux 向け
+# パッケージ本体は flake input `openlogi`（upstream の flake）が出す Linux 向け
 # パッケージを flake.nix の overlay 経由で受け取る。以前はローカルの cargo
 # 成果物（~/github/OpenLogi/target）を直接参照していたが、そのパスを持たない
 # x1ng1 / t14g4 では動かせず、nix flake update でも更新されなかったため
