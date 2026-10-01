@@ -142,6 +142,11 @@ in
       hostname = "r995";
     };
   };
+  # NetBox 4.7 で housekeeping コマンドが廃止され、netbox-rq 上の
+  # SystemHousekeepingJob が日次で代行する。上流モジュール（nixpkgs c962694a08）は
+  # netbox-housekeeping.service だけ削除してタイマーを残したため、起動のたびに
+  # 「unit to trigger not loaded」で失敗する。上流でタイマーが消えたらこの行も外す
+  systemd.timers.netbox-housekeeping.enable = false;
 
   # Tailscale の MagicDNS FQDN（r995.<tailnet>.ts.net）で来たリクエストも
   # NetBox の vhost に落とすため、default server にしておく
