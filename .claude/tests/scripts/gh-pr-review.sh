@@ -98,12 +98,15 @@ assert_contains "$(fake_log gh)" "-F id=T2"
 # review_requested イベントで確かめてから待機する
 
 # fake_gh_rereview: POST 後にだけ review_requested が現れる gh。
-# 引数に "nogrow" を渡すと POST しても timeline が増えない状況を作る
+# 引数に "nogrow" を渡すと POST しても timeline が増えない状況を作る。
+# "lag" を渡すと POST 後 2 回目の timeline 取得から現れる（GitHub 側の反映遅れ。
+# PR #239 / #240 で、登録済みなのに「登録されませんでした」と止まった）
 fake_gh_rereview() {
   local grow="${1:-grow}"
-  rm -f "$TEST_ROOT/requested"
+  rm -f "$TEST_ROOT/requested" "$TEST_ROOT/reads"
   local event="if [ -f \"$TEST_ROOT/requested\" ]; then echo 2026-09-08T00:00:00Z; fi"
   [[ "$grow" == "nogrow" ]] && event=":"
+  [[ "$grow" == "lag" ]] && event="if [ -f \"$TEST_ROOT/requested\" ]; then echo x >> \"$TEST_ROOT/reads\"; if [ \$(wc -l < \"$TEST_ROOT/reads\") -ge 2 ]; then echo 2026-09-08T00:00:00Z; fi; fi"
   jq -n '{reviews: [{author: {login: "copilot-pull-request-reviewer"}, state: "COMMENTED", submittedAt: "2026-09-08T00:05:00Z"}]}' \
     > "$TEST_ROOT/reviews.json"
   make_fake_gh "\"auth status\"*) ;;
@@ -127,9 +130,15 @@ it "request-rereview: 登録された review_requested の時刻を基準に待�
 assert_contains "$out" "SINCE: 2026-09-08T00:00:00Z"
 assert_contains "$out" "新しいレビューが到着"
 
+it "request-rereview: review_requested の反映が遅れても読み直して待機に入る"
+fake_gh_rereview lag
+out=$(REREVIEW_POLL_INTERVALS="0 0 0" "$REVIEW_SCRIPTS/request-rereview.sh" 1 2>&1)
+assert_eq 0 $?
+assert_contains "$out" "SINCE: 2026-09-08T00:00:00Z"
+
 it "request-rereview: review_requested が増えなければ待機せずエラーで止まる"
 fake_gh_rereview nogrow
-err=$("$REVIEW_SCRIPTS/request-rereview.sh" 1 2>&1)
+err=$(REREVIEW_POLL_INTERVALS="0 0 0" "$REVIEW_SCRIPTS/request-rereview.sh" 1 2>&1)
 assert_eq 1 $?
 assert_contains "$err" "ERROR"
 assert_not_contains "$(fake_log gh)" "pr view 1 --json number"
