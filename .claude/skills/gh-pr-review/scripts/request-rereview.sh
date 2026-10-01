@@ -55,7 +55,16 @@ if ! err=$(gh api -X POST "repos/{owner}/{repo}/pulls/${PR_NUMBER}/requested_rev
   exit 1
 fi
 
+# POST が成功しても timeline への反映は数秒遅れることがあり、直後の 1 回だけで
+# 判定すると登録済みの要求を「登録されませんでした」と誤診する（PR #239 / #240）。
+# 間隔をあけて読み直す。間隔（秒）は REREVIEW_POLL_INTERVALS で上書きできる（テスト用）
+read -ra intervals <<<"${REREVIEW_POLL_INTERVALS:-2 3 5 10}"
 after=$(latest_request_at)
+for interval in "${intervals[@]}"; do
+  [[ -n "$after" && "$after" != "$before" ]] && break
+  sleep "$interval"
+  after=$(latest_request_at)
+done
 if [[ -z "$after" || "$after" == "$before" ]]; then
   echo "ERROR: レビュー要求が登録されませんでした（review_requested イベントが増えていません）" >&2
   echo "HINT: 前回の要求が保留のまま（レビューがまだ来ていない）か、リポジトリで Copilot code review が無効です。gh pr view ${PR_NUMBER} --json reviewRequests と /gh-actions-check ${PR_NUMBER} で確認してください" >&2
