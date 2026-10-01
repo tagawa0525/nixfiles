@@ -103,6 +103,16 @@ add_gcroots() {
 
 update() {
   cd "$NIXDIR" || return 1
+  # update は origin/main を取り込んで main に lock を push する処理。feature branch
+  # で走ると、そのブランチが main 上へリベースされ、lock のコミットが PR に積まれて
+  # push される（PR #239）。何かを変える前に止める
+  local branch
+  branch=$(git symbolic-ref --short -q HEAD || echo "detached HEAD")
+  if [[ "$branch" != main ]]; then
+    echo "❌ update は main ブランチで実行してください（現在: $branch）"
+    cd - > /dev/null
+    return 1
+  fi
   echo "📥 Syncing with remote..."
   git fetch origin main
   # flake.lock以外にローカル変更がある場合は警告
