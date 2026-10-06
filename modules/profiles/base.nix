@@ -222,6 +222,7 @@
     inotify-tools # inotifywait。ファイル変更の監視・デバッグに
     tokei # 言語別コード行数カウント。プロジェクト規模把握に
     hyperfine # コマンドのベンチマーク。複数コマンドの比較が簡単
+    perf # CPUのカウンタ（キャッシュミス、IPC等）で性能を分析。ボトルネックの特定に
     dust # Rust製du。ディスク使用量を視覚的に表示
     sqlite # SQLiteデータベースCLI。ローカルDB操作やデータ分析に使用
 
