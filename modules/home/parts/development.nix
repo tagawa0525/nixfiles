@@ -21,6 +21,7 @@
     bacon # ファイル監視＆自動ビルド（cargo-watchの代替）
     cargo-nextest # 高速テストランナー
     cargo-expand # マクロ展開確認
+    cargo-show-asm # 関数ごとの生成アセンブリ確認（インライン化・ベクトル化の検証）
     devenv # devenv.nix ベースの開発環境（OpenLogi等が使用、direnvのuse devenvに必要）
 
     # Python開発ツール
