@@ -224,6 +224,8 @@
     hyperfine # コマンドのベンチマーク。複数コマンドの比較が簡単
     perf # CPUのカウンタ（キャッシュミス、IPC等）で性能を分析。ボトルネックの特定に
     heaptrack # ヒープ割り当てのプロファイラ。メモリ使用量・リーク・割り当て箇所の特定に
+    hotspot # perf の記録をフレームグラフ・タイムラインで表示するGUI。ホットパスの特定に
+    valgrind # メモリ破壊・未初期化読み出しの検出（memcheck）とキャッシュ解析（cachegrind）
     dust # Rust製du。ディスク使用量を視覚的に表示
     sqlite # SQLiteデータベースCLI。ローカルDB操作やデータ分析に使用
 
