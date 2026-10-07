@@ -104,6 +104,14 @@
   services.desktopManager.cosmic.enable = true;
   services.displayManager.cosmic-greeter.enable = true;
 
+  # cosmic-osk（スクリーンキーボード、COSMIC 1.9.0〜）を外す。cosmic-session が
+  # 設定に関係なく起動し、Wayland の入力メソッド枠 (zwp_input_method_v2) を
+  # 取るため、fcitx5 にフォーカスが渡らず IME がオンにならない
+  # （pop-os/cosmic-osk#44）。PATH に無ければ cosmic-session は起動に失敗して
+  # それきり諦める。corePkgs 扱いの警告は意図した除外なので抑止する
+  environment.cosmic.excludePackages = [ pkgs.cosmic-osk ];
+  services.desktopManager.cosmic.showExcludedPkgsWarning = false;
+
   # ===========================================================================
   # 仮想化 (libvirt/KVM)
   # ===========================================================================
