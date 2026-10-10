@@ -30,8 +30,10 @@ nixfiles には kikitori のために、flake の input、`pkgs.kikitori` を足
   足さない
 - **設計判断**: evdev を使わない理由、ペーストキー方式を採らない理由、whisper ではなく SenseVoice を使う理由は
   kikitori の `docs/HANDOFF.md` にある
-- **残るもの**: `~/.local/share/kikitori/`（SenseVoice と silero VAD、約 200MB）はホストに残る。
-  `~/.local/share/voxtype/`（約 1.8GB）は voxtype 時代の残りで、nix の管理外。消すかどうかは別に判断する
+- **データ**: モデル（`~/.local/share/kikitori/`）とキャッシュ（`~/.cache/kikitori/`）は個人データを含まず、
+  kikitori のリポジトリの `docs/NIXOS.md` の手順で初回起動時に取得し直せるので、消してよい。r995 では撤去と
+  同じ日に消した（約 320MB）。voxtype 時代のデータ（`~/.local/share/voxtype/`）は、そのとき r995 に
+  既に無いことを確かめた
 
 ## 再開するとき
 
