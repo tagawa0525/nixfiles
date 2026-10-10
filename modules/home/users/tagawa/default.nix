@@ -16,7 +16,6 @@
     ../../parts/zellij.nix # Zellij設定と接続スクリプト
     ../../parts/editors.nix # VSCode, Neovim, Zed, Alacritty
     ../../parts/desktop.nix # COSMIC, XDG, fcitx5, mimeApps
-    ../../parts/voice-input.nix # kikitori（ローカル音声入力、Super+V）
     ../../parts/communication.nix # Discord, Zoom などお仕事用GUIアプリ
     ../../parts/git.nix # Git, Git Hooks, delta, GitHub CLI
     ../../parts/claude-code.nix # Claude Code CLI, hooks/skills同期, settings管理

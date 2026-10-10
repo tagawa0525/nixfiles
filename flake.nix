@@ -71,12 +71,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # kikitori: 完全ローカル・リアルタイム表示の日本語音声入力（voxtype 後継）
-    kikitori = {
-      url = "github:tagawa0525/kikitori";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # OpenLogi: Logitech Options+ 代替
     # nixpkgs 版は macOS 専用。upstream の flake はソースからビルドするため
     # GPUI を含む Rust のコンパイルが更新のたびに走る。個人 NUR が upstream の
@@ -134,7 +128,6 @@
       nixos-vscode-server,
       qmpo,
       cc-bar,
-      kikitori,
       nur-openlogi-latest,
       mattpocock-skills,
       lsp-det,
@@ -187,10 +180,6 @@
                 })
                 # qmpo: directory:// URIハンドラ
                 qmpo.overlays.default
-                # kikitori: ローカル音声入力（voice-input.nix のショートカットが参照）
-                (final: prev: {
-                  kikitori = kikitori.packages.${prev.stdenv.hostPlatform.system}.kikitori;
-                })
                 # OpenLogi: 個人 NUR のビルド済みパッケージ（modules/openlogi.nix が参照）
                 (final: prev: {
                   openlogi = nur-openlogi-latest.packages.${prev.stdenv.hostPlatform.system}.openlogi;
@@ -202,10 +191,8 @@
               home-manager.useUserPackages = true; # ユーザーパッケージをシステムに統合
               home-manager.backupFileExtension = "backup"; # 既存ファイルのバックアップ拡張子
               # flakeソースとVS Code ServerモジュールをHome Managerに渡す
-              # kikitori の systemd サービス定義（services.kikitori.*）を全ユーザーに公開
-              # nucrawler の timer と Web UI の定義（services.nucrawler.*）も同様
+              # nucrawler の timer と Web UI の定義（services.nucrawler.*）を全ユーザーに公開
               home-manager.sharedModules = [
-                kikitori.homeManagerModules.default
                 nucrawler.homeManagerModules.default
               ];
               home-manager.extraSpecialArgs = {
