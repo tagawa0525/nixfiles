@@ -1,6 +1,10 @@
 ---
 status: accepted
 date: 2026-10-10
+requires: []
+supersedes: []
+superseded-by:
+issues: []
 ---
 
 # ADR-0003: kikitori（音声入力）を nixfiles から外す

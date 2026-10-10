@@ -1,6 +1,10 @@
 ---
 status: accepted
 date: 2026-10-10
+requires: []
+supersedes: []
+superseded-by:
+issues: []
 ---
 
 # ADR-0001: ホストの間で共有する秘密は sops-nix で配る
