@@ -148,9 +148,14 @@ in
   # r995 は計算（xlc、OpenMC）に使う。rebuild・自動更新・ノート PC から転送されるビルドが、
   # 計算の時間測定を乱さないよう、ビルドを idle の優先度で動かす。通常の優先度のタスクが動いている CPU や I/O
   # では、ビルドが道を譲る（CPU ごとの優先度なので、空きコアではビルドが進む）。メモリ帯域などの競合は残る。
-  # docs/adr/0005-nix-daemon-idle-priority.md
+  # COSMIC の system76-scheduler は新しいプロセスの方針を OTHER に戻すので、nix-daemon とその子孫は対象から外す。
+  # docs/adr/0010-exempt-nix-daemon-from-system76-scheduler.md
   nix.daemonCPUSchedPolicy = "idle";
   nix.daemonIOSchedClass = "idle";
+  services.system76-scheduler.exceptions = [
+    "nix-daemon"
+    "include descends=\"nix-daemon\""
+  ];
 
   # ===========================================================================
   # KVM HIDハブ復旧（手動コマンド + 自動復旧）
