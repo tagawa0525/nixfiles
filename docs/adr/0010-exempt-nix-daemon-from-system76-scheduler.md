@@ -1,9 +1,9 @@
 ---
-status: accepted
+status: superseded
 date: 2026-10-11
 requires: []
 supersedes: [ADR-0005]
-superseded-by:
+superseded-by: [ADR-0011]
 issues: ["#268"]
 ---
 
@@ -83,7 +83,4 @@ ADR-0005 の案 A（rebuild と update の全体を Slurm にする）と案 B�
 ## 補足
 
 - 2026-10-11: 設定の効きの確認は、反映後に issue #268 で行う。`descends` の一致が sandbox 内のビルドプロセスに及ぶかは、まだ実機で見ていない
-- 2026-10-11: 原因が system76-scheduler であることは、スケジューラを止めると idle が保たれる試験で確定した。
-  最初の除外（`nix-daemon`）は一致していなかった。スケジューラは `/proc/<pid>/exe` の実体のファイル名で識別し、
-  nix-daemon の実体は `nix` なので、除外を `nix` と `include descends="nix"` に直した。`nix` の名前で除外されるのは
-  nix のクライアントも同じで、スケジューラがそれらに与える優先度を失う（影響は小さいとみている）
+- 2026-10-11: 除外の名前 `nix-daemon` が一致していなかった。ADR-0011 が置き換えた

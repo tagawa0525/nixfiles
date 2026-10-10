@@ -151,7 +151,7 @@ in
   # COSMIC の system76-scheduler は新しいプロセスの方針を OTHER に戻すので、nix-daemon とその子孫は対象から外す。
   # スケジューラは /proc/<pid>/exe の実体のファイル名でプロセスを識別する。nix-daemon は nix への
   # シンボリックリンクなので、名前は "nix-daemon" ではなく "nix" になる。
-  # docs/adr/0010-exempt-nix-daemon-from-system76-scheduler.md
+  # docs/adr/0011-exempt-nix-processes-by-exe-name.md
   nix.daemonCPUSchedPolicy = "idle";
   nix.daemonIOSchedClass = "idle";
   services.system76-scheduler.exceptions = [
