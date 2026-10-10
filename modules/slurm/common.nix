@@ -6,9 +6,10 @@
 # slurm.conf と同じ munge の鍵（secrets/slurm/munge.key を sops で復号したもの）を使う。
 #
 # 使い方の例（どのホストからでも）:
-#   sbatch --exclusive --wait --export=ALL --wrap='<コマンド>'   # 終わるまで待つ
-#   squeue                                                      # 待ち行列を見る
-#   scancel <ジョブ番号>                                         # 取り消す
+#   ~/.claude/scripts/slurm-run.sh -t <見積もり> <名前> '<コマンド>'   # 投げて終わるまで待つ
+#   squeue                                                            # 待ち行列を見る
+#   scontrol top <ジョブ番号>                                          # 待っている自分のジョブを先頭へ
+#   scancel <ジョブ番号>                                               # 取り消す
 #
 # ジョブは r995 の上で、投入したときのディレクトリで走る。ほかのホストからは ~/r995
 # （r995 の ~/github を NFS で自動マウント）の下で投入する（./submit.nix）。
@@ -31,6 +32,9 @@ in
   };
   services.munge.password = config.sops.secrets.munge-key.path;
 
+  # squeue の既定の表示に、名前、経過、見積もり（%l）、始まりの見込み（%S）、連絡先（%k）を出す
+  environment.variables.SQUEUE_FORMAT = "%.6i %.24j %.8T %.10M %.10l %.19S %k";
+
   services.slurm = {
     clusterName = controller;
     controlMachine = controller;
@@ -44,6 +48,10 @@ in
       SelectTypeParameters=CR_Core
       # 再起動やスリープで slurmd が止まっても、戻ればノードを使える状態にする
       ReturnToService=2
+      # 利用者が待っている自分のジョブの順番を変えられるようにする（scontrol top。docs/adr/0007）
+      SchedulerParameters=enable_user_top
+      # --time は待ち行列の見込みのための見積もりとして使い、超えても止めない（docs/adr/0007）
+      OverTimeLimit=UNLIMITED
     '';
   };
 }
