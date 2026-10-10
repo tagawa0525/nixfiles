@@ -1,9 +1,9 @@
 ---
-status: accepted
+status: superseded
 date: 2026-10-11
 requires: []
 supersedes: []
-superseded-by:
+superseded-by: [ADR-0010]
 issues: []
 ---
 
@@ -47,3 +47,7 @@ r995 は計算（xlc、OpenMC）に使う。時間を測る計算は `sbatch --e
 - ノート PC から `ssh-ng` で転送されたビルドにも、デーモンの設定が効くか（`nix-daemon --stdio` が本体のデーモンに
   中継するなら効く）。反映後に、転送されたビルドの最中のプロセスのスケジューリングクラスを見て確かめる
 - ビルドが計算の時間をどれだけ乱していたか、この設定で消えるか。xlc の計測を、ビルドの最中に流して比べる
+
+## 補足
+
+- 2026-10-11: 反映後の実機で、system76-scheduler がデーモンの idle を OTHER に戻していると分かった。ADR-0010 が置き換えた
