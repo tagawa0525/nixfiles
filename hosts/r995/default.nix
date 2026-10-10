@@ -113,47 +113,6 @@ in
   services.postgresql.settings.port = 15432;
 
   # ===========================================================================
-  # NetBox（DCIM/IPAM: サーバ・ネットワーク構成の管理台帳）
-  # ===========================================================================
-  # 常時通電のデスクトップ機でホストし、他ホストからは Tailscale 経由で
-  # http://r995/ にアクセスする。PostgreSQL・Redis・nginx・DBマイグレーションは
-  # モジュールがローカルに自動構成する。
-  # SECRET_KEY と API トークン pepper は初回起動時に /var/lib/netbox/ 配下へ
-  # 自動生成されるため、リポジトリに秘密情報を置く必要はない。
-  # 初回のみ管理ユーザーの手動作成が必要: sudo netbox-manage createsuperuser
-  services.netbox = {
-    enable = true;
-    # stateVersion 26.05 のデフォルトは netbox_4_5 だが、4.5系は EOL で
-    # insecure 指定され、4.6系も nixpkgs から削除されたため 4.7 を明示。
-    # DBマイグレーションは起動時に自動実行
-    package = pkgs.netbox_4_7;
-    settings = {
-      # DATABASES を定義するとオプションのデフォルト値ごと置き換わるため全項目を書く。
-      # PostgreSQL は atuin 用に 15432 へ退避済み（上記）。UNIX ソケットの
-      # ファイル名がポート番号を含む（.s.PGSQL.15432）ため、PORT の明示が必要
-      DATABASES.default = {
-        NAME = "netbox";
-        USER = "netbox"; # UNIX ソケットの peer 認証（パスワード不要）
-        HOST = "/run/postgresql";
-        PORT = "15432";
-      };
-    };
-    nginx = {
-      enable = true;
-      hostname = "r995";
-    };
-  };
-  # NetBox 4.7 で housekeeping コマンドが廃止され、netbox-rq 上の
-  # SystemHousekeepingJob が日次で代行する。上流モジュール（nixpkgs c962694a08）は
-  # netbox-housekeeping.service だけ削除してタイマーを残したため、起動のたびに
-  # 「unit to trigger not loaded」で失敗する。上流でタイマーが消えたらこの行も外す
-  systemd.timers.netbox-housekeeping.enable = false;
-
-  # Tailscale の MagicDNS FQDN（r995.<tailnet>.ts.net）で来たリクエストも
-  # NetBox の vhost に落とすため、default server にしておく
-  services.nginx.virtualHosts."r995".default = true;
-
-  # ===========================================================================
   # nucrawler（原子力ニュースの巡回・和訳・要約・推薦）
   # ===========================================================================
   # 常時通電のデスクトップ機で timer（巡回 03/10/16/22 時、依頼の和訳 15 分ごと）
@@ -175,11 +134,10 @@ in
   # user unit の timer をログインしていない間も動かす
   users.users.tagawa.linger = true;
 
-  # Atuin サーバー・NetBox・nucrawler への接続は Tailscale 経由のみ許可する。
+  # Atuin サーバー・nucrawler への接続は Tailscale 経由のみ許可する。
   # openFirewall = true は全インターフェースに穴を開けるため使わず、
   # tailscale0 インターフェース限定でポートを開放する。
   networking.firewall.interfaces."tailscale0".allowedTCPPorts = [
-    80 # NetBox（nginx 経由）
     8888
     41717 # kikitori エンジン（x1ng1 / t14g4 が tailnet 経由で使う。LAN 直は不可）
     8080 # nucrawler の Web UI
