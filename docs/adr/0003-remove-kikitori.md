@@ -26,7 +26,7 @@ nixfiles には kikitori のために、flake の input、`pkgs.kikitori` を足
 
 - **overlay は要らない**: overlay が要ったのは、`enable = false` のクライアントホストが `pkgs.kikitori` 以外に
   パッケージを得る手段を、モジュールが持たなかったため。kikitori 側に `services.kikitori.package` オプションを
-  足し（kikitori PR #20）、`lib.getExe config.services.kikitori.package` で得られるようにした。再開時に overlay は
+  足し（tagawa0525/kikitori#20）、`lib.getExe config.services.kikitori.package` で得られるようにした。再開時に overlay は
   足さない
 - **設計判断**: evdev を使わない理由、ペーストキー方式を採らない理由、whisper ではなく SenseVoice を使う理由は
   kikitori の `docs/HANDOFF.md` にある
