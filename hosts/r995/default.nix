@@ -146,8 +146,9 @@ in
   # Nix のビルドの優先度
   # ===========================================================================
   # r995 は計算（xlc、OpenMC）に使う。rebuild・自動更新・ノート PC から転送されるビルドが、
-  # 計算の時間測定を乱さないよう、ビルドを idle の優先度で動かす（計算が使っていない CPU と I/O だけを使う）。
-  # 長い計算の間は、ビルドが進まず待つ。docs/adr/0005-nix-daemon-idle-priority.md
+  # 計算の時間測定を乱さないよう、ビルドを idle の優先度で動かす。通常の優先度のタスクが動いている CPU や I/O
+  # では、ビルドが道を譲る（CPU ごとの優先度なので、空きコアではビルドが進む）。メモリ帯域などの競合は残る。
+  # docs/adr/0005-nix-daemon-idle-priority.md
   nix.daemonCPUSchedPolicy = "idle";
   nix.daemonIOSchedClass = "idle";
 
