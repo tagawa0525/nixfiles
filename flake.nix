@@ -111,6 +111,12 @@
       url = "github:tagawa0525/nucrawler";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # sops-nix: 秘密（secrets/）を各ホストの SSH のホスト鍵で復号して /run/secrets に置く
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # ===========================================================================
@@ -133,6 +139,7 @@
       mattpocock-skills,
       lsp-det,
       nucrawler,
+      sops-nix,
       ...
     }:
     let
@@ -163,6 +170,7 @@
             ./modules/cc-bar.nix # cc-bar 統合（無効化するにはこの行をコメントアウト）
             ./modules/gcc16-compat.nix # zat / ltrace の gcc 16 対処（撤去手順は同ファイル冒頭）
             lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
+            sops-nix.nixosModules.sops # 秘密の復号（secrets/ と .sops.yaml）
             home-manager.nixosModules.home-manager
             {
               # オーバーレイを追加

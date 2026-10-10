@@ -488,7 +488,8 @@
         "nucrawler": "nucrawler",
         "nur-openlogi-latest": "nur-openlogi-latest",
         "nur-vscode-latest": "nur-vscode-latest",
-        "qmpo": "qmpo"
+        "qmpo": "qmpo",
+        "sops-nix": "sops-nix"
       }
     },
     "rust-overlay": {
@@ -527,6 +528,26 @@
       "original": {
         "owner": "oxalica",
         "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "sops-nix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1791564412,
+        "narHash": "sha256-XeFH51BnMGx6kX7WaY8oif3/c6QxY8vJVdTb5LRHOKU=",
+        "owner": "Mic92",
+        "repo": "sops-nix",
+        "rev": "311ef9409edcbb8368af04f4bc0456c5f3dd80bf",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Mic92",
+        "repo": "sops-nix",
         "type": "github"
       }
     },
