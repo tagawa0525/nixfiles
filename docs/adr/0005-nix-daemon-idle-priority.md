@@ -1,6 +1,10 @@
 ---
 status: accepted
 date: 2026-10-11
+requires: []
+supersedes: []
+superseded-by:
+issues: []
 ---
 
 # ADR-0005: r995 の Nix のビルドを idle の優先度で動かす

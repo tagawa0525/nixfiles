@@ -1,6 +1,10 @@
 ---
 status: accepted
 date: 2026-10-10
+requires: []
+supersedes: []
+superseded-by:
+issues: []
 ---
 
 # ADR-0002: NetBox を r995 から外す
