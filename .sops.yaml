@@ -1,0 +1,15 @@
+# sops-nix の暗号化の宛先。秘密を足したら creation_rules を足し、鍵を変えたら
+# `sops updatekeys <ファイル>` で暗号化し直す
+keys:
+  - &tagawa age1qmmv4cpkctjt5zfuvax49r46qk4muu489g9l5dytxfslv6dw5gfs5f4tmy # 編集する人（~/.ssh/id_ed25519 を age に変換したもの）
+  - &r995 age1kz4vqxcvw36lvpm99lv92xfa37quw9fvk6nfsm63pz9fw4htyfjsdz0ls8 # ホスト鍵（/etc/ssh/ssh_host_ed25519_key.pub を age に変換したもの）
+  - &t14g4 age10qyycmwj2p2wqjcgra6epm0wcmfyf5ge8kh4d6ya453kld59zdnsm24k2a
+  - &x1ng1 age1z07wjdntey4la6kr700vkxtdqfawvwxyrc9d92tqqm08qezzmcxslv4cp3
+creation_rules:
+  - path_regex: secrets/slurm/[^/]+$
+    key_groups:
+      - age:
+          - *tagawa
+          - *r995
+          - *t14g4
+          - *x1ng1
