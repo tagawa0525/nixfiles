@@ -12,8 +12,9 @@
 
   services.slurm.enableStools = true;
 
-  # 使うときだけマウントし、しばらく使わなければ外す。r995 に届かないとき（外出先など）は
-  # soft と短い timeo で、待ち続けずにエラーを返す
+  # 使うときだけマウントし、しばらく使わなければ外す。書き込みのある作業の場所なので、soft に
+  # せず既定の hard にする（soft は読み書きの途中で失敗を返し、データを黙って壊しうる）。
+  # r995 に届かないとき（外出先など）は、マウントの待ち時間で打ち切る
   fileSystems."/home/tagawa/r995" = {
     device = "r995:/home/tagawa/github";
     fsType = "nfs";
@@ -24,8 +25,6 @@
       "x-systemd.idle-timeout=600"
       "x-systemd.mount-timeout=10"
       "_netdev"
-      "soft"
-      "timeo=50"
     ];
   };
 }
