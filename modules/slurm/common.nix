@@ -26,6 +26,8 @@ in
     owner = "munge";
     group = "munge";
     mode = "0400";
+    # 鍵を替えたら、古い鍵を持ったままの munged が別のホストと認証できなくなるので再起動する
+    restartUnits = [ "munged.service" ];
   };
   services.munge.password = config.sops.secrets.munge-key.path;
 
