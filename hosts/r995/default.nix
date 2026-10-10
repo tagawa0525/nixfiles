@@ -149,12 +149,14 @@ in
   # 計算の時間測定を乱さないよう、ビルドを idle の優先度で動かす。通常の優先度のタスクが動いている CPU や I/O
   # では、ビルドが道を譲る（CPU ごとの優先度なので、空きコアではビルドが進む）。メモリ帯域などの競合は残る。
   # COSMIC の system76-scheduler は新しいプロセスの方針を OTHER に戻すので、nix-daemon とその子孫は対象から外す。
+  # スケジューラは /proc/<pid>/exe の実体のファイル名でプロセスを識別する。nix-daemon は nix への
+  # シンボリックリンクなので、名前は "nix-daemon" ではなく "nix" になる。
   # docs/adr/0010-exempt-nix-daemon-from-system76-scheduler.md
   nix.daemonCPUSchedPolicy = "idle";
   nix.daemonIOSchedClass = "idle";
   services.system76-scheduler.exceptions = [
-    "nix-daemon"
-    "include descends=\"nix-daemon\""
+    "nix"
+    "include descends=\"nix\""
   ];
 
   # ===========================================================================
