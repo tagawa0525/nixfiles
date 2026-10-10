@@ -45,6 +45,7 @@ in
     ../../modules/profiles/workstation.nix # GUI 開発機共通（COSMIC、fcitx5、virt-manager 等）
     ../../modules/nix-auto-update.nix # 毎朝の flake update + 全ホスト検証 + push
     ../../modules/users/tagawa.nix # 住人: tagawa
+    ../../modules/slurm-local.nix # 重い計算の待ち行列（1 台の Slurm）
   ];
 
   # ===========================================================================
