@@ -13,6 +13,7 @@
     ../../modules/profiles/laptop.nix # Laptop 共通（TLP、distributed-builds/client）
     ../../modules/profiles/workstation.nix # GUI 開発機共通（COSMIC、fcitx5、virt-manager 等）
     ../../modules/users/tagawa.nix # 住人: tagawa
+    ../../modules/slurm/submit.nix # r995 の Slurm に投入する
   ];
 
   # networking.hostName はディレクトリ名から flake.nix の mkHost が自動設定する
