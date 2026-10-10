@@ -62,3 +62,8 @@ services.nginx.virtualHosts."r995".default = true;
 ## 確認
 
 - r995 の構成が評価できる（`nix eval .#nixosConfigurations.r995.config.system.build.toplevel.drvPath`）
+
+## 補足
+
+- 2026-10-11: ユーザーの判断でデータを消した（`/var/lib/netbox`、`/var/lib/redis-netbox`、PostgreSQL の `netbox`
+  データベースとロール）。再開するときは空のデータから始まる
