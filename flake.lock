@@ -167,26 +167,6 @@
         "type": "github"
       }
     },
-    "kikitori": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1785937156,
-        "narHash": "sha256-JMne+oSh6wfXzys0BrLcrz2RjITu8QKoC5uKUlL+0Wc=",
-        "owner": "tagawa0525",
-        "repo": "kikitori",
-        "rev": "4acd53c2214567d0f62cbe277747213788c6106f",
-        "type": "github"
-      },
-      "original": {
-        "owner": "tagawa0525",
-        "repo": "kikitori",
-        "type": "github"
-      }
-    },
     "lanzaboote": {
       "inputs": {
         "crane": "crane",
@@ -477,7 +457,6 @@
       "inputs": {
         "cc-bar": "cc-bar",
         "home-manager": "home-manager",
-        "kikitori": "kikitori",
         "lanzaboote": "lanzaboote",
         "llm-agents": "llm-agents",
         "lsp-det": "lsp-det",
