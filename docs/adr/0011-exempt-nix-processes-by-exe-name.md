@@ -31,6 +31,11 @@ r995 は計算（xlc、OpenMC）に使う。時間を測る計算は `sbatch --e
 - 除外に一致したプロセスは、優先度を変えずに飛ばされる。**プロセスの名前は `/proc/<pid>/exe` の実体のファイル名**
   （スケジューラのソースの `process::name`）。nix-daemon は `nix` へのシンボリックリンクなので、名前は `nix-daemon`
   ではなく `nix` になる。名前を `nix-daemon` と書いた除外は一致せず、再起動した nix-daemon も `nice=12`、`SCHED_OTHER` だった
+  - 出典（2026-10-11 に確認）: system76-scheduler 2.0.2-unstable-2026-07-22（nixpkgs の `system76-scheduler.src`、
+    コミット 8651bbf74bcf）の `daemon/src/process.rs`（`cmdline` が `/proc/<pid>/exe` を読み、`name` がその
+    最後の `/` 以降を返す）と `daemon/src/service.rs`（`process_is_exception`、`assign_process_priority`）。
+    `nix-daemon` が `nix` へのリンクであることは Nix 2.34.8 の `bin/nix-daemon -> nix` で確認した。
+    どちらも更新で変わりうるので、スケジューラか Nix を更新したら、確認項目の試験で名前の一致を見直す
 
 ## 検討した案
 
@@ -63,7 +68,8 @@ ADR-0005 の案 A（rebuild と update の全体を Slurm にする）と案 B�
 
 ### 帰結
 
-- nix-daemon とその子孫、nix のクライアントは、スケジューラの `nice=12`、`io="idle"`、`batch` の割り当ての対象外になる
+- 名前が `nix` のプロセス（nix-daemon、nix のクライアント）と、その子孫（`include descends="nix"`）は、スケジューラの
+  `nice=12`、`io="idle"`、`batch` の割り当ての対象外になる。除外の範囲は、「除外の範囲」の項で述べたとおり
 - 除外はスケジューラが設定を読み込んだ後の新しいプロセスにだけ効く。反映後は nix-daemon の再起動が要る
 
 ### 確認
