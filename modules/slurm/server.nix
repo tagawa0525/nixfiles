@@ -35,9 +35,13 @@ in
     ];
     # slurmdbd が推奨する値のうち、資源を食わないものだけ合わせる。innodb_buffer_pool_size の推奨
     # （4 GiB 以上）は大きなクラスタ向けで、履歴だけの小さな DB には既定のまま置く（docs/adr/0031）
+    # snapshot isolation は、MariaDB 11.6.2 から既定で有効になり、slurmdbd が書き込みの競合で止まるので切る。
+    # slurmdbd は unix socket で接続するので、TCP は待ち受けない
     settings.mysqld = {
       innodb_lock_wait_timeout = 900;
       max_allowed_packet = "16M";
+      innodb_snapshot_isolation = "OFF";
+      skip-networking = true;
     };
   };
 
