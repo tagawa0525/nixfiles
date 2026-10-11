@@ -671,13 +671,12 @@ cd "$TEST_ROOT/cleanup14/app" || exit 1
 printf 'stages: {}\n' > dvc.yaml
 git add dvc.yaml && git commit -q -m "chore: add dvc.yaml"
 git push -q origin main
-make_fake_tool dvc '"checkout") pwd >> "$FAKE_DVC_PWD"; exit 0 ;;'
-export FAKE_DVC_PWD="$TEST_ROOT/dvc.pwd"
+make_fake_tool dvc "\"checkout\") pwd >> $TEST_ROOT/dvc.pwd; exit 0 ;;"
 out=$("$SCRIPTS_DIR/post-merge-cleanup.sh" feat/x)
 assert_eq 0 $?
 assert_contains "$out" "DVC_CHECKOUT: done"
 assert_eq "checkout" "$(fake_log dvc)"
-assert_eq "$TEST_ROOT/cleanup14/app" "$(cat "$FAKE_DVC_PWD")"
+assert_eq "$TEST_ROOT/cleanup14/app" "$(cat "$TEST_ROOT/dvc.pwd")"
 assert_eq "" "$(git branch --list feat/x)"
 remove_fake_tool dvc
 cd "$TEST_ROOT" || exit 1
@@ -705,7 +704,7 @@ assert_contains "$out" "DVC_CHECKOUT: skipped (dvc not found)"
 assert_eq "" "$(git branch --list feat/x)"
 cd "$TEST_ROOT" || exit 1
 
-it "post-merge-cleanup: dvc checkout が失敗したら ERROR を出し、ブランチを消さずに止まる"
+it "post-merge-cleanup: dvc checkout が失敗したら NOTE で知らせ、後片付けは続ける（手元のキャッシュに無いのが普通）"
 setup_merged_branch "$TEST_ROOT/cleanup17"
 cd "$TEST_ROOT/cleanup17/app" || exit 1
 printf 'stages: {}\n' > dvc.yaml
@@ -713,9 +712,43 @@ git add dvc.yaml && git commit -q -m "chore: add dvc.yaml"
 git push -q origin main
 make_fake_tool dvc '"checkout") echo "dvc: cache missing" >&2; exit 1 ;;'
 out=$("$SCRIPTS_DIR/post-merge-cleanup.sh" feat/x 2>&1)
+assert_eq 0 $?
+assert_contains "$out" "DVC_CHECKOUT: kept (dvc: cache missing; run dvc pull or dvc checkout by hand)"
+assert_eq "" "$(git branch --list feat/x)"
+remove_fake_tool dvc
+cd "$TEST_ROOT" || exit 1
+
+# dvc.yaml を持つ merge 済みの feat/x（= main）の worktree を作る
+setup_merged_dvc_branch() {
+  setup_merged_branch "$1"
+  printf 'stages: {}\n' > "$1/app/dvc.yaml"
+  git -C "$1/app" add dvc.yaml
+  git -C "$1/app" commit -q -m "chore: add dvc.yaml"
+  git -C "$1/app" push -q origin main
+  git -C "$1/app-feat-x" merge -q --ff-only main
+}
+
+it "post-merge-cleanup: DVC のキャッシュが worktree の中にあれば、worktree を消さずに ERROR で止まる"
+setup_merged_dvc_branch "$TEST_ROOT/cleanup18"
+cd "$TEST_ROOT/cleanup18/app" || exit 1
+make_fake_tool dvc "\"cache dir\") echo \"\$PWD/.dvc/cache\" ;;
+\"checkout\") exit 0 ;;"
+out=$("$SCRIPTS_DIR/post-merge-cleanup.sh" feat/x 2>&1)
 assert_eq 1 $?
-assert_contains "$out" "ERROR: dvc checkout が失敗しました"
-assert_contains "$(git branch --list feat/x)" "feat/x"
+assert_contains "$out" "ERROR: DVC のキャッシュが worktree の中にあり、消すと出力が失われます（.worktreelink か cache.dir で共有してください）"
+assert_file_exists "$TEST_ROOT/cleanup18/app-feat-x"
+remove_fake_tool dvc
+cd "$TEST_ROOT" || exit 1
+
+it "post-merge-cleanup: DVC のキャッシュが main と共有されていれば、worktree を消して続ける"
+setup_merged_dvc_branch "$TEST_ROOT/cleanup19"
+cd "$TEST_ROOT/cleanup19/app" || exit 1
+make_fake_tool dvc '"cache dir") echo /shared/dvc-cache ;;
+"checkout") exit 0 ;;'
+out=$("$SCRIPTS_DIR/post-merge-cleanup.sh" feat/x 2>&1)
+assert_eq 0 $?
+assert_file_missing "$TEST_ROOT/cleanup19/app-feat-x"
+assert_contains "$out" "DVC_CHECKOUT: done"
 remove_fake_tool dvc
 cd "$TEST_ROOT" || exit 1
 

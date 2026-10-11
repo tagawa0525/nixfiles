@@ -177,3 +177,62 @@ assert_eq "" "$(git -C "$REPO" branch --list feat/x)"
 cd "$TEST_ROOT" || exit 1
 
 finish
+
+# ---------------------------------------------------------------------------
+# DVC: の行（rebase 後に dvc checkout したあとの再実行で、deps の変わった段階を読む）
+# ---------------------------------------------------------------------------
+
+it "git-merge-state: dvc.yaml がなければ DVC: none（dvc を呼ばない）"
+local_repo "$TEST_ROOT/s_dvc1"
+cd "$TEST_ROOT/s_dvc1" || exit 1
+make_fake_tool dvc '"status --json") echo "{}" ;;'
+out=$("$SCRIPT" feat/x)
+assert_contains "$out" "DVC: none"
+assert_eq "" "$(fake_log dvc)"
+remove_fake_tool dvc
+
+# dvc.yaml を持つ feat/x の worktree を作る
+dvc_repo() {
+  make_repo "$1"
+  git -C "$1" switch -q -c feat/x
+  printf 'stages: {}\n' > "$1/dvc.yaml"
+  git -C "$1" add dvc.yaml
+  git -C "$1" commit -q -m "feat: dvc.yaml"
+  git -C "$1" switch -q main
+  git -C "$1" worktree add -q "$1-wt" feat/x
+}
+
+it "git-merge-state: dvc.yaml があって dvc が PATH に無ければ DVC: skipped (dvc not found)"
+dvc_repo "$TEST_ROOT/s_dvc2"
+cd "$TEST_ROOT/s_dvc2" || exit 1
+out=$(PATH=$(minimal_path) "$SCRIPT" feat/x)
+assert_contains "$out" "DVC: skipped (dvc not found)"
+
+it "git-merge-state: deps の変わった段階を、対象の worktree で dvc status して DVC: にカンマ区切りで出す"
+make_fake_tool dvc "\"status --json\") pwd >> $TEST_ROOT/s_dvc.pwd; echo '{\"lattice\": [], \"xs\": []}' ;;"
+out=$("$SCRIPT" feat/x)
+assert_contains "$out" "DVC: lattice,xs"
+assert_eq "$TEST_ROOT/s_dvc2-wt" "$(cat "$TEST_ROOT/s_dvc.pwd")"
+
+it "git-merge-state: 変わった段階がなければ DVC: clean"
+make_fake_tool dvc '"status --json") echo "{}" ;;'
+out=$("$SCRIPT" feat/x)
+assert_contains "$out" "DVC: clean"
+
+it "git-merge-state: サブディレクトリの dvc.yaml も見つける"
+make_repo "$TEST_ROOT/s_dvc3"
+cd "$TEST_ROOT/s_dvc3" || exit 1
+git switch -q -c feat/x
+mkdir sub && printf 'stages: {}\n' > sub/dvc.yaml
+git add sub/dvc.yaml && git commit -q -m "feat: sub dvc.yaml"
+git switch -q main
+git worktree add -q "$TEST_ROOT/s_dvc3-wt" feat/x
+out=$("$SCRIPT" feat/x)
+assert_contains "$out" "DVC: clean"
+
+it "git-merge-state: dvc status が失敗したら ERROR で止まる"
+make_fake_tool dvc '"status --json") echo "dvc: broken" >&2; exit 1 ;;'
+out=$("$SCRIPT" feat/x 2>&1)
+assert_eq 1 $?
+assert_contains "$out" "ERROR: dvc status が失敗しました"
+remove_fake_tool dvc
