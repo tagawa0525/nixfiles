@@ -229,6 +229,8 @@
       # nix flake check は packages を評価するだけで checkPhase（cargo test）を走らせない。
       # サンドボックスでだけ落ちるテスト（PATH に git が無い等）を rebuild の前に見つけるため、
       # テストのあるパッケージを checks に入れる（ADR-0022）
-      checks.x86_64-linux.claude-hooks = self.packages.x86_64-linux.claude-hooks;
+      checks.x86_64-linux = {
+        inherit (self.packages.x86_64-linux) claude-hooks commit-refs design-records;
+      };
     };
 }
