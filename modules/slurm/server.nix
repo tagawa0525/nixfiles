@@ -51,6 +51,7 @@ in
   systemd.services.slurmdbd.postStart = ''
     until sacctmgr -n show cluster >/dev/null 2>&1; do sleep 1; done
   '';
+  # slurmdbd が起動に失敗しても slurmctld は起こす（Requisite にしない）。止まるのが記録だけで、計算は止めないため
   systemd.services.slurmctld = {
     after = [ "slurmdbd.service" ];
     wants = [ "slurmdbd.service" ];
