@@ -665,6 +665,60 @@ assert_eq "" "$(git branch --list feat/x)"
 assert_eq "adr-0001" "$(git tag --list adr-0001)"
 cd "$TEST_ROOT" || exit 1
 
+it "post-merge-cleanup: dvc.yaml があれば main の worktree で dvc checkout を走らせ、結果を出す"
+setup_merged_branch "$TEST_ROOT/cleanup14"
+cd "$TEST_ROOT/cleanup14/app" || exit 1
+printf 'stages: {}\n' > dvc.yaml
+git add dvc.yaml && git commit -q -m "chore: add dvc.yaml"
+git push -q origin main
+make_fake_tool dvc '"checkout") pwd >> "$FAKE_DVC_PWD"; exit 0 ;;'
+export FAKE_DVC_PWD="$TEST_ROOT/dvc.pwd"
+out=$("$SCRIPTS_DIR/post-merge-cleanup.sh" feat/x)
+assert_eq 0 $?
+assert_contains "$out" "DVC_CHECKOUT: done"
+assert_eq "checkout" "$(fake_log dvc)"
+assert_eq "$TEST_ROOT/cleanup14/app" "$(cat "$FAKE_DVC_PWD")"
+assert_eq "" "$(git branch --list feat/x)"
+remove_fake_tool dvc
+cd "$TEST_ROOT" || exit 1
+
+it "post-merge-cleanup: dvc.yaml が無ければ dvc を呼ばない"
+setup_merged_branch "$TEST_ROOT/cleanup15"
+cd "$TEST_ROOT/cleanup15/app" || exit 1
+make_fake_tool dvc '"checkout") exit 1 ;;'
+out=$("$SCRIPTS_DIR/post-merge-cleanup.sh" feat/x)
+assert_eq 0 $?
+assert_contains "$out" "DVC_CHECKOUT: none"
+assert_eq "" "$(fake_log dvc)"
+remove_fake_tool dvc
+cd "$TEST_ROOT" || exit 1
+
+it "post-merge-cleanup: dvc.yaml があって dvc が PATH に無ければ、dvc checkout を飛ばして続ける"
+setup_merged_branch "$TEST_ROOT/cleanup16"
+cd "$TEST_ROOT/cleanup16/app" || exit 1
+printf 'stages: {}\n' > dvc.yaml
+git add dvc.yaml && git commit -q -m "chore: add dvc.yaml"
+git push -q origin main
+out=$(PATH=$(minimal_path) "$SCRIPTS_DIR/post-merge-cleanup.sh" feat/x 2>&1)
+assert_eq 0 $?
+assert_contains "$out" "DVC_CHECKOUT: skipped (dvc not found)"
+assert_eq "" "$(git branch --list feat/x)"
+cd "$TEST_ROOT" || exit 1
+
+it "post-merge-cleanup: dvc checkout が失敗したら ERROR を出し、ブランチを消さずに止まる"
+setup_merged_branch "$TEST_ROOT/cleanup17"
+cd "$TEST_ROOT/cleanup17/app" || exit 1
+printf 'stages: {}\n' > dvc.yaml
+git add dvc.yaml && git commit -q -m "chore: add dvc.yaml"
+git push -q origin main
+make_fake_tool dvc '"checkout") echo "dvc: cache missing" >&2; exit 1 ;;'
+out=$("$SCRIPTS_DIR/post-merge-cleanup.sh" feat/x 2>&1)
+assert_eq 1 $?
+assert_contains "$out" "ERROR: dvc checkout が失敗しました"
+assert_contains "$(git branch --list feat/x)" "feat/x"
+remove_fake_tool dvc
+cd "$TEST_ROOT" || exit 1
+
 it "post-merge-cleanup: 未マージのブランチは削除せず失敗する"
 REPO="$TEST_ROOT/cleanup5/app"
 make_repo "$REPO"
