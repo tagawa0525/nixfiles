@@ -65,6 +65,8 @@ in
       # accounting は r995 の slurmdbd に置く（docs/adr/0031）
       AccountingStorageType=accounting_storage/slurmdbd
       AccountingStorageHost=${controller}
+      # ジョブのメモリと CPU の使用量を集め、sacct の MaxRSS などに残す
+      JobAcctGatherType=jobacct_gather/linux
       JobCompType=jobcomp/filetxt
       JobCompLoc=/var/log/slurm/job_completions
     '';
