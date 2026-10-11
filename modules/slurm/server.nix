@@ -4,7 +4,7 @@
 # 管理（slurmctld）と計算（slurmd）を動かし、ほかのホストが投入に使うポートと、ジョブの
 # 作業の場所を NFS で出す。どちらも Tailscale（tailscale0）だけに開ける。
 # =============================================================================
-_:
+{ pkgs, ... }:
 
 let
   # ほかのホストに NFS で出す作業の場所と、どのホストでも同じパスで見える入口
@@ -17,6 +17,22 @@ in
   services.slurm = {
     server.enable = true;
     client.enable = true;
+    # 待った時間の優先度（PriorityWeightAge）と sacct のための accounting（docs/adr/0031）
+    dbdserver.enable = true;
+  };
+
+  # slurmdbd の DB。slurmdbd は slurm ユーザーになってから接続するので、unix socket の認証で
+  # パスワードを置かない（docs/adr/0031）
+  services.mysql = {
+    enable = true;
+    package = pkgs.mariadb;
+    ensureDatabases = [ "slurm_acct_db" ];
+    ensureUsers = [
+      {
+        name = "slurm";
+        ensurePermissions."slurm_acct_db.*" = "ALL PRIVILEGES";
+      }
+    ];
   };
 
   # ほかのホストは ~/r995（= r995 の ~/github）の下で投入する。ジョブは r995 の上で同じ
@@ -39,6 +55,7 @@ in
 
   networking.firewall.interfaces."tailscale0".allowedTCPPorts = [
     6817 # slurmctld（ほかのホストの sbatch、squeue）
+    6819 # slurmdbd（ほかのホストの sacct）
     2049 # NFSv4（ジョブの作業の場所）
   ];
 }

@@ -54,6 +54,9 @@ in
       OverTimeLimit=UNLIMITED
       # 終わったジョブを 1 行ずつ書き、見積もり（TimeLimit）と実際の時間を後から読めるようにする（docs/adr/0017）。
       # 書くのは slurmctld だけで、置き場は ./server.nix の tmpfiles。slurm.conf は全ホストで同じにする
+      # accounting は r995 の slurmdbd に置く（docs/adr/0031）
+      AccountingStorageType=accounting_storage/slurmdbd
+      AccountingStorageHost=${controller}
       JobCompType=jobcomp/filetxt
       JobCompLoc=/var/log/slurm/job_completions
     '';
