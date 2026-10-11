@@ -121,7 +121,7 @@ GitHub リモートなしは両方で例外にする。片方だけが塞ぐと�
 | `scripts/branch-topics.sh`              | ブランチの ADR・issue の追加と status の変化、型別のコミット数                                                              | gh-pr-create, gh-pr-merge             |
 | `scripts/rename-branch.sh`              | feature ブランチのリネーム（リモート更新は `--remote` で明示）                                                              | git-branch                            |
 | `scripts/rename-plan.sh`                | `docs/plans/` のランダム名計画書を `NNN_name.md` に                                                                         | git-branch                            |
-| `scripts/git-merge-state.sh`            | 対象の検証（main 自身・GitHub リモート・未コミット）と、BEHIND・STACKED_ON・worktree の収集                                 | git-merge                             |
+| `scripts/git-merge-state.sh`            | 対象の検証（main 自身・GitHub リモート・未コミット）と、BEHIND・STACKED_ON・worktree・DVC の変わった段階の収集              | git-merge                             |
 | `scripts/review-level.sh`               | ローカルの `/code-review` のレベル（docs/ だけなら medium、他は high）と対象ブランチの決定                                  | gh-pr-create, gh-pr-review, git-merge |
 | `scripts/post-merge-cleanup.sh`         | worktree 削除 → main 最新化 → `dvc checkout`（dvc.yaml があるとき）→ 番号の予約のタグの解放 → ローカル/リモートブランチ削除 | gh-pr-merge, git-merge                |
 | `scripts/gh-actions-diagnose.sh`        | run 取得・失敗ジョブ特定・エラー抽出・原因分類（`CAUSE:`）                                                                  | gh-actions-check                      |

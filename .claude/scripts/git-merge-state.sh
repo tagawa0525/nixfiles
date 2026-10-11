@@ -19,6 +19,10 @@
 #   STACKED_ON: <branch>,...|none … 対象の下に積まれている、まだマージしていない別のブランチ
 #   TARGET_WORKTREE: <path>|none  … 対象をチェックアウトしている worktree
 #   DEFAULT_WORKTREE: <path>|none … 既定ブランチをチェックアウトしている worktree
+#   DVC: none|skipped (dvc not found)|clean|<段階>,...
+#                                 … 対象の worktree に dvc.yaml があるとき、そこで dvc status して deps の変わった段階。
+#                                   none は dvc.yaml がない（または対象が worktree にない）、skipped は dvc が PATH にない。
+#                                   rebase の後に dvc checkout してから、もう一度走らせて読む
 
 set -euo pipefail
 
@@ -96,3 +100,17 @@ fi
 
 echo "TARGET_WORKTREE: ${WT_PATH:-none}"
 echo "DEFAULT_WORKTREE: ${DEFAULT_WT:-none}"
+
+# 対象の worktree に dvc.yaml（ルートかサブディレクトリ）があれば、deps の変わった段階を列挙する
+if [[ -z "$WT_PATH" || -z "$(git -C "$WT_PATH" ls-files -- 'dvc.yaml' ':(glob)**/dvc.yaml')" ]]; then
+  echo "DVC: none"
+elif ! command -v dvc >/dev/null 2>&1; then
+  echo "DVC: skipped (dvc not found)"
+else
+  if ! DVC_STATUS=$(cd "$WT_PATH" && dvc status --json); then
+    echo "ERROR: dvc status が失敗しました（$WT_PATH）" >&2
+    exit 1
+  fi
+  STAGES=$(jq -r 'keys | join(",")' <<<"$DVC_STATUS")
+  echo "DVC: ${STAGES:-clean}"
+fi

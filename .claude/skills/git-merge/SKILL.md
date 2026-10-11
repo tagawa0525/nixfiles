@@ -19,10 +19,11 @@ allowed-tools:
   - Bash(git merge*)
   - Bash(git rev-list*)
   - Bash(git worktree*)
-  - Bash(cd*)
-  - Bash(git ls-files*)
   - Bash(git merge-base*)
-  - Bash(dvc status*)
+  - Bash(git add*)
+  - Bash(git commit*)
+  - Bash(cd*)
+  - Bash(dvc checkout*)
   - Bash(dvc repro -s*)
 ---
 
@@ -83,27 +84,31 @@ git -C [TARGET_WORKTREE] rebase main
 
 ### DVC の段階（rebase の後）
 
-対象の worktree に `dvc.yaml` があるリポジトリ（DVC で計算の段階を駆動するもの）では、rebase で deps が変わった
-段階の `dvc.lock` が古くなる。rebase の直後に確かめる。DVC のないリポジトリでは何もしない:
+状態の `DVC:` 行が `none`（dvc.yaml がない。DVC のないリポジトリを含む）なら、この節は飛ばす。
+`skipped (dvc not found)` なら飛ばして `SKIP: dvc not found` と伝える。それ以外は、DVC で計算の段階を駆動する
+リポジトリで、rebase で main 側の deps や dvc.lock が変わっている。
 
-```bash
-git -C [TARGET_WORKTREE] ls-files -- '*dvc.yaml'
-```
+1. 対象の worktree で `dvc checkout` し、main 側で変わった上流の出力をキャッシュから戻す（戻さないと、上流が
+   変わっていない段階まで deps の変更として報告される）:
 
-何も出なければこの節は飛ばす。出たら、`dvc` が PATH になければ飛ばして `SKIP: dvc not found` と伝える。あれば:
+   ```bash
+   cd [TARGET_WORKTREE] && dvc checkout
+   ```
 
-```bash
-cd [TARGET_WORKTREE] && dvc status
-```
+2. 状態をもう一度出し、`DVC:` 行を読む:
 
-deps の変わった段階を列挙し、段階ごとに分ける:
+   ```bash
+   ~/.claude/scripts/git-merge-state.sh [branch]
+   ```
 
-- 数秒で終わると分かっている段階だけ、`dvc repro -s <段階>`（`-s` は指定した段階だけ。`status` と同じく `cd [TARGET_WORKTREE] &&` を付ける）を直接走らせ、`dvc.lock` の差分を
-  `chore: relock <段階> after the rebase` でコミットする
-- 残りの段階は走らせない。重い計算を rebase のたびに走らせ直さないためで、記録の数値には「走らせたコミット」と
-  「分岐点（main のコミット）」を書き、分岐点からブランチのコミットを当て直して復元する。記録にその 2 つが
-  書かれていることを確かめる。分岐点は `git merge-base main [branch]` で出せる。書かれていなければ、
-  走らせ直さずに記録を直す（直せなければユーザーに伝える）
+   `clean` なら終わり。段階名がカンマ区切りで並んでいれば、それが deps の変わった段階。段階ごとに分ける:
+
+   - 数秒で終わると分かっている段階だけ、`cd [TARGET_WORKTREE] && dvc repro -s <段階>`（`-s` は指定した段階だけ）を
+     直接走らせ、`dvc.lock` の差分を `chore: relock <段階> after the rebase` でコミットする
+   - 残りの段階は走らせない。重い計算を rebase のたびに走らせ直さないためで、記録の数値には「走らせたコミット」と
+     「分岐点（main のコミット）」を書き、分岐点からブランチのコミットを当て直して復元する。記録にその 2 つが
+     書かれていることを確かめる。分岐点は `git merge-base main [branch]` で出せる。書かれていなければ、
+     走らせ直さずに記録を直す（直せなければユーザーに伝える）
 
 ### 番号の重複（rebase の後）
 
