@@ -42,12 +42,16 @@ in
   };
 
   # slurmctld は、slurmdbd に登録されていないクラスタの記録を送れない（no remote port）。
-  # 最初の 1 回だけ登録し、登録済みなら何もしない。slurmdbd は Type=simple なので、応じるまで待つ
+  # 最初の 1 回だけ登録し、登録済みなら何もしない。slurmdbd は Type=simple なので、応じるまで待つ。
+  # slurmctld が再起動しない反映でも走るよう、multi-user.target からも起こす
   systemd.services.slurm-register-cluster = {
     after = [ "slurmdbd.service" ];
     requires = [ "slurmdbd.service" ];
     before = [ "slurmctld.service" ];
-    wantedBy = [ "slurmctld.service" ];
+    wantedBy = [
+      "multi-user.target"
+      "slurmctld.service"
+    ];
     inherit (config.systemd.services.slurmctld) path;
     serviceConfig = {
       Type = "oneshot";
