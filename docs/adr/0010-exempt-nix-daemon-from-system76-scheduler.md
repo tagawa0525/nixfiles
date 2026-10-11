@@ -1,9 +1,9 @@
 ---
-status: accepted
+status: superseded
 date: 2026-10-11
 requires: []
 supersedes: [ADR-0005]
-superseded-by:
+superseded-by: [ADR-0011]
 issues: ["#268"]
 ---
 
@@ -83,3 +83,4 @@ ADR-0005 の案 A（rebuild と update の全体を Slurm にする）と案 B�
 ## 補足
 
 - 2026-10-11: 設定の効きの確認は、反映後に issue #268 で行う。`descends` の一致が sandbox 内のビルドプロセスに及ぶかは、まだ実機で見ていない
+- 2026-10-11: 除外の名前 `nix-daemon` が一致していなかった。ADR-0011 が置き換えた
