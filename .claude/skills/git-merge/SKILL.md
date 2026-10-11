@@ -19,6 +19,10 @@ allowed-tools:
   - Bash(git merge*)
   - Bash(git rev-list*)
   - Bash(git worktree*)
+  - Bash(git ls-files*)
+  - Bash(git merge-base*)
+  - Bash(dvc status*)
+  - Bash(dvc repro -s*)
 ---
 
 # Git Merge Command
@@ -75,6 +79,30 @@ git -C [TARGET_WORKTREE] rebase main
 
 コンフリクトしたら内容と解決案を示し、解決して `git rebase --continue` するか
 `git rebase --abort` するかを決める。
+
+### DVC の段階（rebase の後）
+
+対象の worktree に `dvc.yaml` があるリポジトリ（DVC で計算の段階を駆動するもの）では、rebase で deps が変わった
+段階の `dvc.lock` が古くなる。rebase の直後に確かめる。DVC のないリポジトリでは何もしない:
+
+```bash
+git -C [TARGET_WORKTREE] ls-files -- '*dvc.yaml'
+```
+
+何も出なければこの節は飛ばす。出たら、`dvc` が PATH になければ飛ばして `SKIP: dvc not found` と伝える。あれば:
+
+```bash
+cd [TARGET_WORKTREE] && dvc status
+```
+
+deps の変わった段階を列挙し、段階ごとに分ける:
+
+- 数秒で終わると分かっている段階だけ、`dvc repro -s <段階>`（`-s` は指定した段階だけ）を直接走らせ、`dvc.lock` の差分を
+  `chore: relock <段階> after the rebase` でコミットする
+- 残りの段階は走らせない。重い計算を rebase のたびに走らせ直さないためで、記録の数値には「走らせたコミット」と
+  「分岐点（main のコミット）」を書き、分岐点からブランチのコミットを当て直して復元する。記録にその 2 つが
+  書かれていることを確かめる。分岐点は `git merge-base main [branch]` で出せる。書かれていなければ、
+  走らせ直さずに記録を直す（直せなければユーザーに伝える）
 
 ### 番号の重複（rebase の後）
 
