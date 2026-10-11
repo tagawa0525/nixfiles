@@ -198,6 +198,7 @@
     jq # JSONをコマンドラインで整形・フィルタリング
     yq-go # YAMLをコマンドラインで整形・フィルタリング
     file # ファイルタイプの判定
+    poppler-utils # pdftoppm 等のPDF変換ツール。PDFを画像にして内容を確認するのに使用
     vim-full # xxdコマンドを含む完全版vim。バイナリエディタに使用
     gnused # GNU sed。スクリプトやClaude Codeで使用
     gnugrep # GNU grep。パターン検索（ripgrepの補完）
