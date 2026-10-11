@@ -50,6 +50,9 @@ in
       ReturnToService=2
       # 利用者が待っている自分のジョブの順番を変えられるようにする（scontrol top。docs/adr/0007）
       SchedulerParameters=enable_user_top
+      # 全ジョブに同じ基礎の優先度を与える。重みが 0 だと全ジョブが優先度 1 になり、scontrol top は
+      # 優先度 1 のジョブを下げる対象から外すので、順番が変わらない（docs/adr/0030）
+      PriorityWeightPartition=10000
       # --time は待ち行列の見込みのための見積もりとして使い、超えても止めない（docs/adr/0007）
       OverTimeLimit=UNLIMITED
       # 終わったジョブを 1 行ずつ書き、見積もり（TimeLimit）と実際の時間を後から読めるようにする（docs/adr/0017）。
