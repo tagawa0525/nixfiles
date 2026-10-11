@@ -52,9 +52,6 @@ in
       SchedulerParameters=enable_user_top
       # --time は待ち行列の見込みのための見積もりとして使い、超えても止めない（docs/adr/0007）
       OverTimeLimit=UNLIMITED
-      # 終わったジョブを 1 行ずつ書き、見積もり（TimeLimit）と実際の時間を後から読めるようにする（docs/adr/0017）
-      JobCompType=jobcomp/filetxt
-      JobCompLoc=/var/log/slurm/job_completions
     '';
   };
 }

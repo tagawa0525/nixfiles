@@ -17,6 +17,12 @@ in
   services.slurm = {
     server.enable = true;
     client.enable = true;
+    # 終わったジョブを 1 行ずつ書き、見積もり（TimeLimit）と実際の時間を後から読めるようにする（docs/adr/0017）。
+    # 書くのは slurmctld だけなので、記録の置き場（下の tmpfiles）と並べて管理するホストにだけ置く
+    extraConfig = ''
+      JobCompType=jobcomp/filetxt
+      JobCompLoc=/var/log/slurm/job_completions
+    '';
   };
 
   # ほかのホストは ~/r995（= r995 の ~/github）の下で投入する。ジョブは r995 の上で同じ
