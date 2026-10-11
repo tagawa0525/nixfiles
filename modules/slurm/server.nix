@@ -4,7 +4,7 @@
 # 管理（slurmctld）と計算（slurmd）を動かし、ほかのホストが投入に使うポートと、ジョブの
 # 作業の場所を NFS で出す。どちらも Tailscale（tailscale0）だけに開ける。
 # =============================================================================
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 let
   # ほかのホストに NFS で出す作業の場所と、どのホストでも同じパスで見える入口
@@ -33,6 +33,33 @@ in
         ensurePermissions."slurm_acct_db.*" = "ALL PRIVILEGES";
       }
     ];
+    # slurmdbd が推奨する値のうち、資源を食わないものだけ合わせる。innodb_buffer_pool_size の推奨
+    # （4 GiB 以上）は大きなクラスタ向けで、履歴だけの小さな DB には既定のまま置く（docs/adr/0031）
+    settings.mysqld = {
+      innodb_lock_wait_timeout = 900;
+      max_allowed_packet = "16M";
+    };
+  };
+
+  # slurmctld は、slurmdbd に登録されていないクラスタの記録を送れない（no remote port）。
+  # 最初の 1 回だけ登録し、登録済みなら何もしない。slurmdbd は Type=simple なので、応じるまで待つ
+  systemd.services.slurm-register-cluster = {
+    after = [ "slurmdbd.service" ];
+    requires = [ "slurmdbd.service" ];
+    before = [ "slurmctld.service" ];
+    wantedBy = [ "slurmctld.service" ];
+    inherit (config.systemd.services.slurmctld) path;
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      User = "slurm";
+      TimeoutStartSec = 60;
+    };
+    script = ''
+      until clusters=$(sacctmgr -n -P show cluster format=cluster); do sleep 1; done
+      grep -qx ${config.services.slurm.clusterName} <<<"$clusters" ||
+        sacctmgr -i add cluster ${config.services.slurm.clusterName}
+    '';
   };
 
   # ほかのホストは ~/r995（= r995 の ~/github）の下で投入する。ジョブは r995 の上で同じ
