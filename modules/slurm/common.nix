@@ -32,8 +32,9 @@ in
   };
   services.munge.password = config.sops.secrets.munge-key.path;
 
-  # squeue の既定の表示に、名前、経過、見積もり（%l）、始まりの見込み（%S）、連絡先（%k）を出す
-  environment.variables.SQUEUE_FORMAT = "%.6i %.24j %.8T %.10M %.10l %.19S %k";
+  # squeue の既定の表示に、名前、CPU 数（%C）、優先度（%Q）、経過、見積もり（%l）、始まりの見込み（%S）、
+  # 連絡先（%k）を出す。優先度は scontrol top と nice で下がった分を読むため（docs/adr/0030）
+  environment.variables.SQUEUE_FORMAT = "%.6i %.24j %.8T %.5C %.8Q %.10M %.10l %.19S %k";
 
   services.slurm = {
     clusterName = controller;
@@ -50,10 +51,22 @@ in
       ReturnToService=2
       # 利用者が待っている自分のジョブの順番を変えられるようにする（scontrol top。docs/adr/0007）
       SchedulerParameters=enable_user_top
+      # 優先度を「10000 + 待った分 − nice」にする。投げた順に走り、scontrol top が付けた nice は何分ぶん
+      # 後ろに回したかの意味になる。基礎は、投げたばかりのジョブを優先度 1 にしないため（scontrol top は
+      # 優先度 1 のジョブを下げる対象から外す）。Age の重みは PriorityMaxAge の既定（7 日 = 10080 分）と同じ数で、
+      # 1 分に 1 上がる。パーティションが 1 つで PriorityJobFactor が既定の 1 であることを前提にする（docs/adr/0030）
+      PriorityWeightPartition=10000
+      PriorityWeightAge=10080
+      PriorityCalcPeriod=1
       # --time は待ち行列の見込みのための見積もりとして使い、超えても止めない（docs/adr/0007）
       OverTimeLimit=UNLIMITED
       # 終わったジョブを 1 行ずつ書き、見積もり（TimeLimit）と実際の時間を後から読めるようにする（docs/adr/0017）。
       # 書くのは slurmctld だけで、置き場は ./server.nix の tmpfiles。slurm.conf は全ホストで同じにする
+      # accounting は r995 の slurmdbd に置く（docs/adr/0031）
+      AccountingStorageType=accounting_storage/slurmdbd
+      AccountingStorageHost=${controller}
+      # ジョブのメモリと CPU の使用量を集め、sacct の MaxRSS などに残す
+      JobAcctGatherType=jobacct_gather/linux
       JobCompType=jobcomp/filetxt
       JobCompLoc=/var/log/slurm/job_completions
     '';
