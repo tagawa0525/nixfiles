@@ -8,16 +8,19 @@
 #      どの worktree から実行しても、既定ブランチの worktree に移ってから行う
 #   2. 既定ブランチ（main / master）へ切り替え、fetch --prune、pull --ff-only（リモートがなければ省く）
 #      （ローカルとリモートの履歴が分岐していれば ff できずに失敗し、気づける）
-#   3. 予約のタグ（adr-NNNN、issue-NNNN）があれば、既定ブランチの履歴に記録が入った番号のタグを、ローカルと
+#   3. dvc.yaml のあるリポジトリでは、既定ブランチの worktree で dvc checkout を走らせ、DVC の出力を既定ブランチの
+#      dvc.lock に合わせてキャッシュから戻す。dvc が無ければ飛ばし、失敗したら ERROR で止まる
+#   4. 予約のタグ（adr-NNNN、issue-NNNN）があれば、既定ブランチの履歴に記録が入った番号のタグを、ローカルと
 #      リモートから消す（design-records prune。ADR-0018）。design-records が無いか origin に届かなければ残して
 #      続け、prune が失敗したら ERROR で止まる
-#   4. ローカルブランチを削除（-d。未マージなら失敗する）
-#   5. リモートブランチを削除。ただし、リモートの既定ブランチがブランチの先端を含まないとき（push 前）と、
+#   5. ローカルブランチを削除（-d。未マージなら失敗する）
+#   6. リモートブランチを削除。ただし、リモートの既定ブランチがブランチの先端を含まないとき（push 前）と、
 #      GitHub リモートでそのブランチを head とする open PR（fork からの upstream PR 等）があるとき
 #      （削除で PR が閉じる）は、削除せず残す
 #
 # 出力:
 #   WORKTREE_REMOVED: <path>|none
+#   DVC_CHECKOUT: done|none|skipped (dvc not found)
 #   RESERVATIONS_RELEASED: <tag>...|none|skipped (...)|kept (...)
 #   LOCAL_BRANCH: deleted|none
 #   REMOTE_BRANCH: deleted|kept (...)|none
@@ -79,7 +82,21 @@ if [[ -n "$(git remote)" ]]; then
   git pull -q --ff-only
 fi
 
-# --- 3. 番号の予約のタグ ---
+# --- 3. DVC の出力 ---
+# main に入った dvc.lock と、作業ツリーにある出力（マージ前の main のもの）がずれる。ずれを放置すると
+# 次の dvc status が全段階を変更ありと報告する。キャッシュから戻すだけで、計算は走らせない
+if [[ -z "$(git ls-files -- '*dvc.yaml')" ]]; then
+  echo "DVC_CHECKOUT: none"
+elif ! command -v dvc >/dev/null 2>&1; then
+  echo "DVC_CHECKOUT: skipped (dvc not found)"
+elif dvc checkout >&2; then
+  echo "DVC_CHECKOUT: done"
+else
+  echo "ERROR: dvc checkout が失敗しました。原因を直してから、もう一度実行してください" >&2
+  exit 1
+fi
+
+# --- 4. 番号の予約のタグ ---
 # 記録の形と番号の規則は design-records が持つ。既定ブランチ（リモートがあればリモートの）の履歴に無い記録の
 # タグは消さない（消すと番号が使い回される）。解放できないときは、タグを残して後片付けを続ける（タグが残っても
 # 番号は使い回されず、次の prune で消える）。prune そのものが失敗したら止める（原因を直して走らせ直せる）
@@ -97,7 +114,7 @@ else
   exit 1
 fi
 
-# --- 4. ローカルブランチ ---
+# --- 5. ローカルブランチ ---
 if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
   git branch -d -q "$BRANCH"
   echo "LOCAL_BRANCH: deleted"
@@ -105,7 +122,7 @@ else
   echo "LOCAL_BRANCH: none"
 fi
 
-# --- 5. リモートブランチ ---
+# --- 6. リモートブランチ ---
 if git remote get-url "$REMOTE" >/dev/null 2>&1 \
   && [[ -n "$(git ls-remote --heads "$REMOTE" "$BRANCH" 2>/dev/null)" ]]; then
   if git remote -v | grep -q 'github\.com'; then
