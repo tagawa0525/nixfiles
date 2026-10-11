@@ -19,6 +19,7 @@ allowed-tools:
   - Bash(git merge*)
   - Bash(git rev-list*)
   - Bash(git worktree*)
+  - Bash(cd*)
   - Bash(git ls-files*)
   - Bash(git merge-base*)
   - Bash(dvc status*)
@@ -97,7 +98,7 @@ cd [TARGET_WORKTREE] && dvc status
 
 deps の変わった段階を列挙し、段階ごとに分ける:
 
-- 数秒で終わると分かっている段階だけ、`dvc repro -s <段階>`（`-s` は指定した段階だけ）を直接走らせ、`dvc.lock` の差分を
+- 数秒で終わると分かっている段階だけ、`dvc repro -s <段階>`（`-s` は指定した段階だけ。`status` と同じく `cd [TARGET_WORKTREE] &&` を付ける）を直接走らせ、`dvc.lock` の差分を
   `chore: relock <段階> after the rebase` でコミットする
 - 残りの段階は走らせない。重い計算を rebase のたびに走らせ直さないためで、記録の数値には「走らせたコミット」と
   「分岐点（main のコミット）」を書き、分岐点からブランチのコミットを当て直して復元する。記録にその 2 つが
