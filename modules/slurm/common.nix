@@ -51,10 +51,13 @@ in
       ReturnToService=2
       # 利用者が待っている自分のジョブの順番を変えられるようにする（scontrol top。docs/adr/0007）
       SchedulerParameters=enable_user_top
-      # 全ジョブに同じ基礎の優先度を与える。重みが 0 だと全ジョブが優先度 1 になり、scontrol top は
-      # 優先度 1 のジョブを下げる対象から外すので、順番が変わらない。パーティションが 1 つで、
-      # PriorityJobFactor が既定の 1 であることを前提にする（docs/adr/0030）
+      # 優先度を「10000 + 待った分 − nice」にする。投げた順に走り、scontrol top が付けた nice は何分ぶん
+      # 後ろに回したかの意味になる。基礎は、投げたばかりのジョブを優先度 1 にしないため（scontrol top は
+      # 優先度 1 のジョブを下げる対象から外す）。Age の重みは PriorityMaxAge の既定（7 日 = 10080 分）と同じ数で、
+      # 1 分に 1 上がる。パーティションが 1 つで PriorityJobFactor が既定の 1 であることを前提にする（docs/adr/0030）
       PriorityWeightPartition=10000
+      PriorityWeightAge=10080
+      PriorityCalcPeriod=1
       # --time は待ち行列の見込みのための見積もりとして使い、超えても止めない（docs/adr/0007）
       OverTimeLimit=UNLIMITED
       # 終わったジョブを 1 行ずつ書き、見積もり（TimeLimit）と実際の時間を後から読めるようにする（docs/adr/0017）。
