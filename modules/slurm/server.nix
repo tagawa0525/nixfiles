@@ -4,7 +4,7 @@
 # 管理（slurmctld）と計算（slurmd）を動かし、ほかのホストが投入に使うポートと、ジョブの
 # 作業の場所を NFS で出す。どちらも Tailscale（tailscale0）だけに開ける。
 # =============================================================================
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 let
   # ほかのホストに NFS で出す作業の場所と、どのホストでも同じパスで見える入口
@@ -41,29 +41,15 @@ in
     };
   };
 
-  # slurmctld は、slurmdbd に登録されていないクラスタの記録を送れない（no remote port）。
-  # 最初の 1 回だけ登録し、登録済みなら何もしない。slurmdbd は Type=simple なので、応じるまで待つ。
-  # slurmctld が再起動しない反映でも走るよう、multi-user.target からも起こす
-  systemd.services.slurm-register-cluster = {
+  # slurmctld は起動時に slurmdbd に名乗り、slurmdbd は知らないクラスタならその ClusterID で登録する。
+  # slurmdbd が応じる前に名乗ると登録されず、記録が送れない（no remote port）。slurmdbd は
+  # Type=simple なので、応じるまで起動を終えたことにせず、slurmctld をその後に起こす（docs/adr/0031）
+  systemd.services.slurmdbd.postStart = ''
+    until sacctmgr -n show cluster >/dev/null 2>&1; do sleep 1; done
+  '';
+  systemd.services.slurmctld = {
     after = [ "slurmdbd.service" ];
-    requires = [ "slurmdbd.service" ];
-    before = [ "slurmctld.service" ];
-    wantedBy = [
-      "multi-user.target"
-      "slurmctld.service"
-    ];
-    inherit (config.systemd.services.slurmctld) path;
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      User = "slurm";
-      TimeoutStartSec = 60;
-    };
-    script = ''
-      until clusters=$(sacctmgr -n -P show cluster format=cluster); do sleep 1; done
-      grep -qx ${config.services.slurm.clusterName} <<<"$clusters" ||
-        sacctmgr -i add cluster ${config.services.slurm.clusterName}
-    '';
+    wants = [ "slurmdbd.service" ];
   };
 
   # ほかのホストは ~/r995（= r995 の ~/github）の下で投入する。ジョブは r995 の上で同じ
