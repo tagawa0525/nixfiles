@@ -22,7 +22,11 @@ in
   # ほかのホストは ~/r995（= r995 の ~/github）の下で投入する。ジョブは r995 の上で同じ
   # パスで走るので、r995 にも同じ入口を置く。L+ は既にあるディレクトリを中身ごと消すので、
   # 上書きしない L にする（場所がふさがっていれば作らずに残り、手で移せる）
-  systemd.tmpfiles.rules = [ "L ${entry} - - - - ${work}" ];
+  systemd.tmpfiles.rules = [
+    "L ${entry} - - - - ${work}"
+    # 終わったジョブの記録（JobCompLoc。common.nix）の置き場。slurmctld は slurm ユーザーで動く
+    "d /var/log/slurm 0755 slurm slurm -"
+  ];
 
   # Tailscale のアドレス（100.64.0.0/10）だけに出す。UID と GID は全ホストで揃っている
   # （tagawa は 1000、users は 100）ので、sec=sys のまま使う
