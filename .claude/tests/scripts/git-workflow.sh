@@ -726,6 +726,7 @@ setup_merged_dvc_branch() {
   git -C "$1/app" commit -q -m "chore: add dvc.yaml"
   git -C "$1/app" push -q origin main
   git -C "$1/app-feat-x" merge -q --ff-only main
+  git -C "$1/app-feat-x" push -q origin feat/x
 }
 
 it "post-merge-cleanup: DVC のキャッシュが worktree の中にあれば、worktree を消さずに ERROR で止まる"

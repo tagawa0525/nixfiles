@@ -4,12 +4,14 @@
 # Usage: post-merge-cleanup.sh <branch>
 #
 # 順に行う（gh-pr-merge スキルの「クリーンアップ」）:
-#   1. <branch> をチェックアウトしている worktree があれば削除（変更が残っていれば失敗する）
+#   1. <branch> をチェックアウトしている worktree があれば削除（変更が残っていれば失敗する）。DVC のキャッシュが
+#      その worktree の中にあれば（消すと出力が失われる）、削除せずに ERROR で止まる
 #      どの worktree から実行しても、既定ブランチの worktree に移ってから行う
 #   2. 既定ブランチ（main / master）へ切り替え、fetch --prune、pull --ff-only（リモートがなければ省く）
 #      （ローカルとリモートの履歴が分岐していれば ff できずに失敗し、気づける）
 #   3. dvc.yaml のあるリポジトリでは、既定ブランチの worktree で dvc checkout を走らせ、DVC の出力を既定ブランチの
-#      dvc.lock に合わせてキャッシュから戻す。dvc が無ければ飛ばし、失敗したら ERROR で止まる
+#      dvc.lock に合わせてキャッシュから戻す。dvc が無ければ飛ばす。失敗（gh-pr-merge の流れでは手元のキャッシュに
+#      無いのが普通）は止めず、手で dvc pull / dvc checkout するよう知らせる
 #   4. 予約のタグ（adr-NNNN、issue-NNNN）があれば、既定ブランチの履歴に記録が入った番号のタグを、ローカルと
 #      リモートから消す（design-records prune。ADR-0018）。design-records が無いか origin に届かなければ残して
 #      続け、prune が失敗したら ERROR で止まる
@@ -20,7 +22,7 @@
 #
 # 出力:
 #   WORKTREE_REMOVED: <path>|none
-#   DVC_CHECKOUT: done|none|skipped (dvc not found)
+#   DVC_CHECKOUT: done|none|skipped (dvc not found)|kept (<理由>; run dvc pull or dvc checkout by hand)
 #   RESERVATIONS_RELEASED: <tag>...|none|skipped (...)|kept (...)
 #   LOCAL_BRANCH: deleted|none
 #   REMOTE_BRANCH: deleted|kept (...)|none
@@ -65,6 +67,20 @@ DEFAULT_ROOT=$(git worktree list --porcelain | awk -v ref="refs/heads/$DEFAULT" 
   /^worktree / { path = substr($0, 10) }
   /^branch /   { if ($2 == ref) print path }')
 cd "${DEFAULT_ROOT:-$MAIN_ROOT}"
+# dvc.yaml の探し方: ルートと、サブディレクトリの両方
+DVC_PATHSPEC=('dvc.yaml' ':(glob)**/dvc.yaml')
+# DVC の出力を持つ worktree を消すと、キャッシュが worktree の中にあれば（既定の .dvc/cache）出力ごと失われる。
+# 消す前に、worktree と既定ブランチの worktree でキャッシュの場所が同じ（共有されている）ことを確かめる
+if [[ -n "$WT_PATH" && -n "$(git -C "$WT_PATH" ls-files -- "${DVC_PATHSPEC[@]}")" ]] && command -v dvc >/dev/null 2>&1; then
+  if ! WT_CACHE=$(cd "$WT_PATH" && dvc cache dir) || ! MAIN_CACHE=$(dvc cache dir); then
+    echo "ERROR: dvc cache dir が失敗しました。worktree を消してよいか確認できません" >&2
+    exit 1
+  fi
+  if [[ "$WT_CACHE" != "$MAIN_CACHE" ]]; then
+    echo "ERROR: DVC のキャッシュが worktree の中にあり、消すと出力が失われます（.worktreelink か cache.dir で共有してください）" >&2
+    exit 1
+  fi
+fi
 if [[ -n "$WT_PATH" ]]; then
   git worktree remove "$WT_PATH"
   echo "WORKTREE_REMOVED: $WT_PATH"
@@ -85,15 +101,14 @@ fi
 # --- 3. DVC の出力 ---
 # main に入った dvc.lock と、作業ツリーにある出力（マージ前の main のもの）がずれる。ずれを放置すると
 # 次の dvc status が全段階を変更ありと報告する。キャッシュから戻すだけで、計算は走らせない
-if [[ -z "$(git ls-files -- '*dvc.yaml')" ]]; then
+if [[ -z "$(git ls-files -- "${DVC_PATHSPEC[@]}")" ]]; then
   echo "DVC_CHECKOUT: none"
 elif ! command -v dvc >/dev/null 2>&1; then
   echo "DVC_CHECKOUT: skipped (dvc not found)"
-elif dvc checkout >&2; then
+elif DVC_ERR=$(dvc checkout 2>&1 >/dev/null); then
   echo "DVC_CHECKOUT: done"
 else
-  echo "ERROR: dvc checkout が失敗しました。原因を直してから、もう一度実行してください" >&2
-  exit 1
+  echo "DVC_CHECKOUT: kept (${DVC_ERR##*$'\n'}; run dvc pull or dvc checkout by hand)"
 fi
 
 # --- 4. 番号の予約のタグ ---
