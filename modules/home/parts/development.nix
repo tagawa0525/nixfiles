@@ -26,6 +26,9 @@
     ruff # Linter & Formatter（Flake8、Black、isortの代替）
     python3Packages.pytest # テストフレームワーク
 
+    # クラウド
+    awscli2 # AWS CLI v2（aws login によるブラウザ認証に対応）
+
     # Nix品質チェックツール
     nixfmt # Formatter（RFC 166 公式スタイル）
     statix # Linter（静的解析）
