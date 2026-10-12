@@ -14,6 +14,7 @@
     ../../modules/profiles/workstation.nix # GUI 開発機共通（COSMIC、fcitx5、virt-manager 等）
     ../../modules/users/tagawa.nix # 住人: tagawa
     ../../modules/slurm/submit.nix # r995 の Slurm に投入する
+    ./xlc-github-backup.nix # xlc を r995 から GitHub に写す
   ];
 
   # networking.hostName はディレクトリ名から flake.nix の mkHost が自動設定する
