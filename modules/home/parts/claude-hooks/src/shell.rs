@@ -1325,6 +1325,16 @@ mod tests {
         // || の左は失敗しても右へ進むので、その中の && の連鎖も成功したとは限らない
         assert!(succeeded_before_gh("git push || true && gh pr").is_empty());
         assert!(succeeded_before_gh("cd /x && git push || echo && gh pr").is_empty());
+        assert!(succeeded_before_gh("git switch -c o || true && git push && gh pr").is_empty());
+        // 連鎖のどこかに単純コマンドでないものがあれば、その中で何が走ったかを数えられないので、連鎖全体を数えない
+        assert!(succeeded_before_gh("git push && (git switch -c o) && gh pr").is_empty());
+        assert!(succeeded_before_gh("git push && { git commit; } && gh pr").is_empty());
+        assert!(succeeded_before_gh("git push && git commit | cat && gh pr").is_empty());
+        assert!(
+            succeeded_before_gh("git push && for b in o; do git switch $b; done && gh pr")
+                .is_empty()
+        );
+        assert!(succeeded_before_gh("git push && export X=1 && gh pr").is_empty());
         // 包みの中（パイプ、否定、サブシェル、グループ、リダイレクト、置換）は単純コマンドとして読まない
         assert!(succeeded_before_gh("git push | cat && gh pr").is_empty());
         assert!(succeeded_before_gh("! git push && gh pr").is_empty());

@@ -192,7 +192,11 @@ for chained in \
   "git push -u origin HEAD && git commit --allow-empty -m x && $GOOD_CMD" \
   "git push -u origin HEAD && git branch --unset-upstream && $GOOD_CMD" \
   "git switch -q -c other && git push -u origin feat/no-upstream && $GOOD_CMD" \
-  "git push -uq origin HEAD && $GOOD_CMD"; do
+  "git push -uq origin HEAD && $GOOD_CMD" \
+  "git push -u origin HEAD && (git switch -q -c other) && $GOOD_CMD" \
+  "git push -u origin HEAD && { git branch --unset-upstream; } && $GOOD_CMD" \
+  "git push -u origin HEAD && git commit --allow-empty -m x | cat && $GOOD_CMD" \
+  "git switch -q -c other || true && git push -u origin feat/no-upstream && $GOOD_CMD"; do
   it "pre-pr-create: 先の push が成功したとは限らない、または現在のブランチの上流を満たすとは限らないなら deny: ${chained%%gh pr create*}"
   out=$(run_hook pre-pr-create-check "$chained")
   assert_eq deny "$(decision "$out")"
@@ -217,6 +221,20 @@ for mode in simple upstream; do
   assert_eq allow "$(decision "$out")"
 done
 git -C "$REPO" config --unset push.default
+# 押し先を別に決める設定（三角の構成、remote.<名前>.push）では、引数なしの git push は上流を設定せずに成功しうる
+for key in remote.pushDefault branch.feat/no-upstream.pushRemote remote.origin.push; do
+  it "pre-pr-create: $key があれば、前の引数なしの git push は上流を満たすとは限らないので deny"
+  if [[ $key == remote.origin.push ]]; then
+    git -C "$REPO" config "$key" 'refs/heads/*:refs/heads/x/*'
+  else
+    git -C "$REPO" config "$key" origin
+  fi
+  out=$(run_hook pre-pr-create-check "git push && $GOOD_CMD")
+  assert_eq deny "$(decision "$out")"
+  out=$(run_hook pre-pr-create-check "git push -u origin HEAD && $GOOD_CMD")
+  assert_eq allow "$(decision "$out")"
+  git -C "$REPO" config --unset "$key"
+done
 git -C "$REPO" switch -q feat/x
 
 it "pre-pr-create: 先に push しても、--title、本文、--web の検査は省かない"
