@@ -193,6 +193,25 @@ for chained in \
 done
 git -C "$REPO" switch -q feat/x
 
+# 引数なしの git push は、push.default が current か matching なら、上流を設定せずに成功しうる
+git -C "$REPO" switch -q feat/no-upstream
+for mode in current matching; do
+  it "pre-pr-create: push.default が $mode なら、前の引数なしの git push は上流を満たすとは限らないので deny"
+  git -C "$REPO" config push.default "$mode"
+  out=$(run_hook pre-pr-create-check "git push && $GOOD_CMD")
+  assert_eq deny "$(decision "$out")"
+  out=$(run_hook pre-pr-create-check "git push -u origin HEAD && $GOOD_CMD")
+  assert_eq allow "$(decision "$out")"
+done
+for mode in simple upstream; do
+  it "pre-pr-create: push.default が $mode なら、前の引数なしの git push を認める"
+  git -C "$REPO" config push.default "$mode"
+  out=$(run_hook pre-pr-create-check "git push && $GOOD_CMD")
+  assert_eq allow "$(decision "$out")"
+done
+git -C "$REPO" config --unset push.default
+git -C "$REPO" switch -q feat/x
+
 it "pre-pr-create: 先に push しても、--title、本文、--web の検査は省かない"
 git -C "$REPO" switch -q feat/no-upstream
 out=$(run_hook pre-pr-create-check "git push -u origin HEAD && gh pr create --body \"$GOOD_BODY\"")
