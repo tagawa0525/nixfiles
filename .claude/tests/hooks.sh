@@ -130,7 +130,9 @@ commit_file "$REPO" "b.txt" "feat: b"
 out=$(run_hook pre-pr-create-check "$GOOD_CMD")
 assert_eq deny "$(decision "$out")"
 assert_contains "$(reason "$out")" "未プッシュ"
-assert_contains "$(reason "$out")" "別の呼び出し"
+assert_contains "$(reason "$out")" "&& でつない"
+out=$(run_hook pre-pr-create-check "git push && $GOOD_CMD")
+assert_eq allow "$(decision "$out")"
 git -C "$REPO" push -q
 
 it "pre-pr-create: 上流ブランチがなければ deny"
@@ -138,10 +140,69 @@ git -C "$REPO" switch -q -c feat/no-upstream
 out=$(run_hook pre-pr-create-check "$GOOD_CMD")
 assert_eq deny "$(decision "$out")"
 assert_contains "$(reason "$out")" "git push"
-assert_contains "$(reason "$out")" "別の呼び出し"
-out=$(run_hook pre-pr-create-check "git push -u origin HEAD && $GOOD_CMD")
+assert_contains "$(reason "$out")" "&& でつない"
+git -C "$REPO" switch -q feat/x
+
+git -C "$REPO" switch -q feat/no-upstream
+for push in \
+  "git push" \
+  "git push -u origin HEAD" \
+  "git push --set-upstream origin HEAD" \
+  "git push -u origin feat/no-upstream" \
+  "git push origin -u HEAD" \
+  "cd $REPO && git push -u origin HEAD" \
+  "git -C $REPO push -u origin HEAD"; do
+  it "pre-pr-create: 同じ && の連鎖で先に現在のブランチを push するなら、上流と未プッシュを見ない: $push"
+  out=$(run_hook pre-pr-create-check "$push && $GOOD_CMD")
+  assert_eq allow "$(decision "$out")"
+done
+it "pre-pr-create: 同じ && の連鎖で先に現在のブランチを push するなら、上流と未プッシュを見ない: 前の ; と後の ||"
+out=$(run_hook pre-pr-create-check "git fetch; git push -u origin HEAD &&
+  $GOOD_CMD || echo failed")
+assert_eq allow "$(decision "$out")"
+git -C "$REPO" switch -q feat/x
+
+git -C "$REPO" switch -q feat/no-upstream
+for chained in \
+  "git push -u origin HEAD; $GOOD_CMD" \
+  "git push -u origin HEAD || $GOOD_CMD" \
+  "git push -u origin HEAD & $GOOD_CMD" \
+  "git push -u origin HEAD | $GOOD_CMD" \
+  "git push -u origin HEAD | cat && $GOOD_CMD" \
+  "git push -u origin HEAD || true && $GOOD_CMD" \
+  "! git push -u origin HEAD && $GOOD_CMD" \
+  "(git push -u origin HEAD) && $GOOD_CMD" \
+  "git push -u origin feat/x && $GOOD_CMD" \
+  "git push -u upstream HEAD && $GOOD_CMD" \
+  "git push -u origin HEAD:feat/other && $GOOD_CMD" \
+  "git push -u origin HEAD feat/x && $GOOD_CMD" \
+  "git push origin HEAD && $GOOD_CMD" \
+  "git push --dry-run -u origin HEAD && $GOOD_CMD" \
+  "git push -n && $GOOD_CMD" \
+  "git push --force && $GOOD_CMD" \
+  "git -c push.default=current push && $GOOD_CMD" \
+  "GIT_DIR=$TEST_ROOT/none git push && $GOOD_CMD" \
+  "env git push && $GOOD_CMD" \
+  "git -C $TEST_ROOT push -u origin HEAD && $GOOD_CMD" \
+  "git push -u origin HEAD && cd $TEST_ROOT && $GOOD_CMD" \
+  "$GOOD_CMD && git push -u origin HEAD"; do
+  it "pre-pr-create: 先の push が成功したとは限らない、または現在のブランチの上流を満たすとは限らないなら deny: ${chained%%gh pr create*}"
+  out=$(run_hook pre-pr-create-check "$chained")
+  assert_eq deny "$(decision "$out")"
+  assert_contains "$(reason "$out")" "上流ブランチがありません"
+done
+git -C "$REPO" switch -q feat/x
+
+it "pre-pr-create: 先に push しても、--title、本文、--web の検査は省かない"
+git -C "$REPO" switch -q feat/no-upstream
+out=$(run_hook pre-pr-create-check "git push -u origin HEAD && gh pr create --body \"$GOOD_BODY\"")
 assert_eq deny "$(decision "$out")"
-assert_contains "$(reason "$out")" "別の呼び出し"
+assert_contains "$(reason "$out")" "--title"
+out=$(run_hook pre-pr-create-check "git push -u origin HEAD && gh pr create --title \"feat: x\" --fill")
+assert_eq deny "$(decision "$out")"
+out=$(run_hook pre-pr-create-check "git push -u origin HEAD && $GOOD_CMD --web")
+assert_eq deny "$(decision "$out")"
+assert_not_contains "$(reason "$out")" "上流"
 git -C "$REPO" switch -q feat/x
 
 it "pre-pr-create: --head 指定時は現在ブランチの push 状態を見ない"

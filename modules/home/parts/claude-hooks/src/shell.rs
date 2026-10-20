@@ -1217,4 +1217,56 @@ mod tests {
         let (sub, args) = all[0].git_subcommand().unwrap();
         assert!(!crate::git_args::git_flag(sub, args, Some('a'), &[]));
     }
+
+    /// src の中の最後の `gh` が走るときに成功していたコマンドの、名前と最初の引数
+    fn succeeded_before_gh(src: &str) -> Vec<String> {
+        let sh = Shell::parse(src);
+        let gh = sh.commands().iter().rfind(|c| c.name == "gh").unwrap();
+        sh.succeeded_before(gh)
+            .map(|c| match c.args.first() {
+                Some(a) => format!("{} {}", c.name, a.text),
+                None => c.name.clone(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn succeeded_before_lists_commands_chained_by_and() {
+        assert_eq!(succeeded_before_gh("git push && gh pr"), ["git push"]);
+        assert_eq!(
+            succeeded_before_gh("cd /x && git push -u origin HEAD && gh pr"),
+            ["cd /x", "git push"]
+        );
+        assert_eq!(
+            succeeded_before_gh("git fetch; git push &&\n  gh pr || echo failed"),
+            ["git push"]
+        );
+        assert_eq!(
+            succeeded_before_gh("bash -c 'git push && gh pr'"),
+            ["git push"]
+        );
+    }
+
+    #[test]
+    fn succeeded_before_excludes_commands_not_required_to_succeed() {
+        assert!(succeeded_before_gh("git push; gh pr").is_empty());
+        assert!(succeeded_before_gh("git push || gh pr").is_empty());
+        assert!(succeeded_before_gh("git push & gh pr").is_empty());
+        assert!(succeeded_before_gh("git push | gh pr").is_empty());
+        assert!(succeeded_before_gh("git push\ngh pr").is_empty());
+        assert!(succeeded_before_gh("gh pr && git push").is_empty());
+        // || の左は失敗しても右へ進むので、その中の && の連鎖も成功したとは限らない
+        assert!(succeeded_before_gh("git push || true && gh pr").is_empty());
+        assert!(succeeded_before_gh("cd /x && git push || echo && gh pr").is_empty());
+        // 包みの中（パイプ、否定、サブシェル、グループ、リダイレクト、置換）は単純コマンドとして読まない
+        assert!(succeeded_before_gh("git push | cat && gh pr").is_empty());
+        assert!(succeeded_before_gh("! git push && gh pr").is_empty());
+        assert!(succeeded_before_gh("(git push) && gh pr").is_empty());
+        assert!(succeeded_before_gh("{ git push; } && gh pr").is_empty());
+        assert!(succeeded_before_gh("git push 2>&1 && gh pr").is_empty());
+        assert_eq!(
+            succeeded_before_gh("echo $(git push) && gh pr"),
+            ["echo $(git push)"]
+        );
+    }
 }
