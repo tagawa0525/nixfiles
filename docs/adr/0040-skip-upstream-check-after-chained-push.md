@@ -55,20 +55,23 @@ hook の制約を手順側で補った。
    リダイレクトやサブシェル、`bash -c` の文字列）と、連鎖の中の単純コマンドでないもの（パイプ、`!`、`(…)`、
    `{ …; }`、代入、リダイレクトや置換を含むコマンド）は、その中で何が走り、`git` や `cd` が何を指すかを構文から
    言えないので、あれば連鎖全体を数えない
-2. **連鎖の中身**: gh の左は、前置きの代入や包みの無い `cd` と、認める形の `git push` 1 つだけ。ほかのコマンドは、
+2. **連鎖の中身**: gh の左は、前置きの代入や包みの無い、1 つの行き先へ移る `cd` と、認める形の `git push` 1 つ
+   だけ。ほかのコマンドは、
    push の後でブランチを切り替える・コミットする・上流を外す、push の前でブランチを切り替えるなど、gh の
    ブランチの状態を変えうる。状態を変えないかを個別に判定しない
-3. **push の形**: push 先が現在のブランチの、同じ名前の上流になると決まるもの。`git push -u origin HEAD`、
-   `git push -u origin <現在のブランチ>`、`push.default` が `simple`（既定）で押し先を別に決める設定
-   （`remote.pushDefault`、`branch.<名前>.pushRemote`、`remote.<名前>.push`、`remote.<名前>.mirror`）の無い
-   引数なしの `git push`。ほかのオプション、refspec、`-C` 以外の git の全体オプション、前置きの代入、包みは
-   認めない。push と gh の対象のディレクトリ（`cd`、`git -C` を当てたもの）とリポジトリ（gh の前置きの代入、
-   包み、`-R`）が同じで、origin の fetch の refspec が `refs/heads/*` を追う（追わない clone では push 後も
-   `@{u}` が解決しない）
+3. **push の形と設定**: push 先が origin の、現在のブランチと同じ名前の上流になり、その上流が解決すると決まる
+   もの。形は `git push -u origin HEAD`、`git push -u origin <現在のブランチ>`、引数なしの `git push` で、ほかの
+   オプション、refspec、`-C` 以外の git の全体オプション、前置きの代入、包みは認めない。git の設定のうち push の
+   行き先を書き換えるもの（`remote.<名前>.push`、`remote.<名前>.mirror`、`push.default` の `upstream`）があれば
+   どの形も認めない。引数なしの形は、さらに `push.default` が `simple`（既定）で、ブランチのリモートが origin で、
+   `remote.pushDefault` と `branch.<名前>.pushRemote` が無いときだけ。push と gh の対象のディレクトリ（`cd`、
+   `git -C` を当てたもの）とリポジトリ（gh の前置きの代入、包み、`-R`）が同じで、origin の fetch の refspec が
+   `refs/heads/*` を追う（追わない clone では push 後も `@{u}` が解決しない）
 
 連鎖の判定は shell.rs の `Shell::succeeded_before` が持つ。
 
-deny の文言は、別の呼び出しに分ける案内から、`&&` の連鎖の書き方の案内に変える。
+deny の文言は、コマンドに git push が無ければ `&&` の連鎖の書き方を、あるのに省けなければ別の呼び出しを案内する
+（反映できない理由は clone の設定にもあり、同じ書き方を勧めると同じコマンドを投げ直し続ける）。
 
 ## 帰結
 
@@ -98,6 +101,9 @@ hook が通し、gh が上流の無い状態で走る）。
   gh pr create …`、`git() { command git switch -c q; }; git push -u origin HEAD && gh pr create …`。また、
   文字列の中のコマンドの寄せた位置が外側の置換の中のコマンドと重なり、`env A=$(a) bash -c 'true;  git push &&
   gh pr'` で `a` を成功していたものと数えた
+- `push.default=upstream` を引数なしの形でだけ見る版: `origin/main` を追うブランチで `git push -u origin <ブランチ>`
+  が main へ push される。引数なしの push のリモートを見ない版: `branch.<名前>.remote` が fetch の狭い別の
+  リモートだと push 後も `@{u}` が解決しない。gh の `-R` を空白区切りでだけ見る版: `-Rowner/repo` を通す
 - 引数なしの push を `push.default` の `upstream` でも認める版: `origin/main` を追うブランチの commit が main へ
   push される。押し先の設定を見ない版: `remote.pushDefault` や `remote.origin.mirror` で上流が設定されない
 - `git -c` だけを弾く版: `git --git-dir=/other/.git push -u origin HEAD && gh pr create …`
