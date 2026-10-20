@@ -17,6 +17,12 @@
     # Delta（Zed 開発元の AI エディタ）を動かすための nix-ld / XKB の下駄。
     # 本体は ~/.local に手動導入する。使わなくなったらこの行ごと消す
     ../delta.nix
+
+    # v4l2loopback (OBS 仮想カメラ) の modules.alias が kernel と衝突する問題の回避
+    ../v4l2loopback-fix.nix
+
+    # mozc の uic エラー（クラス名の先頭 `::`）の回避
+    ../mozc-fix.nix
   ];
 
   # ===========================================================================

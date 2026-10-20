@@ -30,7 +30,7 @@ ThinkPad X1 Nano (1st Gen) の電源まわりを実測した記録 (2026-07-28�
 | hibernate                        | 以前は 4/4 回ハング。2026-09-23 に 7.2.7 で**同期・非同期とも成功**。カーネル更新が有力 (未確定) |
 | BIOS の S3 有効化                | 可能だが消費が悪化する (413 mW)。**使わない**                                                    |
 | 充電閾値が 100% になる件         | EC の揮発性設定のため。電源オフ中は保持されない                                                  |
-| バッテリー時に自動サスペンドせず | **cosmic-idle のバグ**。overlay でパッチを当てて対処済み                                         |
+| バッテリー時に自動サスペンドせず | **cosmic-idle のバグ**。上流 1.10.0 で修正済み (それまでは overlay でパッチを当てていた)         |
 | s2idle 周りのハング・固まり      | **未解決**。2026-09-23 に BIOS で WWAN を無効化して経過観察中                                    |
 
 ## 実測値
@@ -144,7 +144,7 @@ let suspend_time = if self.screensaver_inhibit { None }
 
 ### 対処
 
-`modules/cosmic-idle-fix.nix` の overlay で 1 行パッチを当てている (`modules/patches/`)。
+上流 cosmic-idle 1.10.0 で同じ修正が入ったため、当てていた overlay (`modules/cosmic-idle-fix.nix`) は撤去した。入った修正は次の 1 行である。
 
 ```rust
 Event::OnBattery(value) => {
@@ -152,8 +152,6 @@ Event::OnBattery(value) => {
     self.recreate_notifications();
 }
 ```
-
-`Cargo.lock` は変わらないので `cargoHash` の追従は不要、再ビルドも末端バイナリ 1 個で済む。
 
 あわせて DE に依存しない防波堤として UPower の低残量アクションを `modules/profiles/laptop.nix` に設定した。
 
