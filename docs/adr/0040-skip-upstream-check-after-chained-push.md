@@ -45,70 +45,60 @@ hook の制約を手順側で補った。
 
 ## 決定と理由
 
-(b) を採る。コマンド文字列全体が `&&` だけでつないだ単純コマンドの連鎖 1 つで、`gh pr create`（`--head` なし）が
-その最後にあり、左の中身が `cd` と、次をすべて満たす `git push` 1 つだけなら、検査 3 を省く。
+(b) を採る。hook は実行前の状態しか見ないので、push 後の状態が検査 3 を満たすと構文、引数、git の設定から言える
+ものだけを通し、言えないものは今までどおり deny する（安全側）。境界は次の 3 つの原則で決める。個々の書き方の
+扱いは `pre_pr_create_check.rs` の `pushed_before` / `pushes_current_branch` と `.claude/tests/hooks.sh` の
+テストが正である。
 
-連鎖の外に文を許さないのは、前に `;` や改行で置いた文（`git switch -c b; git push -u origin <元のブランチ> && …`）が
-gh のブランチを変え、関数の定義（`git() { …; }; git push …`）が `git` や `cd` の意味を変えるため。後ろの
-`|| …`、連鎖を包むリダイレクト（`… && gh pr create … > out.txt` は tree-sitter-bash では連鎖全体を包む）や
-サブシェル、`bash -c '…'` の文字列の中の連鎖も、外側に文が並びうるので認めない。
+1. **連鎖の形**: コマンド文字列全体が `&&` だけでつないだ単純コマンドの連鎖 1 つで、`gh pr create`（`--head`
+   なし）がその最後にある。連鎖の外の文（前の `;` や改行の文、関数の定義、後ろの `|| …`、連鎖を包む
+   リダイレクトやサブシェル、`bash -c` の文字列）と、連鎖の中の単純コマンドでないもの（パイプ、`!`、`(…)`、
+   `{ …; }`、代入、リダイレクトや置換を含むコマンド）は、その中で何が走り、`git` や `cd` が何を指すかを構文から
+   言えないので、あれば連鎖全体を数えない
+2. **連鎖の中身**: gh の左は、前置きの代入や包みの無い `cd` と、認める形の `git push` 1 つだけ。ほかのコマンドは、
+   push の後でブランチを切り替える・コミットする・上流を外す、push の前でブランチを切り替えるなど、gh の
+   ブランチの状態を変えうる。状態を変えないかを個別に判定しない
+3. **push の形**: push 先が現在のブランチの、同じ名前の上流になると決まるもの。`git push -u origin HEAD`、
+   `git push -u origin <現在のブランチ>`、`push.default` が `simple`（既定）で押し先を別に決める設定
+   （`remote.pushDefault`、`branch.<名前>.pushRemote`、`remote.<名前>.push`、`remote.<名前>.mirror`）の無い
+   引数なしの `git push`。ほかのオプション、refspec、`-C` 以外の git の全体オプション、前置きの代入、包みは
+   認めない。push と gh の対象のディレクトリ（`cd`、`git -C` を当てたもの）とリポジトリ（gh の前置きの代入、
+   包み、`-R`）が同じで、origin の fetch の refspec が `refs/heads/*` を追う（追わない clone では push 後も
+   `@{u}` が解決しない）
 
-`cd` 以外のコマンドを許さないのは、push の後でブランチを切り替える・コミットする・上流を外す
-（`git switch -c other`、`git commit`、`git branch --unset-upstream`）と gh は上流の無い状態で走り、push の前で
-ブランチを切り替えると、名前で指定した push（下の 3 つめの形）が gh のブランチの上流にならないため。hook は
-実行前の状態しか見ないので、どのコマンドが状態を変えないかを個別に判定せず、ディレクトリだけを動かす `cd`
-（行き先は下の対象のディレクトリの比較で確かめる）に限る。
+連鎖の判定は shell.rs の `Shell::succeeded_before` が持つ。
 
-- サブコマンドの引数が次のどれか。`-u` は `--set-upstream` でもよく、位置は問わない。引数は guard-git-push と同じ
-  `git_args::items` で読む（`--` の後は位置引数）
-  - 引数なしの `git push`（`-u` だけを付けたものを含む）。`push.default` が未設定（既定の `simple`）か `simple` の
-    ときだけ。`simple` は成功すれば現在のブランチを同じ名前の上流へ push してある（上流が無ければ失敗して gh は
-    走らず、`push.autoSetupRemote` があれば上流を設定する）。`current` は `push.autoSetupRemote` が無いと上流を
-    設定せずに成功し、`matching` は現在のブランチを push せずに成功しうる。`upstream`（`tracking`）は名前の違う
-    上流（`origin/main` を追うブランチ）へ push するので認めない。押し先を別に決める設定（`remote.pushDefault`、
-    `branch.<名前>.pushRemote` の三角の構成、`remote.<名前>.push`、`remote.<名前>.mirror`）がある clone でも、
-    `simple` が上流を設定せずに成功しうるので認めない。設定は現在のブランチとリモートに限らず、どれかがあれば
-    認めない（安全側）
-  - `git push -u origin HEAD`
-  - `git push -u origin <現在のブランチ名>`（`git branch --show-current` と一致。detached HEAD では空なので一致しない）
-- ほかのオプション（`--dry-run`、`-n`、`--force` など）、refspec（`HEAD:<ブランチ>`）、3 つ以上の位置引数、
-  `origin` 以外のリモートを含まない。`-u` の無い `git push origin HEAD` は上流を設定しないので認めない
-- 前置きの代入（`GIT_DIR=…`）、包み（`env`、`sudo` など）、`-C <dir>` 以外の git の全体オプション（`-c`、
-  `--git-dir`、`--work-tree` など）が無く、走らせるプログラムが決まり
-  （`Cmd::opaque` でない）、構文エラーが無い
-- push の対象のディレクトリ（`cd`、`git -C` を当てたもの）が gh の対象のディレクトリと同じ
-
-連鎖の判定は shell.rs が `Cmd::after`（そのコマンドが走るときに成功していた単純コマンドの位置）として持ち、
-`Shell::succeeded_before` で引く。tree-sitter-bash は `a && b && c` を `(list (list a b) c)` と左に結合して読むので、
-右オペランドの左側を `&&` の `list` だけたどって単純コマンドを集める。左側のどこかに `||` を含む `list`、
-パイプライン、`!`、`(…)`、`{ …; }`、ループ、代入、リダイレクトの付いた文、置換（`$(…)`）を含むコマンドがあれば、
-連鎖全体を集めない（その中で何が走ったか、push が成功したかを構文から言えない。飛ばして残りを集めると、
-`(git switch -c other) && …` のような中身を見落とす）。
-`Cmd::after` はトップレベルのコマンドだけが持つ（文字列の中のコマンドの位置は外側の位置に寄せてあり、外側の
-置換の中のコマンドと重なりうる）。
-
-deny の文言は、別の呼び出しに分ける案内から、`&&` でつなぐ書き方の案内に変える。
+deny の文言は、別の呼び出しに分ける案内から、`&&` の連鎖の書き方の案内に変える。
 
 ## 帰結
 
 - `git push -u origin HEAD && gh pr create …` を 1 回で投げられる。スキルの「別の呼び出しに分ける」規則は要らなく
   なる
-- 認める形から外れた push（別のリモート、refspec、`;` でつないだものなど）は今までどおり deny する。文言で認める形を
-  示す
-- `git push 2>&1 && gh pr create …` のようにリダイレクトを付けた push、`… && gh pr create … > out.txt` や
-  `… && gh pr create … || echo failed` のように連鎖の外に何かを置いたもの、`!` やパイプで包んだ gh は認めない
-  （安全側の deny）。必要になれば、包みが push の成否と gh の実行を変えないことを確かめて広げる
-- `cd .. && cd repo` やサブディレクトリへの `cd` のように、push と gh の対象のディレクトリの書き方が違うと、
-  同じリポジトリでも deny する（パスの字面で比べる）
-- 連鎖の中や前に `git fetch` などの状態を変えないコマンドを置いても deny する。前に要るなら別の呼び出しにする
-- 連鎖の判定は、トップレベルの `&&` の連鎖ごとに左を集めるので、連鎖の長さの 2 乗に比例する。連鎖は数個の
-  コマンドで、hook が起こす git のプロセスより十分に軽い
+- 安全側に倒した結果、push の成否と gh の実行を変えない書き方（push の `2>&1`、連鎖の後ろの `|| echo`、連鎖の中の
+  `git fetch`、別の書き方の同じディレクトリへの `cd`、関係の無いブランチの `pushRemote` など）も deny する。
+  必要になれば、その書き方が push 後の状態を変えないことを確かめて広げる
 
 ## 確認
 
-- `src/shell.rs` の単体テストで、`Shell::succeeded_before` が `&&` の連鎖の左だけを返し、`;`、`||`、`&`、パイプ、
-  改行、包む構文の中を返さないこと、連鎖の外に文がある、または文字列の中の連鎖なら空を返すことを確かめる
-- `.claude/tests/hooks.sh` の pre-pr-create-check の節で、上の 3 つの形（`cd` と `git -C` を含む）が上流の無い
-  ブランチで通り、外れた形と、push の前後に `cd` 以外のコマンドを置いた連鎖、連鎖の外の文、`-C` 以外の git の全体オプションが deny されること、
-  `push.default` が `current`、`matching`、`upstream` のときと押し先を別に決める設定があるときは引数なしの push を
-  認めないこと、push を前に連ねても検査 1、2、4 が残ることを確かめる
+- `src/shell.rs` の単体テストで、`Shell::succeeded_before` の連鎖の形の境界を確かめる
+- `.claude/tests/hooks.sh` の pre-pr-create-check の節で、認める形が上流の無いブランチで通り、上の原則から外れる
+  形が deny されること、push を前に連ねても検査 1、2、4 が残ることを確かめる
+
+## 補足
+
+### 試して捨てた方式
+
+PR #402 のローカルのレビューで、作り直す前の版にそれぞれ次の反例が見つかった（すべて上流の無いブランチで
+hook が通し、gh が上流の無い状態で走る）。
+
+- 連鎖の左の中身を問わない版: `git push -u origin HEAD && git switch -c other && gh pr create …`
+- 連鎖の中の単純コマンドでない部分を飛ばして残りを集める版: `git push -u origin HEAD && (git switch -c other) &&
+  gh pr create …`、`git switch -c other || true && git push -u origin <元のブランチ> && gh pr create …`
+- gh が `&&` の右にあれば連鎖の外の文を問わない版: `git switch -c b; git push -u origin <元のブランチ> &&
+  gh pr create …`、`git() { command git switch -c q; }; git push -u origin HEAD && gh pr create …`。また、
+  文字列の中のコマンドの寄せた位置が外側の置換の中のコマンドと重なり、`env A=$(a) bash -c 'true;  git push &&
+  gh pr'` で `a` を成功していたものと数えた
+- 引数なしの push を `push.default` の `upstream` でも認める版: `origin/main` を追うブランチの commit が main へ
+  push される。押し先の設定を見ない版: `remote.pushDefault` や `remote.origin.mirror` で上流が設定されない
+- `git -c` だけを弾く版: `git --git-dir=/other/.git push -u origin HEAD && gh pr create …`
+- origin の fetch の refspec を見ない版: `--single-branch` の clone で push 後も `@{u}` が解決しない
