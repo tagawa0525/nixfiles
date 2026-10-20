@@ -146,6 +146,8 @@ pub struct Cmd {
     pub remote: Option<String>,
     /// git のコマンドなら、グローバルオプションの読み取り
     pub git: Option<GitInvocation>,
+    /// このコマンドが走るときに成功していた単純コマンドの `start`（[`Shell::succeeded_before`]）
+    pub after: Vec<usize>,
 }
 
 impl Shell {
@@ -296,6 +298,7 @@ impl Shell {
             remote: unwrapped.remote,
             wrappers: unwrapped.wrappers,
             git,
+            after: and_chain_predecessors(node),
         };
         let Some(source) = unwrapped.source else {
             return Some((vec![cmd], None));
@@ -321,6 +324,9 @@ impl Shell {
         for mut c in std::mem::take(&mut shell.cmds) {
             // 文字列は外側のコマンドの原文より短いので、位置は外側のコマンドの後ろ、次の外側のコマンドの前に収まる
             c.start += node.start_byte() + 1;
+            for a in &mut c.after {
+                *a += node.start_byte() + 1;
+            }
             // 文字列の中は 1 つのスコープ。外側の cd は効き、中の cd は外に漏れない
             let mut scope = cmd.scope.clone();
             scope.push(node.id());
@@ -519,6 +525,13 @@ impl Shell {
         dir
     }
 
+    /// cmd が走るときに成功していたコマンド（文書順）。cmd が `&&` の右にあり、その左が単純コマンドか `&&` だけで
+    /// つないだ単純コマンドの連鎖のときの、左のコマンド。`;`、`||`、`&`、パイプでつないだもの、包む構文
+    /// （パイプライン、`!`、`(…)`、`{ …; }`、リダイレクト）の中のものは含めない
+    pub fn succeeded_before<'a>(&'a self, cmd: &'a Cmd) -> impl Iterator<Item = &'a Cmd> {
+        self.cmds.iter().filter(|c| cmd.after.contains(&c.start))
+    }
+
     /// cmd が `ssh` か `sudo -i` の中で走るか（`target_dir` が手元に実在しない場所の書き方から始める）。
     /// ルールが止める理由を、移れない cd 先と取り違えずに書くのに使う
     pub fn runs_under_ssh_or_login(&self, cmd: &Cmd) -> bool {
@@ -531,6 +544,50 @@ impl Shell {
                     && moves_away(c)
             })
     }
+}
+
+/// `list` ノード（`a && b`、`a || b`）の演算子と、左右のオペランド。tree-sitter-bash は `a && b && c` を
+/// `(list (list a b) c)` と左に結合して読む
+fn list_parts(list: Node) -> Option<(&'static str, Node, Node)> {
+    let mut cursor = list.walk();
+    let mut operands = list
+        .named_children(&mut cursor)
+        .filter(|n| n.kind() != "comment");
+    let left = operands.next()?;
+    let right = operands.next()?;
+    let mut cursor = list.walk();
+    let op = list
+        .children(&mut cursor)
+        .find(|n| !n.is_named())
+        .map(|n| n.kind())?;
+    Some((op, left, right))
+}
+
+/// ノードが成功したなら成功していた単純コマンドの開始位置。`||` の連鎖は、どれが成功したか決まらないので空
+fn succeeded_commands(node: Node, out: &mut Vec<usize>) {
+    match node.kind() {
+        "command" => out.push(node.start_byte()),
+        "list" => {
+            if let Some(("&&", left, right)) = list_parts(node) {
+                succeeded_commands(left, out);
+                succeeded_commands(right, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// `command` ノードが `&&` の右オペランドなら、それが走るときに成功していた単純コマンドの開始位置
+fn and_chain_predecessors(node: Node) -> Vec<usize> {
+    let mut out = Vec::new();
+    if let Some(parent) = node.parent()
+        && parent.kind() == "list"
+        && let Some(("&&", left, right)) = list_parts(parent)
+        && right.id() == node.id()
+    {
+        succeeded_commands(left, &mut out);
+    }
+    out
 }
 
 fn strip(s: &str, open: &str, close: &str) -> String {

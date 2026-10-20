@@ -7,7 +7,8 @@
 //!    揃っている（見出しは常に英語。本文の言語は問わない。--body を省くと gh がエディタを
 //!    開き、Claude Code セッションでは固まる）
 //! 3. 現在のブランチに上流があり、未プッシュのコミットがない（--head 指定時は見ない）。
-//!    同じコマンドの前に連ねた git push は反映されない（実行前の状態を見る）
+//!    検査は実行前の状態を見るので、同じ `&&` の連鎖で先に現在のブランチを push するとき
+//!    （`git push -u origin HEAD && gh pr create …`）は見ない。push が失敗すれば gh は走らない（ADR-0040）
 //! 4. --web を使わない（ブラウザを開かず URL を報告する）
 //!
 //! 本文の見出しは `--body` 引数ノードの原文（ヒアドキュメント本文を含む）だけを見る。
@@ -26,13 +27,50 @@ use super::Rule;
 use crate::git;
 use crate::input::Input;
 use crate::output::Finding;
-use crate::shell::{Arg, Shell, has_flag, opt_value};
+use crate::shell::{Arg, Cmd, Shell, has_flag, opt_value};
 
-/// 検査は実行前のブランチの状態を見る。同じコマンドの前に連ねた git push は反映されず、
-/// 連ねるとコマンド全体が止まって前半も実行されないので、分け方を deny の文言で示す。
-const SPLIT_CALLS_HINT: &str = "同じコマンドの前に git push を連ねても検査には反映されません。push と gh pr create は別の呼び出しに分けてください";
+/// 検査は実行前のブランチの状態を見る。認める形でない push を前に連ねるとコマンド全体が止まって
+/// 前半も実行されないので、認める形を deny の文言で示す。
+const CHAINED_PUSH_HINT: &str = "同じ呼び出しで push するなら、git push -u origin HEAD && gh pr create … のように && でつないでください（; や || でつないだ push、別のリモートやブランチへの push は検査に反映されません）";
 
 pub struct PrePrCreateCheck;
+
+/// cmd が、dir の現在のブランチを origin へ push するだけの git push か。認めるのは
+/// `git push`、`git push -u origin HEAD`、`git push -u origin <現在のブランチ>`（`-u` は `--set-upstream` でも、
+/// 位置は問わない）だけで、ほかのオプション、refspec、前置きの代入、包み、`git -c` は認めない（ADR-0040）
+fn pushes_current_branch(cmd: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> bool {
+    let Some(("push", args)) = cmd.git_subcommand() else {
+        return false;
+    };
+    if cmd.opaque
+        || cmd.has_error
+        || !cmd.env.is_empty()
+        || !cmd.wrappers.is_empty()
+        || !cmd.git_config_overrides().is_empty()
+        || shell.target_dir(cmd, base) != dir
+    {
+        return false;
+    }
+    let (flags, positional): (Vec<&Arg>, Vec<&Arg>) =
+        args.iter().partition(|a| a.text.starts_with('-'));
+    let set_upstream = !flags.is_empty();
+    if flags
+        .iter()
+        .any(|a| a.text != "-u" && a.text != "--set-upstream")
+    {
+        return false;
+    }
+    match positional.as_slice() {
+        [] => true,
+        // 上流の無いブランチの `git push origin HEAD` は push しても上流を設定せず、gh が push 先を尋ねる
+        [remote, refspec] if set_upstream && remote.text == "origin" => {
+            refspec.text == "HEAD"
+                || git::git(dir, &["rev-parse", "--abbrev-ref", "HEAD"])
+                    .is_some_and(|branch| branch != "HEAD" && branch == refspec.text)
+        }
+        _ => false,
+    }
+}
 
 /// `--x=value` 形式なら value を、そうでなければそのまま
 pub(super) fn strip_opt_prefix<'a>(arg: &'a Arg, names: &[&str]) -> &'a str {
@@ -143,15 +181,18 @@ impl Rule for PrePrCreateCheck {
             }
 
             // --- 3. 未プッシュコミット ---
-            if !has_flag(args, &["--head", "-H"]) {
+            let pushed = shell
+                .succeeded_before(cmd)
+                .any(|p| pushes_current_branch(p, shell, &input.cwd, &dir));
+            if !has_flag(args, &["--head", "-H"]) && !pushed {
                 match git::git(&dir, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]) {
-                    None => reasons.push(format!("現在のブランチに上流ブランチがありません。先に git push してください（gh が対話的に push 先を尋ねて固まるのを防ぐ）。{SPLIT_CALLS_HINT}")),
+                    None => reasons.push(format!("現在のブランチに上流ブランチがありません。先に git push してください（gh が対話的に push 先を尋ねて固まるのを防ぐ）。{CHAINED_PUSH_HINT}")),
                     Some(upstream) => {
                         let ahead = git::git(&dir, &["rev-list", "--count", "@{u}..HEAD"])
                             .unwrap_or_else(|| "?".to_string());
                         if ahead != "0" {
                             // 件数が取れなかった（"?"）ときは原因が未プッシュとは限らないので、分け方は示さない
-                            let hint = if ahead == "?" { String::new() } else { format!("。{SPLIT_CALLS_HINT}") };
+                            let hint = if ahead == "?" { String::new() } else { format!("。{CHAINED_PUSH_HINT}") };
                             reasons.push(format!(
                                 "未プッシュのコミットが {ahead} 件あります（{upstream} より先）。先に git push してください{hint}"
                             ));
