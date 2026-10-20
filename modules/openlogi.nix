@@ -4,8 +4,8 @@
 # https://github.com/AprilNEA/OpenLogi
 #
 # パッケージ本体は flake input `nur-openlogi-latest`（upstream の Release にある
-# ビルド済みパッケージを包み直した個人 NUR）から flake.nix の overlay 経由で
-# 受け取る。upstream の flake はソースからビルドするため、更新のたびに Rust の
+# ビルド済みパッケージを包み直した個人 NUR）から specialArgs 経由で直接
+# 参照する。upstream の flake はソースからビルドするため、更新のたびに Rust の
 # コンパイルが走っていた。
 #
 # このモジュールが持つのは「システム側に要る設定」だけ:
@@ -31,7 +31,10 @@
 #   ヘッドレス起動ではエージェントは uinput / evdev を開けないが、
 #   デスクトップ専用ツールなので意図通り。
 # =============================================================================
-{ pkgs, ... }:
+{ pkgs, nur-openlogi-latest, ... }:
+let
+  openlogi = nur-openlogi-latest.packages.${pkgs.stdenv.hostPlatform.system}.openlogi;
+in
 {
   # uinput カーネルモジュールのロード（ボタンリマップ用の仮想入力デバイス作成に必要）
   hardware.uinput.enable = true;
@@ -41,10 +44,10 @@
   # パッケージは udev ルールと systemd user unit も同梱するが、どちらも
   # services.udev.packages / systemd.packages に載せない限り効かないので、
   # 下の宣言（簡約した udev ルールと unit）だけが実際に使われる
-  environment.systemPackages = [ pkgs.openlogi ];
+  environment.systemPackages = [ openlogi ];
 
   # エージェントの常駐。パッケージ同梱の unit は使わず、順序と再起動条件を
-  # 明示した同等の内容をここに持つ（ExecStart は overlay 経由の store パス）。
+  # 明示した同等の内容をここに持つ（ExecStart は NUR の store パス）。
   #
   # GUI の「ログイン時に起動」設定は agent 自身に
   # $XDG_CONFIG_HOME/systemd/user/openlogi-agent.service を書かせる。そちらは
@@ -55,7 +58,7 @@
     after = [ "graphical-session.target" ];
     wantedBy = [ "graphical-session.target" ];
     serviceConfig = {
-      ExecStart = "${pkgs.openlogi}/bin/openlogi-agent";
+      ExecStart = "${openlogi}/bin/openlogi-agent";
       Restart = "on-failure";
       RestartSec = 5;
     };
