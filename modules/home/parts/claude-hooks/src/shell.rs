@@ -1302,6 +1302,12 @@ mod tests {
             succeeded_before_gh("bash -c 'git push && gh pr'"),
             ["git push"]
         );
+        // 文字列の中の位置は外側の位置に寄せてあり、外側の置換の中のコマンドと位置が重なりうる
+        // （下の `a` と、文字列の中の `git` は同じ位置になる）。別のスコープのものは数えない
+        assert_eq!(
+            succeeded_before_gh("env A=$(a) bash -c 'true;  git push && gh pr'"),
+            ["git push"]
+        );
     }
 
     #[test]

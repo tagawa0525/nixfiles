@@ -151,7 +151,9 @@ for push in \
   "git push -u origin feat/no-upstream" \
   "git push origin -u HEAD" \
   "cd $REPO && git push -u origin HEAD" \
-  "git -C $REPO push -u origin HEAD"; do
+  "git -C $REPO push -u origin HEAD" \
+  "git push -u origin -- HEAD" \
+  "git push -u origin HEAD && cd $REPO"; do
   it "pre-pr-create: 同じ && の連鎖で先に現在のブランチを push するなら、上流と未プッシュを見ない: $push"
   out=$(run_hook pre-pr-create-check "$push && $GOOD_CMD")
   assert_eq allow "$(decision "$out")"
@@ -185,7 +187,12 @@ for chained in \
   "env git push && $GOOD_CMD" \
   "git -C $TEST_ROOT push -u origin HEAD && $GOOD_CMD" \
   "git push -u origin HEAD && cd $TEST_ROOT && $GOOD_CMD" \
-  "$GOOD_CMD && git push -u origin HEAD"; do
+  "$GOOD_CMD && git push -u origin HEAD" \
+  "git push -u origin HEAD && git switch -q -c other && $GOOD_CMD" \
+  "git push -u origin HEAD && git commit --allow-empty -m x && $GOOD_CMD" \
+  "git push -u origin HEAD && git branch --unset-upstream && $GOOD_CMD" \
+  "git switch -q -c other && git push -u origin feat/no-upstream && $GOOD_CMD" \
+  "git push -uq origin HEAD && $GOOD_CMD"; do
   it "pre-pr-create: 先の push が成功したとは限らない、または現在のブランチの上流を満たすとは限らないなら deny: ${chained%%gh pr create*}"
   out=$(run_hook pre-pr-create-check "$chained")
   assert_eq deny "$(decision "$out")"
