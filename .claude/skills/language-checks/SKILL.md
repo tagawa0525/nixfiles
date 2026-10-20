@@ -32,7 +32,7 @@ user-invocable: false
 
 ## Nix パッケージの固定出力ハッシュ
 
-`Cargo.lock` を変えたコミットでは、同じコミットで `cargoHash` も更新する（ハッシュが古いと
+`cargoHash`（`cargoLock` ではなく）を使うパッケージで `Cargo.lock` を変えたコミットでは、同じコミットで `cargoHash` も更新する（ハッシュが古いと
 `nix build` が失敗する）。手で取り出さず、スクリプトを使う:
 
 ```bash

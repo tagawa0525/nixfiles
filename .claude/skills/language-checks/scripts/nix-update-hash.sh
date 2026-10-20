@@ -13,7 +13,7 @@
 # （終了コードが消え、空の取り出しや失敗したビルドを成功と取り違えるため）。
 #
 # 取り出せなかったとき、再ビルドが失敗したときは、ログの場所を出して失敗する。
-# ハッシュを取れなかったときはファイルを元に戻す。
+# 失敗・中断したときはファイルを元に戻す（再ビルドの失敗も。ログは失敗時だけ残す）。
 #
 # 出力: 成功時に新しいハッシュを 1 行（stdout）。進行は stderr。
 
@@ -38,7 +38,7 @@ file="$2"
 cd "$dir"
 [ -f "$file" ] || { echo "ERROR: $file がない" >&2; exit 1; }
 
-pattern="(${attr}[[:space:]]*=[[:space:]]*)\"[^\"]*\""
+pattern="^([[:space:]]*${attr}[[:space:]]*=[[:space:]]*)\"[^\"]*\""
 [ "$(grep -cE "$pattern" "$file")" -eq 1 ] || {
   echo "ERROR: $file に $attr = \"...\" の行が 1 つだけでない" >&2
   exit 1
@@ -47,7 +47,9 @@ pattern="(${attr}[[:space:]]*=[[:space:]]*)\"[^\"]*\""
 backup=$(mktemp)
 log=$(mktemp)
 cp "$file" "$backup"
-trap 'rm -f "$backup"' EXIT
+# 中断（Ctrl-C、タイムアウト、途中の失敗）でダミーのハッシュを残さない。成功したときだけ書き換えを残す
+done_ok=no
+trap '[ "$done_ok" = yes ] || cp "$backup" "$file"; rm -f "$backup"' EXIT
 
 set_hash() {
   sed -E -i "s|${pattern}|\\1\"$1\"|" "$file"
@@ -58,9 +60,9 @@ echo "RUN: nix build --no-link .#${package}（ダミーのハッシュ）" >&2
 # ダミーのハッシュなので失敗するのが正。終了コードでなく、ログの got: で判断する
 nix build --no-link ".#${package}" >"$log" 2>&1 || true
 
-hash=$(grep -oE 'got:[[:space:]]+sha256-[A-Za-z0-9+/]+=*' "$log" | head -n 1 | sed -E 's/^got:[[:space:]]+//' || true)
+# specified: がダミーの不一致だけを採る（別の固定出力 derivation の不一致を取り違えない）
+hash=$(grep -A1 "specified:[[:space:]]*${DUMMY}" "$log" | grep -oE 'got:[[:space:]]+sha256-[A-Za-z0-9+/]+=*' | head -n 1 | sed -E 's/^got:[[:space:]]+//' || true)
 if [ -z "$hash" ]; then
-  cp "$backup" "$file"
   echo "ERROR: ログに got: sha256-... がない（$file は元に戻した）。ログ: $log" >&2
   exit 1
 fi
@@ -72,4 +74,6 @@ if ! nix build --no-link ".#${package}" >"$log" 2>&1; then
   exit 1
 fi
 
+done_ok=yes
+rm -f "$log"
 echo "$hash"

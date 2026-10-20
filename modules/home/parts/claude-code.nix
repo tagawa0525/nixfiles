@@ -172,6 +172,7 @@ let
         "Bash(~/.claude/skills/gh-pr-review/scripts/record-local-review.sh:*)"
         # language-checks スキルスクリプト
         "Bash(~/.claude/skills/language-checks/scripts/run-checks.sh:*)"
+        "Bash(~/.claude/skills/language-checks/scripts/nix-update-hash.sh:*)"
         # 設計の記録の CLI（adr スキル、git-merge スキル、branch-topics.sh。git.nix が PATH に入れる）
         "Bash(design-records new:*)"
         "Bash(design-records renumber:*)"
