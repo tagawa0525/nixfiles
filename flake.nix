@@ -169,10 +169,6 @@
             {
               # オーバーレイを追加
               nixpkgs.overlays = [
-                # 個人NUR: VSCode最新版（本体のみ）
-                (final: prev: {
-                  nur-vscode-latest = nur-vscode-latest.packages.${prev.stdenv.hostPlatform.system};
-                })
                 # VSCode拡張機能（nix-vscode-extensions）
                 nix-vscode-extensions.overlays.default
                 # AI Coding Agents
@@ -198,6 +194,7 @@
                 inherit mattpocock-skills; # 外部スキルの取得元（claude-code.nix の externalSkills）
                 inherit lsp-det; # ドッグフーディングの lsp-det（claude-code.nix）
                 inherit qmpo; # directory:// URIハンドラ（desktop.nix）
+                inherit nur-vscode-latest; # 個人NUR: VSCode最新版（editors.nix）
                 vscode-server = nixos-vscode-server; # VS Code Server自動パッチモジュール
               };
               # 各ユーザーの home-manager.users.<name> は modules/users/<name>.nix が
