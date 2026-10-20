@@ -232,6 +232,10 @@ for mode in current matching upstream tracking; do
   git -C "$REPO" config push.default "$mode"
   out=$(run_hook pre-pr-create-check "git push && $GOOD_CMD")
   assert_eq deny "$(decision "$out")"
+done
+for mode in current matching; do
+  it "pre-pr-create: push.default が $mode でも、-u origin HEAD は名前のとおりに push して上流を設定するので認める"
+  git -C "$REPO" config push.default "$mode"
   out=$(run_hook pre-pr-create-check "git push -u origin HEAD && $GOOD_CMD")
   assert_eq allow "$(decision "$out")"
 done

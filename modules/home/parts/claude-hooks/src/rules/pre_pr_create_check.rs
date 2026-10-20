@@ -34,16 +34,20 @@ use crate::shell::{Arg, Cmd, Shell, has_flag, opt_value};
 /// 前半も実行されないので、認める形を deny の文言で示す。
 const CHAINED_PUSH_HINT: &str = "同じ呼び出しで push するなら、git push -u origin HEAD && gh pr create … のように、コマンド全体を && でつないだ連鎖 1 つにしてください（gh は最後に置き、ほかに置けるのは cd だけです。; や || や改行でつないだ文、リダイレクトやほかのオプションを付けた push、別のリモートやブランチへの push は検査に反映されません）";
 
+/// コマンドに git push があるのに検査 3 を省けなかったときの案内。同じ書き方を勧めると、同じコマンドを投げ直し
+/// 続ける（反映できない理由は clone の設定などにもあり、文言では列挙しない）
+const REJECTED_PUSH_HINT: &str = "同じ呼び出しの git push は、検査に反映できる形ではありません（認める形は nixfiles の ADR-0040）。push を別の呼び出しにして、終わってから gh pr create を実行してください";
+
 pub struct PrePrCreateCheck;
 
 /// 実行前の状態で、現在のブランチに上流が無いか未プッシュのコミットがあれば、その理由
-fn unpushed_reason(dir: &Path) -> Option<String> {
+fn unpushed_reason(dir: &Path, hint: &str) -> Option<String> {
     let Some(upstream) = git::git(
         dir,
         &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
     ) else {
         return Some(format!(
-            "現在のブランチに上流ブランチがありません。先に git push してください（gh が対話的に push 先を尋ねて固まるのを防ぐ）。{CHAINED_PUSH_HINT}"
+            "現在のブランチに上流ブランチがありません。先に git push してください（gh が対話的に push 先を尋ねて固まるのを防ぐ）。{hint}"
         ));
     };
     let ahead =
@@ -55,48 +59,119 @@ fn unpushed_reason(dir: &Path) -> Option<String> {
     let hint = if ahead == "?" {
         String::new()
     } else {
-        format!("。{CHAINED_PUSH_HINT}")
+        format!("。{hint}")
     };
     Some(format!(
         "未プッシュのコミットが {ahead} 件あります（{upstream} より先）。先に git push してください{hint}"
     ))
 }
 
+/// 連鎖の push の形。押し先の設定のうち、どれが push の行き先を変えるかが形で違う
+#[derive(Clone, Copy, PartialEq)]
+enum PushForm {
+    /// 引数なし（`-u` だけを含む）。ブランチのリモート、`push.default`、押し先の設定で行き先が決まる
+    Bare,
+    /// `-u origin HEAD` / `-u origin <現在のブランチ>`
+    Explicit,
+}
+
 /// gh pr create の前に、同じ `&&` の連鎖で dir の現在のブランチを push するか。連鎖の左は `cd` と、認める形の
 /// git push 1 つだけにする。push の後でブランチを切り替える・コミットする・上流を外すコマンドや、push の前で
 /// ブランチを切り替えるコマンド（名前で指定した push が gh のブランチの上流にならない）を通さない（ADR-0040）
 ///
-/// gh の対象を push と別のリポジトリにするもの（前置きの代入の `GIT_DIR` や `GH_REPO`、包み、`-R`）があれば通さない。
-/// origin の fetch の refspec がブランチを追わない clone（`--single-branch`）では、push しても `@{u}` が解決せず
-/// gh が push 先を尋ねるので通さない
-fn pushed_before(gh: &Cmd, gh_args: &[Arg], shell: &Shell, base: &Path, dir: &Path) -> bool {
-    if !gh.env.is_empty() || !gh.wrappers.is_empty() || has_flag(gh_args, &["--repo", "-R"]) {
+/// gh の対象を push と別のリポジトリにするもの（前置きの代入の `GIT_DIR` や `GH_REPO`、包み、`-R`）があれば通さない
+fn pushed_before(gh: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> bool {
+    let Some(gh_args) = gh.gh_subcommand(&["pr", "create"]) else {
+        return false;
+    };
+    // `-Rowner/repo` の付け書きも gh は受ける
+    if !gh.env.is_empty()
+        || !gh.wrappers.is_empty()
+        || has_flag(gh_args, &["--repo"])
+        || gh_args.iter().any(|a| a.text.starts_with("-R"))
+    {
         return false;
     }
-    let mut pushes = 0;
+    let mut push = None;
     for c in shell.succeeded_before(gh) {
-        if pushes_current_branch(c, shell, base, dir) {
-            pushes += 1;
-        } else if !(c.changes_dir() && c.env.is_empty() && c.wrappers.is_empty()) {
-            // 前置きの代入（CDPATH）や builtin などの包みは、target_dir の読む行き先と実際の行き先を食い違わせうる
+        match pushes_current_branch(c, shell, base, dir) {
+            Some(form) if push.is_none() => push = Some(form),
+            Some(_) => return false,
+            None if is_plain_cd(c) => {}
+            None => return false,
+        }
+    }
+    push.is_some_and(|form| push_config_keeps_upstream(dir, form))
+}
+
+/// 1 つの行き先へ移るだけの cd か。前置きの代入（CDPATH）、builtin などの包み、`cd -` や引数なしは、target_dir の
+/// 読む行き先と実際の行き先を食い違わせうる
+fn is_plain_cd(cmd: &Cmd) -> bool {
+    cmd.changes_dir()
+        && cmd.env.is_empty()
+        && cmd.wrappers.is_empty()
+        && matches!(cmd.args.as_slice(), [a] if !a.text.starts_with('-'))
+}
+
+/// push が成功したなら、現在のブランチに同じ名前の、解決できる上流があると git の設定から言えるか
+///
+/// - `remote.<名前>.push` は名前で指定した push の行き先も書き換え、`remote.<名前>.mirror` は refspec と並べると
+///   push が失敗し、引数なしでは上流を設定しない
+/// - `push.default=upstream`（`tracking`）は、名前で指定した push も上流の名前（origin/main を追うブランチなら
+///   main）へ書き換える。引数なしの push は simple（既定）だけを認める。current は push.autoSetupRemote が無いと
+///   上流を設定せず、matching は現在のブランチを push しないことがある
+/// - 引数なしの push はブランチのリモート（`branch.<名前>.remote`）へ行き、`remote.pushDefault` と
+///   `branch.<名前>.pushRemote` があればそちらへ行く。origin の refspec で判断できるように、origin へ行くときだけ
+/// - origin の fetch の refspec が `refs/heads/*` を追わない clone（`--single-branch`）では、push しても `@{u}` が
+///   解決せず、gh が push 先を尋ねる
+fn push_config_keeps_upstream(dir: &Path, form: PushForm) -> bool {
+    // 1 回の git で読む。何も一致しなければ失敗（None）になるが、origin の fetch の refspec が無い clone も認めない
+    let Some(config) = git::git(
+        dir,
+        &[
+            "config",
+            "--get-regexp",
+            r"^(push\.default|remote\.pushdefault|branch\..*\.(pushremote|remote)|remote\..*\.(push|mirror|fetch))$",
+        ],
+    ) else {
+        return false;
+    };
+    let branch_remote = format!("branch.{}.remote", git::current_branch(dir));
+    let mut tracks_branches = false;
+    for line in config.lines() {
+        let (key, value) = line.split_once(' ').unwrap_or((line, ""));
+        let rejects = match key {
+            "push.default" => match form {
+                PushForm::Bare => value != "simple",
+                PushForm::Explicit => matches!(value, "upstream" | "tracking"),
+            },
+            "remote.pushdefault" => form == PushForm::Bare,
+            "remote.origin.fetch" => {
+                tracks_branches |=
+                    value.trim_start_matches('+') == "refs/heads/*:refs/remotes/origin/*";
+                false
+            }
+            k if k == branch_remote => form == PushForm::Bare && value != "origin",
+            k if k.starts_with("branch.") && k.ends_with(".pushremote") => form == PushForm::Bare,
+            k if k.starts_with("remote.") && (k.ends_with(".push") || k.ends_with(".mirror")) => {
+                true
+            }
+            _ => false,
+        };
+        if rejects {
             return false;
         }
     }
-    pushes == 1
-        && git::git(dir, &["config", "--get-all", "remote.origin.fetch"]).is_some_and(|refspecs| {
-            refspecs
-                .lines()
-                .any(|r| r.trim_start_matches('+') == "refs/heads/*:refs/remotes/origin/*")
-        })
+    tracks_branches
 }
 
-/// cmd が、dir の現在のブランチを origin へ push するだけの git push か。認めるのは
-/// `git push`（push.default が未設定か simple で、押し先を別に決める設定が無いとき）、`git push -u origin HEAD`、
-/// `git push -u origin <現在のブランチ>`（`-u` は `--set-upstream` でも、位置は問わない）だけで、
-/// ほかのオプション、refspec、前置きの代入、包み、`-C` 以外の git の全体オプションは認めない（ADR-0040）
-fn pushes_current_branch(cmd: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> bool {
+/// cmd が、dir の現在のブランチを origin へ push するだけの git push なら、その形。認めるのは `git push`、
+/// `git push -u origin HEAD`、`git push -u origin <現在のブランチ>`（`-u` は `--set-upstream` でも、位置は問わない）
+/// だけで、ほかのオプション、refspec、前置きの代入、包み、`-C` 以外の git の全体オプションは認めない（ADR-0040）。
+/// 行き先を変える git の設定は [`push_config_keeps_upstream`] が見る
+fn pushes_current_branch(cmd: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> Option<PushForm> {
     let Some(("push", args)) = cmd.git_subcommand() else {
-        return false;
+        return None;
     };
     // git の全体オプションは `-C <dir>` だけを認める（`--git-dir`、`--work-tree`、`-c` は push の対象や挙動を変える）。
     // サブコマンドの位置が `-C <dir>` の組の数の 2 倍なら、前にあるのはその組だけ
@@ -105,7 +180,7 @@ fn pushes_current_branch(cmd: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> b
         .as_ref()
         .is_some_and(|g| g.sub == Some(2 * g.dirs.len()))
     {
-        return false;
+        return None;
     }
     if cmd.opaque
         || cmd.has_error
@@ -113,7 +188,7 @@ fn pushes_current_branch(cmd: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> b
         || !cmd.wrappers.is_empty()
         || shell.target_dir(cmd, base) != dir
     {
-        return false;
+        return None;
     }
     let mut set_upstream = false;
     let mut positional = Vec::new();
@@ -121,33 +196,18 @@ fn pushes_current_branch(cmd: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> b
         match item {
             Item::Short('u') | Item::Long("--set-upstream") => set_upstream = true,
             Item::Positional(a) => positional.push(a),
-            _ => return false,
+            _ => return None,
         }
     }
     match positional.as_slice() {
-        // simple（既定）は、成功すれば現在のブランチが同じ名前の上流へ push してある（上流が無ければ失敗するか、
-        // push.autoSetupRemote で設定する）。current と matching は上流を設定せずに成功しうる。upstream は名前の
-        // 違う上流（origin/main を追うブランチ）へ push する。押し先を別に決める設定（remote.pushDefault、
-        // branch.<名前>.pushRemote の三角の構成、remote.<名前>.push、remote.<名前>.mirror）があると、simple でも
-        // 上流を設定せずに成功しうる
-        [] => {
-            git::git(dir, &["config", "push.default"]).is_none_or(|mode| mode == "simple")
-                && git::git(
-                    dir,
-                    &[
-                        "config",
-                        "--get-regexp",
-                        r"^(remote\.pushdefault|branch\..*\.pushremote|remote\..*\.(push|mirror))$",
-                    ],
-                )
-                .is_none()
-        }
+        [] => Some(PushForm::Bare),
         // 上流の無いブランチの `git push origin HEAD` は push しても上流を設定せず、gh が push 先を尋ねる
         [remote, refspec] if set_upstream && remote.text == "origin" => {
             let branch = git::current_branch(dir);
-            refspec.text == "HEAD" || (!branch.is_empty() && branch == refspec.text)
+            (refspec.text == "HEAD" || (!branch.is_empty() && branch == refspec.text))
+                .then_some(PushForm::Explicit)
         }
-        _ => false,
+        _ => None,
     }
 }
 
@@ -261,9 +321,18 @@ impl Rule for PrePrCreateCheck {
 
             // --- 3. 未プッシュコミット ---
             // 連鎖の push を調べるのは、実行前の状態で止めるときだけ（多くは上流が揃っていて git を余計に起こさない）
+            let has_push = shell
+                .commands()
+                .iter()
+                .any(|c| matches!(c.git_subcommand(), Some(("push", _))));
+            let hint = if has_push {
+                REJECTED_PUSH_HINT
+            } else {
+                CHAINED_PUSH_HINT
+            };
             if !has_flag(args, &["--head", "-H"])
-                && let Some(reason) = unpushed_reason(&dir)
-                && !pushed_before(cmd, args, shell, &input.cwd, &dir)
+                && let Some(reason) = unpushed_reason(&dir, hint)
+                && !pushed_before(cmd, shell, &input.cwd, &dir)
             {
                 reasons.push(reason);
             }
