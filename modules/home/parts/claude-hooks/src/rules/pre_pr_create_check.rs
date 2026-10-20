@@ -25,15 +25,31 @@ use std::path::Path;
 
 use super::Rule;
 use crate::git;
+use crate::git_args::{Item, items};
 use crate::input::Input;
 use crate::output::Finding;
 use crate::shell::{Arg, Cmd, Shell, has_flag, opt_value};
 
 /// 検査は実行前のブランチの状態を見る。認める形でない push を前に連ねるとコマンド全体が止まって
 /// 前半も実行されないので、認める形を deny の文言で示す。
-const CHAINED_PUSH_HINT: &str = "同じ呼び出しで push するなら、git push -u origin HEAD && gh pr create … のように && でつないでください（; や || でつないだ push、別のリモートやブランチへの push は検査に反映されません）";
+const CHAINED_PUSH_HINT: &str = "同じ呼び出しで push するなら、git push -u origin HEAD && gh pr create … のように && でつないでください（ほかに && でつなげるのは cd だけです。; や || でつないだ push、リダイレクトやほかのオプションを付けた push、別のリモートやブランチへの push は検査に反映されません）";
 
 pub struct PrePrCreateCheck;
+
+/// gh pr create の前に、同じ `&&` の連鎖で dir の現在のブランチを push するか。連鎖の左は `cd` と、認める形の
+/// git push 1 つだけにする。push の後でブランチを切り替える・コミットする・上流を外すコマンドや、push の前で
+/// ブランチを切り替えるコマンド（名前で指定した push が gh のブランチの上流にならない）を通さない（ADR-0040）
+fn pushed_before(gh: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> bool {
+    let mut pushes = 0;
+    for c in shell.succeeded_before(gh) {
+        if pushes_current_branch(c, shell, base, dir) {
+            pushes += 1;
+        } else if !c.changes_dir() {
+            return false;
+        }
+    }
+    pushes == 1
+}
 
 /// cmd が、dir の現在のブランチを origin へ push するだけの git push か。認めるのは
 /// `git push`（push.default が未設定か simple / upstream のとき）、`git push -u origin HEAD`、
@@ -52,14 +68,14 @@ fn pushes_current_branch(cmd: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> b
     {
         return false;
     }
-    let (flags, positional): (Vec<&Arg>, Vec<&Arg>) =
-        args.iter().partition(|a| a.text.starts_with('-'));
-    let set_upstream = !flags.is_empty();
-    if flags
-        .iter()
-        .any(|a| a.text != "-u" && a.text != "--set-upstream")
-    {
-        return false;
+    let mut set_upstream = false;
+    let mut positional = Vec::new();
+    for item in items("push", args) {
+        match item {
+            Item::Short('u') | Item::Long("--set-upstream") => set_upstream = true,
+            Item::Positional(a) => positional.push(a),
+            _ => return false,
+        }
     }
     match positional.as_slice() {
         // simple（既定）と upstream は、成功すれば現在のブランチが上流へ push してある（上流が無ければ失敗するか、
@@ -184,10 +200,7 @@ impl Rule for PrePrCreateCheck {
             }
 
             // --- 3. 未プッシュコミット ---
-            let pushed = shell
-                .succeeded_before(cmd)
-                .any(|p| pushes_current_branch(p, shell, &input.cwd, &dir));
-            if !has_flag(args, &["--head", "-H"]) && !pushed {
+            if !has_flag(args, &["--head", "-H"]) && !pushed_before(cmd, shell, &input.cwd, &dir) {
                 match git::git(&dir, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]) {
                     None => reasons.push(format!("現在のブランチに上流ブランチがありません。先に git push してください（gh が対話的に push 先を尋ねて固まるのを防ぐ）。{CHAINED_PUSH_HINT}")),
                     Some(upstream) => {

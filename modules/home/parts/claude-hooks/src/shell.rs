@@ -529,7 +529,11 @@ impl Shell {
     /// つないだ単純コマンドの連鎖のときの、左のコマンド。`;`、`||`、`&`、パイプでつないだもの、包む構文
     /// （パイプライン、`!`、`(…)`、`{ …; }`、リダイレクト）の中のものは含めない
     pub fn succeeded_before<'a>(&'a self, cmd: &'a Cmd) -> impl Iterator<Item = &'a Cmd> {
-        self.cmds.iter().filter(|c| cmd.after.contains(&c.start))
+        // 文字列の中のコマンドの位置は外側に寄せてあり（`command`）、別のスコープのコマンドと重なりうる。
+        // 連鎖の左は同じ `list` にあるので、スコープも同じ
+        self.cmds
+            .iter()
+            .filter(|c| c.scope == cmd.scope && cmd.after.contains(&c.start))
     }
 
     /// cmd が `ssh` か `sudo -i` の中で走るか（`target_dir` が手元に実在しない場所の書き方から始める）。
