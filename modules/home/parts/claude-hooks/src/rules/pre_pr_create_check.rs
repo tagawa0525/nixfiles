@@ -65,16 +65,29 @@ fn unpushed_reason(dir: &Path) -> Option<String> {
 /// gh pr create の前に、同じ `&&` の連鎖で dir の現在のブランチを push するか。連鎖の左は `cd` と、認める形の
 /// git push 1 つだけにする。push の後でブランチを切り替える・コミットする・上流を外すコマンドや、push の前で
 /// ブランチを切り替えるコマンド（名前で指定した push が gh のブランチの上流にならない）を通さない（ADR-0040）
-fn pushed_before(gh: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> bool {
+///
+/// gh の対象を push と別のリポジトリにするもの（前置きの代入の `GIT_DIR` や `GH_REPO`、包み、`-R`）があれば通さない。
+/// origin の fetch の refspec がブランチを追わない clone（`--single-branch`）では、push しても `@{u}` が解決せず
+/// gh が push 先を尋ねるので通さない
+fn pushed_before(gh: &Cmd, gh_args: &[Arg], shell: &Shell, base: &Path, dir: &Path) -> bool {
+    if !gh.env.is_empty() || !gh.wrappers.is_empty() || has_flag(gh_args, &["--repo", "-R"]) {
+        return false;
+    }
     let mut pushes = 0;
     for c in shell.succeeded_before(gh) {
         if pushes_current_branch(c, shell, base, dir) {
             pushes += 1;
-        } else if !c.changes_dir() {
+        } else if !(c.changes_dir() && c.env.is_empty() && c.wrappers.is_empty()) {
+            // 前置きの代入（CDPATH）や builtin などの包みは、target_dir の読む行き先と実際の行き先を食い違わせうる
             return false;
         }
     }
     pushes == 1
+        && git::git(dir, &["config", "--get-all", "remote.origin.fetch"]).is_some_and(|refspecs| {
+            refspecs
+                .lines()
+                .any(|r| r.trim_start_matches('+') == "refs/heads/*:refs/remotes/origin/*")
+        })
 }
 
 /// cmd が、dir の現在のブランチを origin へ push するだけの git push か。認めるのは
@@ -85,9 +98,13 @@ fn pushes_current_branch(cmd: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> b
     let Some(("push", args)) = cmd.git_subcommand() else {
         return false;
     };
-    // git の全体オプションは `-C <dir>` だけを認める（`--git-dir`、`--work-tree`、`-c` は push の対象や挙動を変える）
-    let globals = &cmd.args[..cmd.args.len() - args.len() - 1]; // サブコマンドより前
-    if !globals.len().is_multiple_of(2) || globals.chunks(2).any(|pair| pair[0].text != "-C") {
+    // git の全体オプションは `-C <dir>` だけを認める（`--git-dir`、`--work-tree`、`-c` は push の対象や挙動を変える）。
+    // サブコマンドの位置が `-C <dir>` の組の数の 2 倍なら、前にあるのはその組だけ
+    if !cmd
+        .git
+        .as_ref()
+        .is_some_and(|g| g.sub == Some(2 * g.dirs.len()))
+    {
         return false;
     }
     if cmd.opaque
@@ -246,7 +263,7 @@ impl Rule for PrePrCreateCheck {
             // 連鎖の push を調べるのは、実行前の状態で止めるときだけ（多くは上流が揃っていて git を余計に起こさない）
             if !has_flag(args, &["--head", "-H"])
                 && let Some(reason) = unpushed_reason(&dir)
-                && !pushed_before(cmd, shell, &input.cwd, &dir)
+                && !pushed_before(cmd, args, shell, &input.cwd, &dir)
             {
                 reasons.push(reason);
             }

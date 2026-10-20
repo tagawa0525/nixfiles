@@ -146,8 +146,9 @@ pub struct Cmd {
     pub remote: Option<String>,
     /// git のコマンドなら、グローバルオプションの読み取り
     pub git: Option<GitInvocation>,
-    /// このコマンドが走るときに成功していた単純コマンドの `start`（[`Shell::succeeded_before`]）。トップレベルの
-    /// コマンドだけが持つ（文字列の中の位置は外側に寄せてあり、ほかのコマンドの位置と重なりうる）
+    /// このコマンドが走るときに成功していた単純コマンドの `start`（[`Shell::succeeded_before`]）。コマンド
+    /// 文字列全体である `&&` の連鎖の最後のコマンドだけが持つ。`bash -c` などの文字列の中では求めない（文字列の中の
+    /// 位置は外側に寄せてあり、ほかのコマンドの位置と重なりうる）
     pub after: Vec<usize>,
 }
 
@@ -569,7 +570,9 @@ fn list_parts(list: Node) -> Option<(&'static str, Node, Node)> {
 /// 数えられないので None
 fn succeeded_commands(node: Node, out: &mut Vec<usize>) -> Option<()> {
     match node.kind() {
-        "command" if !contains_substitution(node) => out.push(node.start_byte()),
+        "command" if !contains_substitution(node) && !has_redirect(node) => {
+            out.push(node.start_byte())
+        }
         "list" => match list_parts(node)? {
             ("&&", left, right) => {
                 succeeded_commands(left, out)?;
@@ -580,6 +583,14 @@ fn succeeded_commands(node: Node, out: &mut Vec<usize>) -> Option<()> {
         _ => return None,
     }
     Some(())
+}
+
+/// コマンドの中に付いたリダイレクト（`<<<x`、`>/dev/null` を引数の間に書いたもの）があるか。tree-sitter-bash は
+/// 書き方によって `command` の中にも外（`redirected_statement`）にも付ける
+fn has_redirect(node: Node) -> bool {
+    let mut cursor = node.walk();
+    node.named_children(&mut cursor)
+        .any(|n| n.kind().ends_with("redirect"))
 }
 
 fn contains_substitution(node: Node) -> bool {
