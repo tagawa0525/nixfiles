@@ -214,7 +214,9 @@ git push -u origin feat/no-upstream && $GOOD_CMD" \
   "git push -u origin HEAD && GIT_DIR=$TEST_ROOT/none/.git $GOOD_CMD" \
   "git push -u origin HEAD && GH_REPO=example/other $GOOD_CMD" \
   "git push -u origin HEAD && $GOOD_CMD -R example/other" \
-  "git push -u origin HEAD && $GOOD_CMD --repo=example/other"; do
+  "git push -u origin HEAD && $GOOD_CMD --repo=example/other" \
+  "git push -u origin HEAD && $GOOD_CMD -Rexample/other" \
+  "cd $REPO && cd $TEST_ROOT && cd - && git push -u origin HEAD && $GOOD_CMD"; do
   it "pre-pr-create: 先の push が成功したとは限らない、または現在のブランチの上流を満たすとは限らないなら deny: ${chained%%gh pr create*}"
   out=$(run_hook pre-pr-create-check "$chained")
   assert_eq deny "$(decision "$out")"
@@ -250,10 +252,35 @@ for key in remote.pushDefault branch.feat/no-upstream.pushRemote remote.origin.p
   fi
   out=$(run_hook pre-pr-create-check "git push && $GOOD_CMD")
   assert_eq deny "$(decision "$out")"
+  # remote.<名前>.push は名前で指定した push の行き先も書き換え、mirror は refspec と並べると push が失敗する
+  if [[ $key == remote.origin.push || $key == remote.origin.mirror ]]; then
+    expected=deny
+  else
+    expected=allow
+  fi
   out=$(run_hook pre-pr-create-check "git push -u origin HEAD && $GOOD_CMD")
-  assert_eq allow "$(decision "$out")"
+  assert_eq "$expected" "$(decision "$out")"
   git -C "$REPO" config --unset "$key"
 done
+
+it "pre-pr-create: push.default が upstream なら、名前で指定した push も上流の名前へ書き換わるので deny"
+git -C "$REPO" config push.default upstream
+out=$(run_hook pre-pr-create-check "git push -u origin HEAD && $GOOD_CMD")
+assert_eq deny "$(decision "$out")"
+out=$(run_hook pre-pr-create-check "git push -u origin feat/no-upstream && $GOOD_CMD")
+assert_eq deny "$(decision "$out")"
+git -C "$REPO" config --unset push.default
+
+it "pre-pr-create: ブランチのリモートが origin でなければ、前の引数なしの git push は origin の refspec で判断できないので deny"
+git -C "$REPO" config remote.fork.url "$TEST_ROOT/none"
+git -C "$REPO" config remote.fork.fetch '+refs/heads/main:refs/remotes/fork/main'
+git -C "$REPO" config branch.feat/no-upstream.remote fork
+git -C "$REPO" config branch.feat/no-upstream.merge refs/heads/feat/no-upstream
+out=$(run_hook pre-pr-create-check "git push && $GOOD_CMD")
+assert_eq deny "$(decision "$out")"
+git -C "$REPO" config --unset branch.feat/no-upstream.remote
+git -C "$REPO" config --unset branch.feat/no-upstream.merge
+git -C "$REPO" config --remove-section remote.fork
 git -C "$REPO" switch -q feat/x
 
 it "pre-pr-create: origin の fetch の refspec がブランチを追わない clone では、push しても上流が解決しないので deny"
@@ -262,6 +289,9 @@ git -C "$REPO" switch -q feat/no-upstream
 git -C "$REPO" config remote.origin.fetch '+refs/heads/main:refs/remotes/origin/main'
 out=$(run_hook pre-pr-create-check "git push -u origin HEAD && $GOOD_CMD")
 assert_eq deny "$(decision "$out")"
+# 連鎖の形で書いた push が反映されなかったときは、同じ書き方を勧めず、別の呼び出しを案内する
+assert_contains "$(reason "$out")" "別の呼び出し"
+assert_not_contains "$(reason "$out")" "&& でつない"
 git -C "$REPO" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
 out=$(run_hook pre-pr-create-check "git push -u origin HEAD && $GOOD_CMD")
 assert_eq allow "$(decision "$out")"
