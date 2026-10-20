@@ -519,6 +519,36 @@ impl Shell {
         dir
     }
 
+    /// cmd が走るときに成功していたコマンド（文書順）。コマンド文字列全体が `&&` だけでつないだ単純コマンドの
+    /// 連鎖 1 つで、cmd がその最後にあるときの、左のコマンド。それ以外は空
+    ///
+    /// 木を引き直すのは、このトップレベルの木の上の位置を持つコマンド（`scope` が空）だけ。`bash -c` などの文字列の
+    /// 中のコマンドの位置は外側に寄せてあり、ほかのコマンドの位置と重なりうる
+    pub fn succeeded_before<'a>(&'a self, cmd: &'a Cmd) -> impl Iterator<Item = &'a Cmd> {
+        let starts = if cmd.scope.is_empty() {
+            self.command_node_at(cmd.start)
+                .map(and_chain_predecessors)
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        self.cmds
+            .iter()
+            .filter(move |c| c.scope.is_empty() && starts.contains(&c.start))
+    }
+
+    /// `start` から始まる `command` ノード
+    fn command_node_at(&self, start: usize) -> Option<Node<'_>> {
+        let mut node = self
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start, start)?;
+        while node.kind() != "command" || node.start_byte() != start {
+            node = node.parent()?;
+        }
+        Some(node)
+    }
+
     /// cmd が `ssh` か `sudo -i` の中で走るか（`target_dir` が手元に実在しない場所の書き方から始める）。
     /// ルールが止める理由を、移れない cd 先と取り違えずに書くのに使う
     pub fn runs_under_ssh_or_login(&self, cmd: &Cmd) -> bool {
@@ -531,6 +561,87 @@ impl Shell {
                     && moves_away(c)
             })
     }
+}
+
+/// `list` ノード（`a && b`、`a || b`）の演算子と、左右のオペランド。tree-sitter-bash は `a && b && c` を
+/// `(list (list a b) c)` と左に結合して読む
+fn list_parts(list: Node) -> Option<(&'static str, Node, Node)> {
+    let mut cursor = list.walk();
+    let mut operands = list
+        .named_children(&mut cursor)
+        .filter(|n| n.kind() != "comment");
+    let left = operands.next()?;
+    let right = operands.next()?;
+    let mut cursor = list.walk();
+    let op = list
+        .children(&mut cursor)
+        .find(|n| !n.is_named())
+        .map(|n| n.kind())?;
+    Some((op, left, right))
+}
+
+/// ノードが成功したなら成功していた単純コマンドの開始位置。`&&` だけでつないだ単純コマンドでないもの（`||`、
+/// パイプライン、`(…)`、`{ …; }`、ループ、代入、置換を含むコマンドなど）が 1 つでもあれば、その中で何が走ったかを
+/// 数えられないので None
+fn succeeded_commands(node: Node, out: &mut Vec<usize>) -> Option<()> {
+    match node.kind() {
+        "command" if !contains_substitution(node) && !has_redirect(node) => {
+            out.push(node.start_byte())
+        }
+        "list" => match list_parts(node)? {
+            ("&&", left, right) => {
+                succeeded_commands(left, out)?;
+                succeeded_commands(right, out)?;
+            }
+            _ => return None,
+        },
+        _ => return None,
+    }
+    Some(())
+}
+
+/// コマンドの中に付いたリダイレクト（`<<<x`、`>/dev/null` を引数の間に書いたもの）があるか。tree-sitter-bash は
+/// 書き方によって `command` の中にも外（`redirected_statement`）にも付ける
+fn has_redirect(node: Node) -> bool {
+    let mut cursor = node.walk();
+    node.named_children(&mut cursor)
+        .any(|n| n.kind().ends_with("redirect"))
+}
+
+fn contains_substitution(node: Node) -> bool {
+    if is_substitution(node) {
+        return true;
+    }
+    let mut cursor = node.walk();
+    node.children(&mut cursor).any(contains_substitution)
+}
+
+/// `command` ノードが、プログラム全体である `&&` の連鎖の最後なら、それが走るときに成功していた単純コマンドの
+/// 開始位置。連鎖の外に文があると（前の `;` や改行の文、関数の定義、後ろの `|| …`、連鎖を包むリダイレクトや
+/// サブシェル）、それが連鎖の中のコマンドの意味や状態を変えうるので空
+fn and_chain_predecessors(node: Node) -> Vec<usize> {
+    let mut out = Vec::new();
+    if let Some(parent) = node.parent()
+        && parent.kind() == "list"
+        && let Some(("&&", left, right)) = list_parts(parent)
+        && right.id() == node.id()
+        && parent.parent().is_some_and(is_single_statement_program)
+        && succeeded_commands(left, &mut out).is_some()
+    {
+        return out;
+    }
+    Vec::new()
+}
+
+/// 注釈を除いて文が 1 つだけのプログラムか
+fn is_single_statement_program(node: Node) -> bool {
+    let mut cursor = node.walk();
+    node.kind() == "program"
+        && node
+            .named_children(&mut cursor)
+            .filter(|n| n.kind() != "comment")
+            .count()
+            == 1
 }
 
 fn strip(s: &str, open: &str, close: &str) -> String {
@@ -1216,5 +1327,76 @@ mod tests {
         let all = cmds("git commit --all");
         let (sub, args) = all[0].git_subcommand().unwrap();
         assert!(!crate::git_args::git_flag(sub, args, Some('a'), &[]));
+    }
+
+    /// src の中の最後の `gh` が走るときに成功していたコマンドの、名前と最初の引数
+    fn succeeded_before_gh(src: &str) -> Vec<String> {
+        let sh = Shell::parse(src);
+        let gh = sh.commands().iter().rfind(|c| c.name == "gh").unwrap();
+        sh.succeeded_before(gh)
+            .map(|c| match c.args.first() {
+                Some(a) => format!("{} {}", c.name, a.text),
+                None => c.name.clone(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn succeeded_before_lists_commands_chained_by_and() {
+        assert_eq!(succeeded_before_gh("git push && gh pr"), ["git push"]);
+        assert_eq!(
+            succeeded_before_gh("cd /x && git push -u origin HEAD && gh pr"),
+            ["cd /x", "git push"]
+        );
+        assert_eq!(
+            succeeded_before_gh("git push &&\n  gh pr  # 改行で続ける"),
+            ["git push"]
+        );
+    }
+
+    #[test]
+    fn succeeded_before_needs_the_chain_to_be_the_whole_program() {
+        // 連鎖の外の文（前の `;` や改行の文、関数の定義）は、連鎖の中のコマンドの意味や状態を変えうる
+        assert!(succeeded_before_gh("git fetch; git push && gh pr").is_empty());
+        assert!(succeeded_before_gh("git switch -c b\ngit push && gh pr").is_empty());
+        assert!(succeeded_before_gh("git() { :; }; git push && gh pr").is_empty());
+        assert!(succeeded_before_gh("git push && gh pr || echo failed").is_empty());
+        assert!(succeeded_before_gh("git push && gh pr > out.txt").is_empty());
+        assert!(succeeded_before_gh("(git push && gh pr)").is_empty());
+        // 文字列の中の連鎖は、外側のシェルの文と並ぶので数えない
+        assert!(succeeded_before_gh("bash -c 'git push && gh pr'").is_empty());
+        assert!(succeeded_before_gh("env A=$(a) bash -c 'true;  git push && gh pr'").is_empty());
+    }
+
+    #[test]
+    fn succeeded_before_excludes_commands_not_required_to_succeed() {
+        assert!(succeeded_before_gh("git push; gh pr").is_empty());
+        assert!(succeeded_before_gh("git push || gh pr").is_empty());
+        assert!(succeeded_before_gh("git push & gh pr").is_empty());
+        assert!(succeeded_before_gh("git push | gh pr").is_empty());
+        assert!(succeeded_before_gh("git push\ngh pr").is_empty());
+        assert!(succeeded_before_gh("gh pr && git push").is_empty());
+        // || の左は失敗しても右へ進むので、その中の && の連鎖も成功したとは限らない
+        assert!(succeeded_before_gh("git push || true && gh pr").is_empty());
+        assert!(succeeded_before_gh("cd /x && git push || echo && gh pr").is_empty());
+        assert!(succeeded_before_gh("git switch -c o || true && git push && gh pr").is_empty());
+        // 連鎖のどこかに単純コマンドでないものがあれば、その中で何が走ったかを数えられないので、連鎖全体を数えない
+        assert!(succeeded_before_gh("git push && (git switch -c o) && gh pr").is_empty());
+        assert!(succeeded_before_gh("git push && { git commit; } && gh pr").is_empty());
+        assert!(succeeded_before_gh("git push && git commit | cat && gh pr").is_empty());
+        assert!(
+            succeeded_before_gh("git push && for b in o; do git switch $b; done && gh pr")
+                .is_empty()
+        );
+        assert!(succeeded_before_gh("git push && export X=1 && gh pr").is_empty());
+        // 包みの中（パイプ、否定、サブシェル、グループ、リダイレクト、置換）は単純コマンドとして読まない
+        assert!(succeeded_before_gh("git push | cat && gh pr").is_empty());
+        assert!(succeeded_before_gh("! git push && gh pr").is_empty());
+        assert!(succeeded_before_gh("(git push) && gh pr").is_empty());
+        assert!(succeeded_before_gh("{ git push; } && gh pr").is_empty());
+        assert!(succeeded_before_gh("git push 2>&1 && gh pr").is_empty());
+        assert!(succeeded_before_gh("git push <<<x && gh pr").is_empty());
+        assert!(succeeded_before_gh("git push >/dev/null -u origin HEAD && gh pr").is_empty());
+        assert!(succeeded_before_gh("cd $(git switch -c o) && git push && gh pr").is_empty());
     }
 }
