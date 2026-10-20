@@ -36,6 +36,32 @@ const CHAINED_PUSH_HINT: &str = "同じ呼び出しで push するなら、git p
 
 pub struct PrePrCreateCheck;
 
+/// 実行前の状態で、現在のブランチに上流が無いか未プッシュのコミットがあれば、その理由
+fn unpushed_reason(dir: &Path) -> Option<String> {
+    let Some(upstream) = git::git(
+        dir,
+        &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+    ) else {
+        return Some(format!(
+            "現在のブランチに上流ブランチがありません。先に git push してください（gh が対話的に push 先を尋ねて固まるのを防ぐ）。{CHAINED_PUSH_HINT}"
+        ));
+    };
+    let ahead =
+        git::git(dir, &["rev-list", "--count", "@{u}..HEAD"]).unwrap_or_else(|| "?".to_string());
+    if ahead == "0" {
+        return None;
+    }
+    // 件数が取れなかった（"?"）ときは原因が未プッシュとは限らないので、書き方は示さない
+    let hint = if ahead == "?" {
+        String::new()
+    } else {
+        format!("。{CHAINED_PUSH_HINT}")
+    };
+    Some(format!(
+        "未プッシュのコミットが {ahead} 件あります（{upstream} より先）。先に git push してください{hint}"
+    ))
+}
+
 /// gh pr create の前に、同じ `&&` の連鎖で dir の現在のブランチを push するか。連鎖の左は `cd` と、認める形の
 /// git push 1 つだけにする。push の後でブランチを切り替える・コミットする・上流を外すコマンドや、push の前で
 /// ブランチを切り替えるコマンド（名前で指定した push が gh のブランチの上流にならない）を通さない（ADR-0040）
@@ -52,7 +78,7 @@ fn pushed_before(gh: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> bool {
 }
 
 /// cmd が、dir の現在のブランチを origin へ push するだけの git push か。認めるのは
-/// `git push`（push.default が未設定か simple / upstream のとき）、`git push -u origin HEAD`、
+/// `git push`（push.default が未設定か simple / upstream で、押し先を別に決める設定が無いとき）、`git push -u origin HEAD`、
 /// `git push -u origin <現在のブランチ>`（`-u` は `--set-upstream` でも、位置は問わない）だけで、
 /// ほかのオプション、refspec、前置きの代入、包み、`git -c` は認めない（ADR-0040）
 fn pushes_current_branch(cmd: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> bool {
@@ -80,8 +106,21 @@ fn pushes_current_branch(cmd: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> b
     match positional.as_slice() {
         // simple（既定）と upstream は、成功すれば現在のブランチが上流へ push してある（上流が無ければ失敗するか、
         // push.autoSetupRemote で設定する）。current と matching は上流を設定せずに成功しうる
-        [] => git::git(dir, &["config", "push.default"])
-            .is_none_or(|mode| matches!(mode.as_str(), "simple" | "upstream" | "tracking")),
+        // 押し先を別に決める設定（remote.pushDefault、branch.<名前>.pushRemote の三角の構成と、remote.<名前>.push）
+        // があると、simple でも上流を設定せずに成功しうる
+        [] => {
+            git::git(dir, &["config", "push.default"])
+                .is_none_or(|mode| matches!(mode.as_str(), "simple" | "upstream" | "tracking"))
+                && git::git(
+                    dir,
+                    &[
+                        "config",
+                        "--get-regexp",
+                        r"^(remote\.pushdefault|branch\..*\.pushremote|remote\..*\.push)$",
+                    ],
+                )
+                .is_none()
+        }
         // 上流の無いブランチの `git push origin HEAD` は push しても上流を設定せず、gh が push 先を尋ねる
         [remote, refspec] if set_upstream && remote.text == "origin" => {
             let branch = git::current_branch(dir);
@@ -200,21 +239,12 @@ impl Rule for PrePrCreateCheck {
             }
 
             // --- 3. 未プッシュコミット ---
-            if !has_flag(args, &["--head", "-H"]) && !pushed_before(cmd, shell, &input.cwd, &dir) {
-                match git::git(&dir, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]) {
-                    None => reasons.push(format!("現在のブランチに上流ブランチがありません。先に git push してください（gh が対話的に push 先を尋ねて固まるのを防ぐ）。{CHAINED_PUSH_HINT}")),
-                    Some(upstream) => {
-                        let ahead = git::git(&dir, &["rev-list", "--count", "@{u}..HEAD"])
-                            .unwrap_or_else(|| "?".to_string());
-                        if ahead != "0" {
-                            // 件数が取れなかった（"?"）ときは原因が未プッシュとは限らないので、分け方は示さない
-                            let hint = if ahead == "?" { String::new() } else { format!("。{CHAINED_PUSH_HINT}") };
-                            reasons.push(format!(
-                                "未プッシュのコミットが {ahead} 件あります（{upstream} より先）。先に git push してください{hint}"
-                            ));
-                        }
-                    }
-                }
+            // 連鎖の push を調べるのは、実行前の状態で止めるときだけ（多くは上流が揃っていて git を余計に起こさない）
+            if !has_flag(args, &["--head", "-H"])
+                && let Some(reason) = unpushed_reason(&dir)
+                && !pushed_before(cmd, shell, &input.cwd, &dir)
+            {
+                reasons.push(reason);
             }
 
             if !reasons.is_empty() {

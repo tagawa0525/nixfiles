@@ -567,18 +567,30 @@ fn list_parts(list: Node) -> Option<(&'static str, Node, Node)> {
     Some((op, left, right))
 }
 
-/// ノードが成功したなら成功していた単純コマンドの開始位置。`||` の連鎖は、どれが成功したか決まらないので空
-fn succeeded_commands(node: Node, out: &mut Vec<usize>) {
+/// ノードが成功したなら成功していた単純コマンドの開始位置。`&&` だけでつないだ単純コマンドでないもの（`||`、
+/// パイプライン、`(…)`、`{ …; }`、ループ、代入、置換を含むコマンドなど）が 1 つでもあれば、その中で何が走ったかを
+/// 数えられないので None
+fn succeeded_commands(node: Node, out: &mut Vec<usize>) -> Option<()> {
     match node.kind() {
-        "command" => out.push(node.start_byte()),
-        "list" => {
-            if let Some(("&&", left, right)) = list_parts(node) {
-                succeeded_commands(left, out);
-                succeeded_commands(right, out);
+        "command" if !contains_substitution(node) => out.push(node.start_byte()),
+        "list" => match list_parts(node)? {
+            ("&&", left, right) => {
+                succeeded_commands(left, out)?;
+                succeeded_commands(right, out)?;
             }
-        }
-        _ => {}
+            _ => return None,
+        },
+        _ => return None,
     }
+    Some(())
+}
+
+fn contains_substitution(node: Node) -> bool {
+    if is_substitution(node) {
+        return true;
+    }
+    let mut cursor = node.walk();
+    node.children(&mut cursor).any(contains_substitution)
 }
 
 /// `command` ノードが `&&` の右オペランドなら、それが走るときに成功していた単純コマンドの開始位置
@@ -588,10 +600,11 @@ fn and_chain_predecessors(node: Node) -> Vec<usize> {
         && parent.kind() == "list"
         && let Some(("&&", left, right)) = list_parts(parent)
         && right.id() == node.id()
+        && succeeded_commands(left, &mut out).is_some()
     {
-        succeeded_commands(left, &mut out);
+        return out;
     }
-    out
+    Vec::new()
 }
 
 fn strip(s: &str, open: &str, close: &str) -> String {
