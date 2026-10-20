@@ -29,7 +29,7 @@ r995 は計算（xlc、OpenMC）に使う。時間を測る計算は `sbatch --e
 - スケジューラの既定は `system-services`（`/system.slice/*`）に `nice=12 io="idle"` を与え、`sched=` が無いので OTHER に戻す。
   名前が c++、cargo、clang、cmake などのものは `batch`（`nice=19 sched="idle"`）にする
 - 除外に一致したプロセスは、優先度を変えずに飛ばされる。**プロセスの名前は `/proc/<pid>/exe` の実体のファイル名**
-  （スケジューラのソースの `process::name`）。nix-daemon は `nix` へのsymlinkなので、名前は `nix-daemon`
+  （スケジューラのソースの `process::name`）。nix-daemon は `nix` への symlink なので、名前は `nix-daemon`
   ではなく `nix` になる。名前を `nix-daemon` と書いた除外は一致せず、再起動した nix-daemon も `nice=12`、`SCHED_OTHER` だった
   - 出典（2026-10-11 に確認）: system76-scheduler 2.0.2-unstable-2026-07-22（nixpkgs の `system76-scheduler.src`、
     コミット 8651bbf74bcf）の `daemon/src/process.rs`（`cmdline` が `/proc/<pid>/exe` を読み、`name` がその
