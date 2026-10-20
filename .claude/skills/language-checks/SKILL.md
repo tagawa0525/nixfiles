@@ -30,6 +30,17 @@ user-invocable: false
   `design-records check --changed <変更したファイル>` で ADR の形と参照も検査する
 - 失敗時は `FAILED:` に続けて `FIX:`（自動修正コマンド）を出す。ツールがなければ `SKIP:` で続行
 
+## Nix パッケージの固定出力ハッシュ
+
+`Cargo.lock` を変えたコミットでは、同じコミットで `cargoHash` も更新する（ハッシュが古いと
+`nix build` が失敗する）。手で取り出さず、スクリプトを使う:
+
+```bash
+~/.claude/skills/language-checks/scripts/nix-update-hash.sh [-C <dir>] [-a <属性>] <パッケージ> <ファイル>
+```
+
+属性の既定は `cargoHash`。ハッシュを取れない、再ビルドが失敗したときは非 0 で終わる。
+
 ## プロジェクト設定の優先
 
 プロジェクトの CLAUDE.md やドキュメントにチェックコマンドが明記されている
