@@ -12,7 +12,7 @@ issues: []
 ## 背景
 
 r995 は計算（xlc、OpenMC）に使う。時間を測る計算は `sbatch --exclusive` で流し、ほかの計算と重ならないようにしている。
-一方、Nix のビルドは Slurm を通らない。r995 の `nix-daemon` が走らせるので、次のものがすべて計算と同時に CPU と I/O を使う。
+一方、Nix のビルドは Slurm を通らない。r995 の `nix-daemon` が実行するので、次のものがすべて計算と同時に CPU と I/O を使う。
 
 - r995 自身の `nix-rebuild rebuild` と `update`（全ホストの検証ビルドを含む）
 - 自動更新（`nix-auto-update`、無人）

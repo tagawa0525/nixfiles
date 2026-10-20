@@ -41,7 +41,7 @@ in
       Unit.Description = "Back up xlc from r995 to GitHub hourly";
       Timer = {
         OnCalendar = "hourly";
-        # ノート PC で止まっていた間の分を、起動後に 1 回走らせる
+        # ノート PC で止まっていた間の分を、起動後に 1 回実行する
         Persistent = true;
       };
       Install.WantedBy = [ "timers.target" ];
