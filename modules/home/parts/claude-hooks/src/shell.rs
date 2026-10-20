@@ -146,7 +146,8 @@ pub struct Cmd {
     pub remote: Option<String>,
     /// git のコマンドなら、グローバルオプションの読み取り
     pub git: Option<GitInvocation>,
-    /// このコマンドが走るときに成功していた単純コマンドの `start`（[`Shell::succeeded_before`]）
+    /// このコマンドが走るときに成功していた単純コマンドの `start`（[`Shell::succeeded_before`]）。トップレベルの
+    /// コマンドだけが持つ（文字列の中の位置は外側に寄せてあり、ほかのコマンドの位置と重なりうる）
     pub after: Vec<usize>,
 }
 
@@ -298,7 +299,11 @@ impl Shell {
             remote: unwrapped.remote,
             wrappers: unwrapped.wrappers,
             git,
-            after: and_chain_predecessors(node),
+            after: if depth == 0 {
+                and_chain_predecessors(node)
+            } else {
+                Vec::new()
+            },
         };
         let Some(source) = unwrapped.source else {
             return Some((vec![cmd], None));
@@ -324,9 +329,6 @@ impl Shell {
         for mut c in std::mem::take(&mut shell.cmds) {
             // 文字列は外側のコマンドの原文より短いので、位置は外側のコマンドの後ろ、次の外側のコマンドの前に収まる
             c.start += node.start_byte() + 1;
-            for a in &mut c.after {
-                *a += node.start_byte() + 1;
-            }
             // 文字列の中は 1 つのスコープ。外側の cd は効き、中の cd は外に漏れない
             let mut scope = cmd.scope.clone();
             scope.push(node.id());
@@ -525,15 +527,10 @@ impl Shell {
         dir
     }
 
-    /// cmd が走るときに成功していたコマンド（文書順）。cmd が `&&` の右にあり、その左が単純コマンドか `&&` だけで
-    /// つないだ単純コマンドの連鎖のときの、左のコマンド。`;`、`||`、`&`、パイプでつないだもの、包む構文
-    /// （パイプライン、`!`、`(…)`、`{ …; }`、リダイレクト）の中のものは含めない
+    /// cmd が走るときに成功していたコマンド（文書順）。コマンド文字列全体が `&&` だけでつないだ単純コマンドの
+    /// 連鎖 1 つで、cmd がその最後にあるときの、左のコマンド（[`Cmd::after`]）。それ以外は空
     pub fn succeeded_before<'a>(&'a self, cmd: &'a Cmd) -> impl Iterator<Item = &'a Cmd> {
-        // 文字列の中のコマンドの位置は外側に寄せてあり（`command`）、別のスコープのコマンドと重なりうる。
-        // 連鎖の左は同じ `list` にあるので、スコープも同じ
-        self.cmds
-            .iter()
-            .filter(|c| c.scope == cmd.scope && cmd.after.contains(&c.start))
+        self.cmds.iter().filter(|c| cmd.after.contains(&c.start))
     }
 
     /// cmd が `ssh` か `sudo -i` の中で走るか（`target_dir` が手元に実在しない場所の書き方から始める）。
@@ -593,18 +590,32 @@ fn contains_substitution(node: Node) -> bool {
     node.children(&mut cursor).any(contains_substitution)
 }
 
-/// `command` ノードが `&&` の右オペランドなら、それが走るときに成功していた単純コマンドの開始位置
+/// `command` ノードが、プログラム全体である `&&` の連鎖の最後なら、それが走るときに成功していた単純コマンドの
+/// 開始位置。連鎖の外に文があると（前の `;` や改行の文、関数の定義、後ろの `|| …`、連鎖を包むリダイレクトや
+/// サブシェル）、それが連鎖の中のコマンドの意味や状態を変えうるので空
 fn and_chain_predecessors(node: Node) -> Vec<usize> {
     let mut out = Vec::new();
     if let Some(parent) = node.parent()
         && parent.kind() == "list"
         && let Some(("&&", left, right)) = list_parts(parent)
         && right.id() == node.id()
+        && parent.parent().is_some_and(is_single_statement_program)
         && succeeded_commands(left, &mut out).is_some()
     {
         return out;
     }
     Vec::new()
+}
+
+/// 注釈を除いて文が 1 つだけのプログラムか
+fn is_single_statement_program(node: Node) -> bool {
+    let mut cursor = node.walk();
+    node.kind() == "program"
+        && node
+            .named_children(&mut cursor)
+            .filter(|n| n.kind() != "comment")
+            .count()
+            == 1
 }
 
 fn strip(s: &str, open: &str, close: &str) -> String {

@@ -32,7 +32,7 @@ use crate::shell::{Arg, Cmd, Shell, has_flag, opt_value};
 
 /// 検査は実行前のブランチの状態を見る。認める形でない push を前に連ねるとコマンド全体が止まって
 /// 前半も実行されないので、認める形を deny の文言で示す。
-const CHAINED_PUSH_HINT: &str = "同じ呼び出しで push するなら、git push -u origin HEAD && gh pr create … のように && でつないでください（ほかに && でつなげるのは cd だけです。; や || でつないだ push、リダイレクトやほかのオプションを付けた push、別のリモートやブランチへの push は検査に反映されません）";
+const CHAINED_PUSH_HINT: &str = "同じ呼び出しで push するなら、git push -u origin HEAD && gh pr create … のように、コマンド全体を && でつないだ連鎖 1 つにしてください（gh は最後に置き、ほかに置けるのは cd だけです。; や || や改行でつないだ文、リダイレクトやほかのオプションを付けた push、別のリモートやブランチへの push は検査に反映されません）";
 
 pub struct PrePrCreateCheck;
 
@@ -78,18 +78,22 @@ fn pushed_before(gh: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> bool {
 }
 
 /// cmd が、dir の現在のブランチを origin へ push するだけの git push か。認めるのは
-/// `git push`（push.default が未設定か simple / upstream で、押し先を別に決める設定が無いとき）、`git push -u origin HEAD`、
+/// `git push`（push.default が未設定か simple で、押し先を別に決める設定が無いとき）、`git push -u origin HEAD`、
 /// `git push -u origin <現在のブランチ>`（`-u` は `--set-upstream` でも、位置は問わない）だけで、
-/// ほかのオプション、refspec、前置きの代入、包み、`git -c` は認めない（ADR-0040）
+/// ほかのオプション、refspec、前置きの代入、包み、`-C` 以外の git の全体オプションは認めない（ADR-0040）
 fn pushes_current_branch(cmd: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> bool {
     let Some(("push", args)) = cmd.git_subcommand() else {
         return false;
     };
+    // git の全体オプションは `-C <dir>` だけを認める（`--git-dir`、`--work-tree`、`-c` は push の対象や挙動を変える）
+    let globals = &cmd.args[..cmd.args.len() - args.len() - 1]; // サブコマンドより前
+    if !globals.len().is_multiple_of(2) || globals.chunks(2).any(|pair| pair[0].text != "-C") {
+        return false;
+    }
     if cmd.opaque
         || cmd.has_error
         || !cmd.env.is_empty()
         || !cmd.wrappers.is_empty()
-        || !cmd.git_config_overrides().is_empty()
         || shell.target_dir(cmd, base) != dir
     {
         return false;
@@ -104,19 +108,19 @@ fn pushes_current_branch(cmd: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> b
         }
     }
     match positional.as_slice() {
-        // simple（既定）と upstream は、成功すれば現在のブランチが上流へ push してある（上流が無ければ失敗するか、
-        // push.autoSetupRemote で設定する）。current と matching は上流を設定せずに成功しうる
-        // 押し先を別に決める設定（remote.pushDefault、branch.<名前>.pushRemote の三角の構成と、remote.<名前>.push）
-        // があると、simple でも上流を設定せずに成功しうる
+        // simple（既定）は、成功すれば現在のブランチが同じ名前の上流へ push してある（上流が無ければ失敗するか、
+        // push.autoSetupRemote で設定する）。current と matching は上流を設定せずに成功しうる。upstream は名前の
+        // 違う上流（origin/main を追うブランチ）へ push する。押し先を別に決める設定（remote.pushDefault、
+        // branch.<名前>.pushRemote の三角の構成、remote.<名前>.push、remote.<名前>.mirror）があると、simple でも
+        // 上流を設定せずに成功しうる
         [] => {
-            git::git(dir, &["config", "push.default"])
-                .is_none_or(|mode| matches!(mode.as_str(), "simple" | "upstream" | "tracking"))
+            git::git(dir, &["config", "push.default"]).is_none_or(|mode| mode == "simple")
                 && git::git(
                     dir,
                     &[
                         "config",
                         "--get-regexp",
-                        r"^(remote\.pushdefault|branch\..*\.pushremote|remote\..*\.push)$",
+                        r"^(remote\.pushdefault|branch\..*\.pushremote|remote\..*\.(push|mirror))$",
                     ],
                 )
                 .is_none()
