@@ -49,8 +49,10 @@ hook の制約を手順側で補った。
 コマンドの連鎖で、その中に次をすべて満たす `git push` があれば、検査 3 を省く。
 
 - サブコマンドの引数が次のどれか。`-u` は `--set-upstream` でもよく、位置は問わない
-  - 引数なしの `git push`（`-u` だけを付けたものを含む）。上流が無ければ、`push.default` が既定の `simple` では
-    失敗して gh は走らない。`push.autoSetupRemote` があれば上流を設定する
+  - 引数なしの `git push`（`-u` だけを付けたものを含む）。`push.default` が未設定（既定の `simple`）か、`simple`、
+    `upstream`（`tracking`）のときだけ。これらは成功すれば現在のブランチを上流へ push してある（上流が無ければ
+    失敗して gh は走らず、`push.autoSetupRemote` があれば上流を設定する）。`current` は `push.autoSetupRemote`
+    が無いと上流を設定せずに成功し、`matching` は現在のブランチを push せずに成功しうるので認めない
   - `git push -u origin HEAD`
   - `git push -u origin <現在のブランチ名>`（`git rev-parse --abbrev-ref HEAD` と一致）
 - ほかのオプション（`--dry-run`、`-n`、`--force` など）、refspec（`HEAD:<ブランチ>`）、3 つ以上の位置引数、
@@ -81,4 +83,5 @@ deny の文言は、別の呼び出しに分ける案内から、`&&` でつな�
 - `src/shell.rs` の単体テストで、`Shell::succeeded_before` が `&&` の連鎖の左だけを返し、`;`、`||`、`&`、パイプ、
   改行、包む構文の中を返さないことを確かめる
 - `.claude/tests/hooks.sh` の pre-pr-create-check の節で、上の 3 つの形（`cd` と `git -C` を含む）が上流の無い
-  ブランチで通り、外れた形が deny されること、push を前に連ねても検査 1、2、4 が残ることを確かめる
+  ブランチで通り、外れた形が deny されること、`push.default` が `current` と `matching` のときは引数なしの push を
+  認めないこと、push を前に連ねても検査 1、2、4 が残ることを確かめる
