@@ -1312,19 +1312,23 @@ mod tests {
             ["cd /x", "git push"]
         );
         assert_eq!(
-            succeeded_before_gh("git fetch; git push &&\n  gh pr || echo failed"),
+            succeeded_before_gh("git push &&\n  gh pr  # 改行で続ける"),
             ["git push"]
         );
-        assert_eq!(
-            succeeded_before_gh("bash -c 'git push && gh pr'"),
-            ["git push"]
-        );
-        // 文字列の中の位置は外側の位置に寄せてあり、外側の置換の中のコマンドと位置が重なりうる
-        // （下の `a` と、文字列の中の `git` は同じ位置になる）。別のスコープのものは数えない
-        assert_eq!(
-            succeeded_before_gh("env A=$(a) bash -c 'true;  git push && gh pr'"),
-            ["git push"]
-        );
+    }
+
+    #[test]
+    fn succeeded_before_needs_the_chain_to_be_the_whole_program() {
+        // 連鎖の外の文（前の `;` や改行の文、関数の定義）は、連鎖の中のコマンドの意味や状態を変えうる
+        assert!(succeeded_before_gh("git fetch; git push && gh pr").is_empty());
+        assert!(succeeded_before_gh("git switch -c b\ngit push && gh pr").is_empty());
+        assert!(succeeded_before_gh("git() { :; }; git push && gh pr").is_empty());
+        assert!(succeeded_before_gh("git push && gh pr || echo failed").is_empty());
+        assert!(succeeded_before_gh("git push && gh pr > out.txt").is_empty());
+        assert!(succeeded_before_gh("(git push && gh pr)").is_empty());
+        // 文字列の中の連鎖は、外側のシェルの文と並ぶので数えない
+        assert!(succeeded_before_gh("bash -c 'git push && gh pr'").is_empty());
+        assert!(succeeded_before_gh("env A=$(a) bash -c 'true;  git push && gh pr'").is_empty());
     }
 
     #[test]
