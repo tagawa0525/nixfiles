@@ -212,6 +212,10 @@
         commit-refs =
           nixpkgs.legacyPackages.x86_64-linux.callPackage ./modules/home/parts/commit-refs/package.nix
             { };
+        # 履歴の中の崩れた語を直し、番号を付け直す CLI（modules/home/parts/git.nix が PATH に入れる）
+        history-rewrite =
+          nixpkgs.legacyPackages.x86_64-linux.callPackage ./modules/home/parts/history-rewrite/package.nix
+            { inherit (self.packages.x86_64-linux) commit-refs; };
         # 設計の記録（ADR）のテンプレートと検査の CLI（modules/home/parts/git.nix が PATH に入れる）
         design-records =
           nixpkgs.legacyPackages.x86_64-linux.callPackage ./modules/home/parts/design-records/package.nix
@@ -222,7 +226,12 @@
       # サンドボックスでだけ落ちるテスト（PATH に git が無い等）を rebuild の前に見つけるため、
       # テストのあるパッケージを checks に入れる（ADR-0022）
       checks.x86_64-linux = {
-        inherit (self.packages.x86_64-linux) claude-hooks commit-refs design-records;
+        inherit (self.packages.x86_64-linux)
+          claude-hooks
+          commit-refs
+          design-records
+          history-rewrite
+          ;
       };
     };
 }
