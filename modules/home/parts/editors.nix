@@ -3,7 +3,12 @@
 # =============================================================================
 # VSCode, Neovim, Zed, Alacritty などエディタ・ターミナルの設定
 # =============================================================================
-{ lib, pkgs, ... }:
+{
+  lib,
+  pkgs,
+  nur-vscode-latest,
+  ...
+}:
 
 let
   # パッケージから拡張機能IDを抽出
@@ -66,8 +71,8 @@ in
   # VSCode拡張機能と設定（Home Manager経由、nix-vscode-extensionsを使用）
   programs.vscode = {
     enable = true;
-    # package = pkgs.nur-vscode-latest.vscode-insiders; # Insiders版を使用してGitHub Copilot Chatを有効化
-    package = pkgs.nur-vscode-latest.vscode; # Stable版を使用してGitHub Copilot Chatを有効化
+    # package = nur-vscode-latest.packages.${pkgs.stdenv.hostPlatform.system}.vscode-insiders; # Insiders版を使用してGitHub Copilot Chatを有効化
+    package = nur-vscode-latest.packages.${pkgs.stdenv.hostPlatform.system}.vscode; # Stable版を使用してGitHub Copilot Chatを有効化
     # VS Code 1.117+ の builtin copilot-chat は autoUpdate 設定に関わらず
     # 特別ルートで自動更新を試みる。extensions dir を完全read-onlyにすると
     # mkdir '.xxx' が ENOENT で失敗するため、書き込み可能にしている。
