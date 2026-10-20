@@ -146,10 +146,6 @@ pub struct Cmd {
     pub remote: Option<String>,
     /// git のコマンドなら、グローバルオプションの読み取り
     pub git: Option<GitInvocation>,
-    /// このコマンドが走るときに成功していた単純コマンドの `start`（[`Shell::succeeded_before`]）。コマンド
-    /// 文字列全体である `&&` の連鎖の最後のコマンドだけが持つ。`bash -c` などの文字列の中では求めない（文字列の中の
-    /// 位置は外側に寄せてあり、ほかのコマンドの位置と重なりうる）
-    pub after: Vec<usize>,
 }
 
 impl Shell {
@@ -300,11 +296,6 @@ impl Shell {
             remote: unwrapped.remote,
             wrappers: unwrapped.wrappers,
             git,
-            after: if depth == 0 {
-                and_chain_predecessors(node)
-            } else {
-                Vec::new()
-            },
         };
         let Some(source) = unwrapped.source else {
             return Some((vec![cmd], None));
@@ -529,9 +520,33 @@ impl Shell {
     }
 
     /// cmd が走るときに成功していたコマンド（文書順）。コマンド文字列全体が `&&` だけでつないだ単純コマンドの
-    /// 連鎖 1 つで、cmd がその最後にあるときの、左のコマンド（[`Cmd::after`]）。それ以外は空
+    /// 連鎖 1 つで、cmd がその最後にあるときの、左のコマンド。それ以外は空
+    ///
+    /// 木を引き直すのは、このトップレベルの木の上の位置を持つコマンド（`scope` が空）だけ。`bash -c` などの文字列の
+    /// 中のコマンドの位置は外側に寄せてあり、ほかのコマンドの位置と重なりうる
     pub fn succeeded_before<'a>(&'a self, cmd: &'a Cmd) -> impl Iterator<Item = &'a Cmd> {
-        self.cmds.iter().filter(|c| cmd.after.contains(&c.start))
+        let starts = if cmd.scope.is_empty() {
+            self.command_node_at(cmd.start)
+                .map(and_chain_predecessors)
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        self.cmds
+            .iter()
+            .filter(move |c| c.scope.is_empty() && starts.contains(&c.start))
+    }
+
+    /// `start` から始まる `command` ノード
+    fn command_node_at(&self, start: usize) -> Option<Node<'_>> {
+        let mut node = self
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start, start)?;
+        while node.kind() != "command" || node.start_byte() != start {
+            node = node.parent()?;
+        }
+        Some(node)
     }
 
     /// cmd が `ssh` か `sudo -i` の中で走るか（`target_dir` が手元に実在しない場所の書き方から始める）。
