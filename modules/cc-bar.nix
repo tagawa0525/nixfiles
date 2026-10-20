@@ -1,7 +1,7 @@
 # =============================================================================
 # cc-bar: Claude Code Context Window Monitor（COSMICパネルアプレット）
 # =============================================================================
-# このファイルは cc-bar 関連の全設定（overlay、システムパッケージ、
+# このファイルは cc-bar 関連の全設定（システムパッケージ、
 # Claude Code settings.json への hooks/statusLine 登録）を集約している。
 #
 # 無効化する場合:
@@ -11,19 +11,16 @@
 # =============================================================================
 {
   pkgs,
-  lib,
   cc-bar,
   ...
 }:
+let
+  # 自作 flake のパッケージを直接参照する（cc-bar は nixpkgs を follows している）
+  ccBar = cc-bar.packages.${pkgs.stdenv.hostPlatform.system}.default;
+in
 {
-  # nixpkgs に cc-bar overlay を追加し pkgs.cc-bar として参照可能にする。
-  # 元の flake.nix では overlays 配列の末尾に置かれていた（後勝ち）。
-  # 本モジュールが他の overlay より前に評価されても末尾相当の優先度を
-  # 維持できるよう lib.mkAfter を使う。
-  nixpkgs.overlays = lib.mkAfter [ cc-bar.overlays.default ];
-
   # COSMICパネル用 Claude Code コンテキストモニター本体
-  environment.systemPackages = [ pkgs.cc-bar ];
+  environment.systemPackages = [ ccBar ];
 
   # Claude Code settings.json に statusLine と SubagentStop / SessionEnd hooks を設定
   # nixos-rebuild 時にスクリプトのパスを最新のNixストアパスに更新
@@ -38,9 +35,9 @@
           mkdir -p "$(dirname "$SETTINGS")"
           echo '{}' > "$SETTINGS"
         fi
-        RELAY="${pkgs.cc-bar}/bin/cc-bar-relay.sh"
-        HOOK="${pkgs.cc-bar}/bin/cc-bar-subagent-hook.sh"
-        CLEANUP="${pkgs.cc-bar}/bin/cc-bar-session-cleanup.sh"
+        RELAY="${ccBar}/bin/cc-bar-relay.sh"
+        HOOK="${ccBar}/bin/cc-bar-subagent-hook.sh"
+        CLEANUP="${ccBar}/bin/cc-bar-session-cleanup.sh"
         # ensure_hook: event 配下に script（ファイル名で同定）の command hook を1つ保証する。
         # 既にあればパスだけ最新の Nix ストアパスに差し替え、無ければ末尾に追加する
         ${pkgs.jq}/bin/jq \

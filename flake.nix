@@ -179,13 +179,10 @@
                 (final: prev: {
                   llm-agents = llm-agents.packages.${prev.stdenv.hostPlatform.system};
                 })
-                # qmpo: directory:// URIハンドラ
-                qmpo.overlays.default
                 # OpenLogi: 個人 NUR のビルド済みパッケージ（modules/openlogi.nix が参照）
                 (final: prev: {
                   openlogi = nur-openlogi-latest.packages.${prev.stdenv.hostPlatform.system}.openlogi;
                 })
-                # cc-bar の overlay は ./modules/cc-bar.nix に集約済み
               ];
               # Home Manager設定
               home-manager.useGlobalPkgs = true; # システムのnixpkgsを使用
@@ -200,6 +197,7 @@
                 claudeCodeSource = self; # flakeルートを渡す（Claude Code設定用）
                 inherit mattpocock-skills; # 外部スキルの取得元（claude-code.nix の externalSkills）
                 inherit lsp-det; # ドッグフーディングの lsp-det（claude-code.nix）
+                inherit qmpo; # directory:// URIハンドラ（desktop.nix）
                 vscode-server = nixos-vscode-server; # VS Code Server自動パッチモジュール
               };
               # 各ユーザーの home-manager.users.<name> は modules/users/<name>.nix が

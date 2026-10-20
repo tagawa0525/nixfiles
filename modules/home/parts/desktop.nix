@@ -8,6 +8,7 @@
   pkgs,
   osConfig,
   lib,
+  qmpo,
   ...
 }:
 let
@@ -85,7 +86,7 @@ in
     qmpo = {
       name = "qmpo";
       comment = "Directory URI Handler";
-      exec = "${pkgs.qmpo}/bin/qmpo %u";
+      exec = "${qmpo.packages.${pkgs.stdenv.hostPlatform.system}.default}/bin/qmpo %u";
       terminal = false;
       noDisplay = true;
       mimeType = [ "x-scheme-handler/directory" ];
