@@ -1341,9 +1341,6 @@ mod tests {
         assert!(succeeded_before_gh("(git push) && gh pr").is_empty());
         assert!(succeeded_before_gh("{ git push; } && gh pr").is_empty());
         assert!(succeeded_before_gh("git push 2>&1 && gh pr").is_empty());
-        assert_eq!(
-            succeeded_before_gh("echo $(git push) && gh pr"),
-            ["echo $(git push)"]
-        );
+        assert!(succeeded_before_gh("cd $(git switch -c o) && git push && gh pr").is_empty());
     }
 }
