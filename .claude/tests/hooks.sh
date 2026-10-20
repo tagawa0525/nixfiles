@@ -226,14 +226,12 @@ for mode in current matching upstream tracking; do
   out=$(run_hook pre-pr-create-check "git push -u origin HEAD && $GOOD_CMD")
   assert_eq allow "$(decision "$out")"
 done
-for mode in simple; do
-  it "pre-pr-create: push.default が $mode なら、前の引数なしの git push を認める"
-  git -C "$REPO" config push.default "$mode"
-  out=$(run_hook pre-pr-create-check "git push && $GOOD_CMD")
-  assert_eq allow "$(decision "$out")"
-done
+it "pre-pr-create: push.default が simple なら、前の引数なしの git push を認める"
+git -C "$REPO" config push.default simple
+out=$(run_hook pre-pr-create-check "git push && $GOOD_CMD")
+assert_eq allow "$(decision "$out")"
 git -C "$REPO" config --unset push.default
-# 押し先を別に決める設定（三角の構成、remote.<名前>.push）では、引数なしの git push は上流を設定せずに成功しうる
+# 押し先を別に決める設定（三角の構成、remote.<名前>.push、remote.<名前>.mirror）では、引数なしの git push は上流を設定せずに成功しうる
 for key in remote.pushDefault branch.feat/no-upstream.pushRemote remote.origin.push remote.origin.mirror; do
   it "pre-pr-create: $key があれば、前の引数なしの git push は上流を満たすとは限らないので deny"
   if [[ $key == remote.origin.push ]]; then
