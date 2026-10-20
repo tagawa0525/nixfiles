@@ -218,7 +218,7 @@
             { };
       };
 
-      # nix flake check は packages を評価するだけで checkPhase（cargo test）を走らせない。
+      # nix flake check は packages を評価するだけで checkPhase（cargo test）を実行しない。
       # サンドボックスでだけ落ちるテスト（PATH に git が無い等）を rebuild の前に見つけるため、
       # テストのあるパッケージを checks に入れる（ADR-0022）
       checks.x86_64-linux = {
