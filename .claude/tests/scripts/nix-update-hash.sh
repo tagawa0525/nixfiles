@@ -26,6 +26,11 @@ if grep -q '$NEW_HASH' package.nix; then
   echo "built"; exit 0
 fi
 if [ "\${FAKE_NIX_MODE:-}" = nogot ]; then echo "error: syntax error" >&2; exit 1; fi
+if [ "\${FAKE_NIX_MODE:-}" = other-mismatch ]; then
+  echo "error: hash mismatch in fixed-output derivation"
+  echo "  specified: sha256-SRCSRCSRCSRCSRCSRCSRCSRCSRCSRCSRCSRCSRCSRC="
+  echo "     got:    sha256-WRONGWRONGWRONGWRONGWRONGWRONGWRONGWRONG="
+fi
 echo "error: hash mismatch in fixed-output derivation"
 echo "  specified: $DUMMY_HASH"
 echo "     got:    $NEW_HASH"
@@ -69,5 +74,45 @@ reset_pkg
 (cd "$HASH_DIR" && PATH="$TEST_ROOT/hashbin:$PATH" "$LANG_SCRIPTS/nix-update-hash.sh" -a vendorHash mypkg package.nix >/dev/null 2>&1)
 assert_eq 1 $?
 assert_eq "" "$(cat "$TEST_ROOT/nix.log")"
+
+it "nix-update-hash: 再ビルドに失敗したらファイルを元に戻し、求めたハッシュと戻したことを示す"
+reset_pkg
+err=$(cd "$HASH_DIR" && FAKE_NIX_MODE=final-fail PATH="$TEST_ROOT/hashbin:$PATH" "$LANG_SCRIPTS/nix-update-hash.sh" mypkg package.nix 2>&1 >/dev/null)
+assert_eq 1 $?
+assert_contains "$(cat "$HASH_DIR/package.nix")" "cargoHash = \"$OLD_HASH\""
+assert_contains "$err" "$NEW_HASH"
+assert_contains "$err" "元に戻した"
+
+it "nix-update-hash: 成功したらログを残さず、失敗したらログを 1 つ残してそのパスを示す"
+reset_pkg
+TMP_A="$TEST_ROOT/tmp-ok"; mkdir -p "$TMP_A"
+(cd "$HASH_DIR" && TMPDIR="$TMP_A" PATH="$TEST_ROOT/hashbin:$PATH" "$LANG_SCRIPTS/nix-update-hash.sh" mypkg package.nix >/dev/null 2>&1)
+assert_eq "" "$(ls -A "$TMP_A")"
+reset_pkg
+TMP_B="$TEST_ROOT/tmp-ng"; mkdir -p "$TMP_B"
+err=$(cd "$HASH_DIR" && TMPDIR="$TMP_B" FAKE_NIX_MODE=final-fail PATH="$TEST_ROOT/hashbin:$PATH" "$LANG_SCRIPTS/nix-update-hash.sh" mypkg package.nix 2>&1 >/dev/null)
+assert_eq 1 "$(ls -A "$TMP_B" | wc -l)"
+assert_contains "$err" "$TMP_B/"
+
+it "nix-update-hash: -C で指定したディレクトリで実行する"
+reset_pkg
+out=$(cd "$TEST_ROOT" && PATH="$TEST_ROOT/hashbin:$PATH" "$LANG_SCRIPTS/nix-update-hash.sh" -C "$HASH_DIR" mypkg package.nix 2>/dev/null)
+assert_eq 0 $?
+assert_eq "$NEW_HASH" "$out"
+
+it "nix-update-hash: 属性が 2 回現れるときは ERROR で失敗し、ファイルも nix も触らない"
+reset_pkg
+printf '  cargoHash = "%s";\n' "$OLD_HASH" >> "$HASH_DIR/package.nix"
+before=$(cat "$HASH_DIR/package.nix")
+err=$(cd "$HASH_DIR" && PATH="$TEST_ROOT/hashbin:$PATH" "$LANG_SCRIPTS/nix-update-hash.sh" mypkg package.nix 2>&1 >/dev/null)
+assert_eq 1 $?
+assert_contains "$err" "ERROR"
+assert_eq "$before" "$(cat "$HASH_DIR/package.nix")"
+assert_eq "" "$(cat "$TEST_ROOT/nix.log")"
+
+it "nix-update-hash: specified: がダミー以外の別の不一致を含むログでも、ダミーの分だけを取り出す"
+reset_pkg
+out=$(cd "$HASH_DIR" && FAKE_NIX_MODE=other-mismatch PATH="$TEST_ROOT/hashbin:$PATH" "$LANG_SCRIPTS/nix-update-hash.sh" mypkg package.nix 2>/dev/null)
+assert_eq "$NEW_HASH" "$out"
 
 finish
