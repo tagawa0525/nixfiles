@@ -207,7 +207,14 @@ git push -u origin feat/no-upstream && $GOOD_CMD" \
   "bash -c 'git push -u origin HEAD && gh pr create --title t --body x'" \
   "git --git-dir=$TEST_ROOT/none/.git push -u origin HEAD && $GOOD_CMD" \
   "git --work-tree=$TEST_ROOT push -u origin HEAD && $GOOD_CMD" \
-  "git --no-pager push -u origin HEAD && $GOOD_CMD"; do
+  "git --no-pager push -u origin HEAD && $GOOD_CMD" \
+  "git push -u origin HEAD <<<x && $GOOD_CMD" \
+  "git push -u origin HEAD && CDPATH=$TEST_ROOT cd . && $GOOD_CMD" \
+  "git push -u origin HEAD && builtin cd . && $GOOD_CMD" \
+  "git push -u origin HEAD && GIT_DIR=$TEST_ROOT/none/.git $GOOD_CMD" \
+  "git push -u origin HEAD && GH_REPO=example/other $GOOD_CMD" \
+  "git push -u origin HEAD && $GOOD_CMD -R example/other" \
+  "git push -u origin HEAD && $GOOD_CMD --repo=example/other"; do
   it "pre-pr-create: 先の push が成功したとは限らない、または現在のブランチの上流を満たすとは限らないなら deny: ${chained%%gh pr create*}"
   out=$(run_hook pre-pr-create-check "$chained")
   assert_eq deny "$(decision "$out")"
@@ -247,6 +254,17 @@ for key in remote.pushDefault branch.feat/no-upstream.pushRemote remote.origin.p
   assert_eq allow "$(decision "$out")"
   git -C "$REPO" config --unset "$key"
 done
+git -C "$REPO" switch -q feat/x
+
+it "pre-pr-create: origin の fetch の refspec がブランチを追わない clone では、push しても上流が解決しないので deny"
+# --single-branch の clone では、git push -u は branch.<名前>.merge を書くが refs/remotes/origin/<名前> を作らない
+git -C "$REPO" switch -q feat/no-upstream
+git -C "$REPO" config remote.origin.fetch '+refs/heads/main:refs/remotes/origin/main'
+out=$(run_hook pre-pr-create-check "git push -u origin HEAD && $GOOD_CMD")
+assert_eq deny "$(decision "$out")"
+git -C "$REPO" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+out=$(run_hook pre-pr-create-check "git push -u origin HEAD && $GOOD_CMD")
+assert_eq allow "$(decision "$out")"
 git -C "$REPO" switch -q feat/x
 
 it "pre-pr-create: 先に push しても、--title、本文、--web の検査は省かない"
