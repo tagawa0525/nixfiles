@@ -36,8 +36,9 @@ const CHAINED_PUSH_HINT: &str = "同じ呼び出しで push するなら、git p
 pub struct PrePrCreateCheck;
 
 /// cmd が、dir の現在のブランチを origin へ push するだけの git push か。認めるのは
-/// `git push`、`git push -u origin HEAD`、`git push -u origin <現在のブランチ>`（`-u` は `--set-upstream` でも、
-/// 位置は問わない）だけで、ほかのオプション、refspec、前置きの代入、包み、`git -c` は認めない（ADR-0040）
+/// `git push`（push.default が未設定か simple / upstream のとき）、`git push -u origin HEAD`、
+/// `git push -u origin <現在のブランチ>`（`-u` は `--set-upstream` でも、位置は問わない）だけで、
+/// ほかのオプション、refspec、前置きの代入、包み、`git -c` は認めない（ADR-0040）
 fn pushes_current_branch(cmd: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> bool {
     let Some(("push", args)) = cmd.git_subcommand() else {
         return false;
@@ -61,12 +62,14 @@ fn pushes_current_branch(cmd: &Cmd, shell: &Shell, base: &Path, dir: &Path) -> b
         return false;
     }
     match positional.as_slice() {
-        [] => true,
+        // simple（既定）と upstream は、成功すれば現在のブランチが上流へ push してある（上流が無ければ失敗するか、
+        // push.autoSetupRemote で設定する）。current と matching は上流を設定せずに成功しうる
+        [] => git::git(dir, &["config", "push.default"])
+            .is_none_or(|mode| matches!(mode.as_str(), "simple" | "upstream" | "tracking")),
         // 上流の無いブランチの `git push origin HEAD` は push しても上流を設定せず、gh が push 先を尋ねる
         [remote, refspec] if set_upstream && remote.text == "origin" => {
-            refspec.text == "HEAD"
-                || git::git(dir, &["rev-parse", "--abbrev-ref", "HEAD"])
-                    .is_some_and(|branch| branch != "HEAD" && branch == refspec.text)
+            let branch = git::current_branch(dir);
+            refspec.text == "HEAD" || (!branch.is_empty() && branch == refspec.text)
         }
         _ => false,
     }
