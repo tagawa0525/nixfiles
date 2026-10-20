@@ -132,7 +132,7 @@ let suspend_time = if self.screensaver_inhibit { None }
 
 ### 上流の状況 (2026-08-01 時点)
 
-アップグレードでは直らない。
+この時点では epoch-1.5.0 でも直らなかった。その後 epoch-1.10.0 で修正された (pop-os/cosmic-idle#35「AC suspend fix」、2026-10-02)。nixpkgs も 1.10.0 に上がったため、下記のパッチは撤去した。
 
 | 参照          | コミット   |
 | ------------- | ---------- |
@@ -144,7 +144,7 @@ let suspend_time = if self.screensaver_inhibit { None }
 
 ### 対処
 
-`modules/cosmic-idle-fix.nix` の overlay で 1 行パッチを当てている (`modules/patches/`)。
+当初は overlay で 1 行パッチを当てていた (epoch-1.10.0 で上流が修正したため撤去)。
 
 ```rust
 Event::OnBattery(value) => {
@@ -152,8 +152,6 @@ Event::OnBattery(value) => {
     self.recreate_notifications();
 }
 ```
-
-`Cargo.lock` は変わらないので `cargoHash` の追従は不要、再ビルドも末端バイナリ 1 個で済む。
 
 あわせて DE に依存しない防波堤として UPower の低残量アクションを `modules/profiles/laptop.nix` に設定した。
 
