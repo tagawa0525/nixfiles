@@ -155,7 +155,7 @@
         hostName:
         nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { inherit self cc-bar; }; # flakeルートと cc-bar input を modules に渡す
+          specialArgs = { inherit self cc-bar nur-openlogi-latest; }; # flakeルートと cc-bar / nur-openlogi-latest input を modules に渡す
           modules = [
             ./hosts/${hostName} # ホスト固有設定（ブート、ハードウェア等）
             { networking.hostName = nixpkgs.lib.mkDefault hostName; }
@@ -174,10 +174,6 @@
                 # AI Coding Agents
                 (final: prev: {
                   llm-agents = llm-agents.packages.${prev.stdenv.hostPlatform.system};
-                })
-                # OpenLogi: 個人 NUR のビルド済みパッケージ（modules/openlogi.nix が参照）
-                (final: prev: {
-                  openlogi = nur-openlogi-latest.packages.${prev.stdenv.hostPlatform.system}.openlogi;
                 })
               ];
               # Home Manager設定
