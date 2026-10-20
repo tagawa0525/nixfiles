@@ -39,7 +39,7 @@ user-invocable: false
 ~/.claude/skills/language-checks/scripts/nix-update-hash.sh [-C <dir>] [-a <属性>] <パッケージ> <ファイル>
 ```
 
-属性の既定は `cargoHash`。ハッシュを取れない、再ビルドが失敗したときは非 0 で終わる。
+属性の既定は `cargoHash`。ファイルは `git add` 済みのものを渡す（未追跡だと flake から見えず「got: がない」で失敗する）。ハッシュを取れない、再ビルドが失敗したときは非 0 で終わる。
 
 ## プロジェクト設定の優先
 

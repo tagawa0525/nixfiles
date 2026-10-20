@@ -12,8 +12,11 @@
 # 書き込み → もう一度 nix build して終了コードを確かめる。ビルドの出力はパイプに通さない
 # （終了コードが消え、空の取り出しや失敗したビルドを成功と取り違えるため）。
 #
-# 取り出せなかったとき、再ビルドが失敗したときは、ログの場所を出して失敗する。
-# 失敗・中断したときはファイルを元に戻す（再ビルドの失敗も。ログは失敗時だけ残す）。
+# 取り出せなかったとき、再ビルドが失敗したときは、ログの場所を出して失敗する（ログはこの 2 つの失敗でだけ
+# 残し、成功と中断では消す）。失敗・中断したときはファイルを元に戻す。再ビルドの失敗では、求めたハッシュを
+# エラー出力に示す。
+#
+# <file> は flake から見える（git add 済みの）ファイルを渡す。未追跡だと nix に変更が見えず、got: が出ない。
 #
 # 出力: 成功時に新しいハッシュを 1 行（stdout）。進行は stderr。
 
@@ -48,8 +51,10 @@ backup=$(mktemp)
 log=$(mktemp)
 cp "$file" "$backup"
 # 中断（Ctrl-C、タイムアウト、途中の失敗）でダミーのハッシュを残さない。成功したときだけ書き換えを残す
+# ログは、パスを案内して失敗するとき（keep_log=yes）だけ残す。成功と中断では消す
 done_ok=no
-trap '[ "$done_ok" = yes ] || cp "$backup" "$file"; rm -f "$backup"' EXIT
+keep_log=no
+trap '[ "$done_ok" = yes ] || cp "$backup" "$file"; rm -f "$backup"; [ "$keep_log" = yes ] || rm -f "$log"' EXIT
 
 set_hash() {
   sed -E -i "s|${pattern}|\\1\"$1\"|" "$file"
@@ -63,6 +68,7 @@ nix build --no-link ".#${package}" >"$log" 2>&1 || true
 # specified: がダミーの不一致だけを採る（別の固定出力 derivation の不一致を取り違えない）
 hash=$(grep -A1 "specified:[[:space:]]*${DUMMY}" "$log" | grep -oE 'got:[[:space:]]+sha256-[A-Za-z0-9+/]+=*' | head -n 1 | sed -E 's/^got:[[:space:]]+//' || true)
 if [ -z "$hash" ]; then
+  keep_log=yes
   echo "ERROR: ログに got: sha256-... がない（$file は元に戻した）。ログ: $log" >&2
   exit 1
 fi
@@ -70,10 +76,10 @@ fi
 set_hash "$hash"
 echo "RUN: nix build --no-link .#${package}（$attr = $hash）" >&2
 if ! nix build --no-link ".#${package}" >"$log" 2>&1; then
-  echo "ERROR: ハッシュを書き込んだ後のビルドが失敗した。ログ: $log" >&2
+  keep_log=yes
+  echo "ERROR: ハッシュ $hash を書き込んだ後のビルドが失敗した（$file は元に戻した。求めたハッシュはこの出力にだけ残る）。ログ: $log" >&2
   exit 1
 fi
 
 done_ok=yes
-rm -f "$log"
 echo "$hash"
