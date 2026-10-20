@@ -89,9 +89,10 @@ git push
 ```
 
 `pre-pr-create-check` hook は未プッシュのまま `gh pr create` すると deny する
-（gh が対話的に push 先を尋ねて固まるのを防ぐ）。hook はコマンド実行**前**の状態を見るので、
-`git push && gh pr create …` のように 1 コマンドに繋ぐと push 前の状態で deny される。
-push と `gh pr create` は必ず別々の Bash 呼び出しで実行する。
+（gh が対話的に push 先を尋ねて固まるのを防ぐ）。hook はコマンド実行**前**の状態を見るが、
+`git push -u origin HEAD && gh pr create …` のように `&&` でつないだ push は push 後の状態として扱う。
+認める push の形（`git push`、`git push -u origin HEAD`、`git push -u origin <現在のブランチ>`）と、
+`;` や `||` でつないだものを止める理由は ADR-0040。
 
 ## PR内容の生成
 
