@@ -54,7 +54,7 @@
   fonts.packages = with pkgs; [
     noto-fonts-cjk-sans # Google Noto日本語フォント
     noto-fonts-color-emoji # 絵文字フォント
-    nerd-fonts.jetbrains-mono # 開発用フォント（アイコン付き）
+    nerd-fonts.jetbrains-mono # 開発用フォント（アイコンつき）
     font-awesome # アイコンフォント（ステータスバー等で使用）
   ];
   # システム全体のデフォルトフォントを日本語対応に設定
@@ -74,7 +74,7 @@
   # ===========================================================================
   # キーリマップ (keyd)
   # ===========================================================================
-  # Wayland/X11/TTY全てで動作するキーリマッパー
+  # Wayland/X11/TTYすべてで動作するキーリマッパー
   # CapsLockを「単独押し=Esc」「長押し/組み合わせ=Ctrl」に変更
   # Vim使用時に非常に便利
   services.keyd = {
@@ -126,7 +126,7 @@
   virtualisation.libvirtd.enable = true;
   programs.virt-manager.enable = true; # VM管理用GUI
   # ユーザーの libvirtd グループ加入は user モジュール側で
-  # config.virtualisation.libvirtd.enable をトリガーに条件付き追加する
+  # config.virtualisation.libvirtd.enable をトリガーに条件つき追加する
   # （workstation profile を username 非依存に保つため）
   # virt-secret-init-encryption の /usr/bin/sh 問題は nixpkgs の libvirt 12.6.0 が
   # runtimeShell + coreutils/systemd 入りラッパーへの置換で修正済みのため上書き不要

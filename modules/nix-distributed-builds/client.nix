@@ -73,7 +73,7 @@ in
   nix.settings.builders-use-substitutes = remoteBuilderReady;
   # ノートPC (低TDP, 冷却制約) でビルドするより r995 (Ryzen 9950X) に全部
   # 投げた方が体感速い。max-jobs=0 でローカルジョブ実行を抑制し、ビルドを
-  # 全て r995 にオフロードする。fixed-output derivation など一部はローカルで
+  # すべて r995 にオフロードする。fixed-output derivation など一部はローカルで
   # 走るが、CPU バウンドな大物は完全に r995 行きになる。
   # 鍵未登録時 (remoteBuilderReady=false) は NixOS デフォルトの "auto" に
   # 戻して初回 rebuild が詰まらないようにする。lib.mkIf は使わず if-then-else

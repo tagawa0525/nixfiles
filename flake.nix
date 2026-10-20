@@ -212,7 +212,7 @@
         commit-refs =
           nixpkgs.legacyPackages.x86_64-linux.callPackage ./modules/home/parts/commit-refs/package.nix
             { };
-        # 設計の記録（ADR）の雛形と検査の CLI（modules/home/parts/git.nix が PATH に入れる）
+        # 設計の記録（ADR）のテンプレートと検査の CLI（modules/home/parts/git.nix が PATH に入れる）
         design-records =
           nixpkgs.legacyPackages.x86_64-linux.callPackage ./modules/home/parts/design-records/package.nix
             { };

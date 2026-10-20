@@ -32,7 +32,7 @@ in
   };
   services.munge.password = config.sops.secrets.munge-key.path;
 
-  # squeue の既定の表示に、名前、CPU 数（%C）、優先度（%Q）、経過、見積もり（%l）、始まりの見込み（%S）、
+  # squeue の既定の表示に、名前、CPU 数（%C）、優先度（%Q）、経過、見積もり（%l）、開始の見込み（%S）、
   # 連絡先（%k）を出す。優先度は scontrol top と nice で下がった分を読むため（docs/adr/0030）
   environment.variables.SQUEUE_FORMAT = "%.6i %.24j %.8T %.5C %.8Q %.10M %.10l %.19S %k";
 

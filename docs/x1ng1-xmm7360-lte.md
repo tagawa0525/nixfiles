@@ -46,7 +46,7 @@ modem の AT 応答からは「物理 RF レイヤで PLMN を一切認識して
 - `AT+CFUN?` → `+CFUN: 1,0` (full functionality 動作中)
 - `AT+XACT?` → `+XACT: 4,2,1,...,103,...,128,...` (LTE only、DOCOMO B1/B3/B19/B28 含む)
 - `AT+CSQ` → `+CSQ: 99,99` (測定不能)
-- `AT+XCESQ?` → `+XCESQ: 0,99,99,255,255,255,255,255` (RSRP/RSRQ 全て 255 = 受信なし)
+- `AT+XCESQ?` → `+XCESQ: 0,99,99,255,255,255,255,255` (RSRP/RSRQ すべて 255 = 受信なし)
 - `AT+XREG?` → `+XREG: 0,0,BAND_INVALID,0` (**state 0 = not registered, not searching**)
 - `AT+COPS=?` / `AT+COPS=0` → 即時 `No network service`
 - `AT+XCEER` → `+XCEER: 248,107` (cause 107: no usable cell)

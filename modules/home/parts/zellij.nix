@@ -152,7 +152,7 @@ in
     // 新規セッションはスロット3の1タブから始まる（layouts/slots.kdl）
     default_layout "slots"
     scroll_buffer_size 50000
-    // 旧tmuxに枠線はなかったので合わせる（ペイン分割時は色付きの境界線が入る）
+    // 旧tmuxに枠線はなかったので合わせる（ペイン分割時は色つきの境界線が入る）
     pane_frames false
     // 起動時のTipsやリリースノートで初回タブを汚さない
     show_startup_tips false

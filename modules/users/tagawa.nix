@@ -9,7 +9,7 @@
 #   - Home Manager 設定（dotfiles, shell, editors 等）の紐付け
 #   - nix-rebuild の switch を NOPASSWD で許可する sudoers ルール
 # workstation profile を import するホストでは、追加で libvirtd グループも
-# 条件付きで付与されます。
+# 条件つきで付与されます。
 #
 # authorized_keys は users.users.<name>.openssh.authorizedKeys.keyFiles 経由で
 # /etc/ssh/authorized_keys.d/<name> に書き出される。home-manager で

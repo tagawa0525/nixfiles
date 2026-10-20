@@ -2,7 +2,7 @@
 # xlc の GitHub へのバックアップ（ADR-0035）
 # =============================================================================
 # r995 の xlc（作業の origin）のブランチとタグを、1 時間ごとに公開リポジトリ
-# github.com/tagawa0525/xlc に写す。r995 で rebase・削除したブランチも反映する
+# github.com/tagawa0525/xlc にコピーする。r995 で rebase・削除したブランチも反映する
 # （force と prune）。作業用の clone の remote には触れず、専用の bare リポジトリ
 # を中継に使う。
 # =============================================================================
@@ -20,7 +20,7 @@ let
       if [ ! -d "$mirror" ]; then
         git init --bare --quiet "$mirror"
       fi
-      # refs/* をまとめて写す --mirror を使わないのは、r995 の作業用リポジトリの
+      # refs/* をまとめてコピーする --mirror を使わないのは、r995 の作業用リポジトリの
       # refs/stash などを公開リポジトリに出さないため。heads と tags だけを送る
       refspecs=('+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*')
       git -C "$mirror" fetch --quiet --prune r995:/home/tagawa/github/xlc "''${refspecs[@]}"

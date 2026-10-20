@@ -25,7 +25,7 @@ const PIPE_NAME: &str = "slots";
 /// タブラベルに表示するタイトルの最大文字数
 const TITLE_MAX: usize = 15;
 
-/// 優先順位で最初に空いているスロット番号を返す。全て使用中なら None
+/// 優先順位で最初に空いているスロット番号を返す。すべて使用中なら None
 fn find_free_slot(used: &[String]) -> Option<&'static str> {
     SLOT_PRIORITY
         .iter()
@@ -132,7 +132,7 @@ fn secs_to_next_minute(epoch_secs: u64) -> f64 {
 }
 
 /// タブラベル列を利用可能なセル幅に収める。
-/// 溢れる場合はタイトルを均等予算で切り詰め、スロット番号は常に全て表示する
+/// 溢れる場合はタイトルを均等予算で切り詰め、スロット番号は常にすべて表示する
 /// （番号が指の位置と対応するのがこのバーの主目的のため）。
 /// 入力は (タブ名, タイトル)、出力は前後に空白を含む表示ラベル
 fn fit_labels(tabs: &[(String, String)], available: usize) -> Vec<String> {
@@ -143,7 +143,7 @@ fn fit_labels(tabs: &[(String, String)], available: usize) -> Vec<String> {
     if full.iter().map(|l| cell_width(l)).sum::<usize>() <= available {
         return full;
     }
-    // タイトル付きラベルの固定部（" 名前 " とコロン）を除いた残りを
+    // タイトルつきラベルの固定部（" 名前 " とコロン）を除いた残りを
     // タイトルの予算として均等に割り当てる
     let has_title = |name: &str, title: &str| slot_of(name).is_some() && !title.is_empty();
     let titled = tabs.iter().filter(|(n, t)| has_title(n, t)).count();
@@ -713,7 +713,7 @@ mod tests {
     }
 
     #[test]
-    fn 切り詰めてもスロット番号は全て残る() {
+    fn 切り詰めてもスロット番号はすべて残る() {
         let labels = fit_labels(&nt(&[("3", "aaaa"), ("4", "bbbb"), ("2", "cccc")]), 9);
         assert_eq!(labels.len(), 3);
         assert!(labels[0].contains('3'));

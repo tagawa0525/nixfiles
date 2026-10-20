@@ -49,7 +49,7 @@
     MD024 = {
       siblings_only = true;
     }; # 異なるセクション間の見出し重複は許可
-    MD029 = false; # 番号付きリストのプレフィックス順序を強制しない
+    MD029 = false; # 番号つきリストのプレフィックス順序を強制しない
     MD033 = false; # インラインHTMLを許可
     MD034 = false; # URLの直書きを許可
     MD036 = false; # 強調テキストを見出し代わりに使うことを許可
@@ -76,7 +76,7 @@
   # ===========================================================================
   # sccacheは依存クレートのコンパイル結果をキャッシュし、プロジェクト間や
   # ブランチ切替・クリーンビルドで再利用する。自分のクレートのincremental
-  # compilation（-C incremental付き呼び出し）は自動でスキップされるため、
+  # compilation（-C incrementalつき呼び出し）は自動でスキップされるため、
   # CARGO_INCREMENTALは変更せず両者を併用する。
   home.file.".cargo/config.toml".text = ''
     [build]
