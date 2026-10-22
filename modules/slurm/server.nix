@@ -9,7 +9,7 @@
 let
   # ほかのホストに NFS で出す作業の場所と、どのホストでも同じパスで見える入口
   work = "/home/tagawa/github";
-  entry = "/home/tagawa/r995";
+  entry = import ./nfs-entry.nix;
 in
 {
   imports = [ ./common.nix ];
@@ -57,7 +57,7 @@ in
     wants = [ "slurmdbd.service" ];
   };
 
-  # ほかのホストは ~/r995（= r995 の ~/github）の下で投入する。ジョブは r995 の上で同じ
+  # ほかのホストは入口（= r995 の ~/github）の下で投入する。ジョブは r995 の上で同じ
   # パスで走るので、r995 にも同じ入口を置く。L+ は既にあるディレクトリを中身ごと消すので、
   # 上書きしない L にする（場所がふさがっていれば作らずに残り、手で移せる）
   systemd.tmpfiles.rules = [
