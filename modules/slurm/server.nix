@@ -61,7 +61,6 @@ in
   # パスで走るので、r995 にも同じ入口を置く。L+ は既にあるディレクトリを中身ごと消すので、
   # 上書きしない L にする（場所がふさがっていれば作らずに残り、手で移せる）
   systemd.tmpfiles.rules = [
-    "d ${builtins.dirOf entry} 0755 root root -"
     "L ${entry} - - - - ${work}"
     # 終わったジョブの記録（JobCompLoc。common.nix）の置き場。slurmctld は slurm ユーザーで動く
     "d /var/log/slurm 0755 slurm slurm -"
