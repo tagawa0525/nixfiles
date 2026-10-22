@@ -4,7 +4,7 @@ date: 2026-10-22
 requires: []
 supersedes: []
 superseded-by:
-issues: []
+issues: ["#439"]
 ---
 
 # ADR-0048: r995 の作業の場所の NFS を、ホームの直下ではなく ~/mnt/r995 にマウントする
@@ -47,7 +47,7 @@ x1ng1 で、ネットワークにつながっていないとターミナルが�
 
 - 投入の場所が `~/r995` から `~/mnt/r995` に変わる。`slurm-run.sh`、その SKILL.md、グローバルの CLAUDE.md を合わせて直す
 - 既にあるホストには古い入口が残る（ノート PC の空の `~/r995`、r995 の symlink `~/r995`）。tmpfiles の `L` は消さないので、
-  rebuild した後に手で消す
+  rebuild した後に手で消す（#439）
 - `~/mnt` は tmpfiles の `d` で tagawa の持ち物にする。systemd が自動マウントの点を作るときに親を root で作っても、`d` が
   持ち主を直す
 
