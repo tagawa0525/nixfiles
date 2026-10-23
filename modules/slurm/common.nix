@@ -9,6 +9,7 @@
 #   ~/.claude/scripts/slurm-run.sh -t <見積もり> <名前> '<コマンド>'   # 投げて終わるまで待つ
 #   squeue                                                            # 待ち行列を見る
 #   scontrol top <ジョブ番号>                                          # 待っている自分のジョブを先頭へ
+#   ~/.claude/scripts/slurm-run.sh --urgent -t <見積もり> <名前> '<コマンド>' # 走っている main のジョブを止めて実行する
 #   scancel <ジョブ番号>                                               # 取り消す
 #
 # ジョブは r995 の上で、投入したときのディレクトリで走る。ほかのホストからは /mnt/r995/github
@@ -33,8 +34,9 @@ in
   services.munge.password = config.sops.secrets.munge-key.path;
 
   # squeue の既定の表示に、名前、CPU 数（%C）、優先度（%Q）、経過、見積もり（%l）、開始の見込み（%S）、
-  # 連絡先（%k）を出す。優先度は scontrol top と nice で下がった分を読むため（docs/adr/0030）
-  environment.variables.SQUEUE_FORMAT = "%.6i %.24j %.8T %.5C %.8Q %.10M %.10l %.19S %k";
+  # 連絡先（%k）を出す。優先度は scontrol top と nice で下がった分を読むため（docs/adr/0030）。パーティション（%P）は、
+  # urgent のジョブと、それに止められた main のジョブ（SUSPENDED）を見分けるため（docs/adr/0052）
+  environment.variables.SQUEUE_FORMAT = "%.6i %.6P %.24j %.9T %.5C %.8Q %.10M %.10l %.19S %k";
 
   services.slurm = {
     clusterName = controller;
@@ -43,12 +45,25 @@ in
     nodeName = [
       "${controller} CPUs=32 Sockets=1 CoresPerSocket=16 ThreadsPerCore=2 RealMemory=86000 State=UNKNOWN"
     ];
-    partitionName = [ "main Nodes=${controller} Default=YES MaxTime=INFINITE State=UP" ];
+    # urgent のジョブは、PriorityTier の低い main の走っているジョブを止めて（SUSPEND）実行し、終わると main のジョブが
+    # 続きから再開する。別のパーティションにするのは、同じパーティションの割り込みが止めたままにせず時間を分け合うため。
+    # OverSubscribe=NO のパーティションのジョブは割り込まれないので FORCE:1（割り込みだけを許し、通常の共有は許さない）。
+    # urgent は PreemptMode=OFF で割り込まれない。PriorityJobFactor は両方とも既定の 1 のままにし、基礎の優先度
+    # （PriorityWeightPartition）をどちらのジョブにも同じにする（docs/adr/0052、docs/adr/0030）
+    partitionName = [
+      "main Nodes=${controller} Default=YES MaxTime=INFINITE State=UP OverSubscribe=FORCE:1 PriorityTier=1"
+      "urgent Nodes=${controller} Default=NO MaxTime=INFINITE State=UP OverSubscribe=FORCE:1 PriorityTier=2 PreemptMode=OFF"
+    ];
     extraConfig = ''
       SelectType=select/cons_tres
       SelectTypeParameters=CR_Core
       # 再起動やスリープで slurmd が止まっても、戻ればノードを使える状態にする
       ReturnToService=2
+      # PriorityTier の高いパーティション（urgent）のジョブが、低いパーティション（main）のジョブを止める。SUSPEND は
+      # 止めたジョブを再開する gang scheduler（GANG）を要する。メモリは数えない（CR_Core）ので、止めたジョブと
+      # 急ぐジョブの合計は投げる側が数える（docs/adr/0052）
+      PreemptType=preempt/partition_prio
+      PreemptMode=SUSPEND,GANG
       # 利用者が待っている自分のジョブの順番を変えられるようにする（scontrol top。docs/adr/0007）
       SchedulerParameters=enable_user_top
       # 優先度を「10000 + 待った分 − nice」にする。投げた順に走り、scontrol top が付けた nice は何分ぶん
