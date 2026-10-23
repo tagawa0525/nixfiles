@@ -70,7 +70,7 @@ in
       # 優先度を「10000 + 待った分 − nice」にする。投げた順に走り、scontrol top が付けた nice は何分ぶん
       # 後ろに回したかの意味になる。基礎は、投げたばかりのジョブを優先度 1 にしないため（scontrol top は
       # 優先度 1 のジョブを下げる対象から外す）。Age の重みは PriorityMaxAge の既定（7 日 = 10080 分）と同じ数で、
-      # 1 分に 1 上がる。パーティションが 1 つで PriorityJobFactor が既定の 1 であることを前提にする（docs/adr/0030）
+      # 1 分に 1 上がる。すべてのパーティションの PriorityJobFactor が既定の 1 であることを前提にする（docs/adr/0030、docs/adr/0052）
       PriorityWeightPartition=10000
       PriorityWeightAge=10080
       PriorityCalcPeriod=1
