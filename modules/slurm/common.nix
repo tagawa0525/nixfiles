@@ -48,7 +48,8 @@ in
     # urgent のジョブは、PriorityTier の低い main の走っているジョブを止めて（SUSPEND）実行し、終わると main のジョブが
     # 続きから再開する。別のパーティションにするのは、同じパーティションの割り込みが止めたままにせず時間を分け合うため。
     # OverSubscribe=NO のパーティションのジョブは割り込まれないので FORCE:1（割り込みだけを許し、通常の共有は許さない）。
-    # urgent は PreemptMode=OFF で割り込まれない。PriorityJobFactor は両方とも既定の 1 のままにし、基礎の優先度
+    # urgent は PreemptMode=OFF で割り込まれない。urgent の FORCE:1 は、割り込む側も含めて SUSPEND で割り込むパーティションを
+    # すべて FORCE にするという Slurm の文書（preempt.html の OverSubscribe）の構成に合わせるため。PriorityJobFactor は両方とも既定の 1 のままにし、基礎の優先度
     # （PriorityWeightPartition）をどちらのジョブにも同じにする（docs/adr/0052、docs/adr/0030）
     partitionName = [
       "main Nodes=${controller} Default=YES MaxTime=INFINITE State=UP OverSubscribe=FORCE:1 PriorityTier=1"
