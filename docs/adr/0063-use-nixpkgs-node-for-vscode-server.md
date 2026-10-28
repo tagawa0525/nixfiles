@@ -4,7 +4,7 @@ date: 2026-10-28
 requires: []
 supersedes: []
 superseded-by:
-issues: []
+issues: ["#503"]
 ---
 
 # ADR-0063: VS Code Server の node は patchelf で書き換えず nixpkgs の node で起動する
@@ -50,8 +50,15 @@ nixos-vscode-server は同梱の node を `patchelf --set-interpreter ... --set-
 ### 帰結
 
 - 同梱の node は書き換えた結果が壊れたまま残るが、使われない
-- VS Code が要求する node のメジャー版が上がったら、`nodejs_NN` を合わせる
+- ラッパーは起動のたびに、node 以外の同梱 ELF（`copilot`、`vsce-sign`、`copilot-runtime`）も同じ patchelf で書き換える。
+  2026-10-28 に手元で書き換えて起動し、segfault（139）しないことを確かめた。ほかの ELF が将来壊れたら、この決定は直らない
+- 反映前にパッチ済みで確定したサーバーのディレクトリは、ラッパーが作り直されず、壊れた node を使い続ける。
+  r995 は 2026-10-28 時点で確定したディレクトリが無く（`.staging-*` だけ）影響しない。ほかのホストで出たら
+  `~/.vscode-server/cli/servers` を消して入れ直す
+- VS Code が要求する node のメジャー版が上がったら、`nodejs_NN` を合わせる。外す条件と見直す条件は #503 で追う
 
 ### 確認
 
-r995 に反映後、Remote-SSH で `~/github/xlc` を開けること。
+- 2026-10-28 に手元で、nixpkgs の node 24.21.0 が同梱の `node-pty`、`@vscode/spdlog`、`@vscode/sqlite3`、
+  `@parcel/watcher` を `require` できることを確かめた（メジャー版が同じで ABI が合う）
+- r995 に反映後、Remote-SSH で `~/github/xlc` を開けること
