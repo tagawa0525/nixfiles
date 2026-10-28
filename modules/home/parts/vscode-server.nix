@@ -15,6 +15,7 @@
     enable = true;
     # 同梱のnodeをpatchelfで書き換えるとsegfaultする（新しいpatchelfの不具合）ため、
     # nixpkgsのnodeで起動する。メジャー版はVS Code同梱のnodeに合わせる。
+    # 代替案と外す条件はADR-0063と#503。
     nodejsPackage = pkgs.nodejs_24;
     installPath = [
       "$HOME/.vscode-server"
