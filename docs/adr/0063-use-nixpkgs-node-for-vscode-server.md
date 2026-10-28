@@ -50,7 +50,7 @@ nixos-vscode-server は同梱の node を `patchelf --set-interpreter ... --set-
 ### 帰結
 
 - 同梱の node は書き換えた結果が壊れたまま残るが、使われない
-- ラッパーは起動のたびに、node 以外の同梱 ELF（`copilot`、`vsce-sign`、`copilot-runtime`）も同じ patchelf で書き換える。
+- ラッパーはサーバーの最初の起動で、使われない同梱 node のほか、node 以外の同梱 ELF（`copilot`、`vsce-sign`、`copilot-runtime`）も同じ patchelf で書き換える。
   2026-10-28 に手元で書き換えて起動し、segfault（139）しないことを確かめた。ほかの ELF が将来壊れたら、この決定は直らない
 - 反映前にパッチ済みで確定したサーバーのディレクトリは、ラッパーが作り直されず、壊れた node を使い続ける。
   r995 は 2026-10-28 時点で確定したディレクトリが無く（`.staging-*` だけ）影響しない。ほかのホストで出たら
