@@ -4,7 +4,7 @@
 # VS Code Remote SSHでNixOS上のNode.jsバイナリを自動的にパッチします。
 # stable版とInsiders版の両方のインストールパスに対応。
 # =============================================================================
-{ vscode-server, ... }:
+{ pkgs, vscode-server, ... }:
 
 {
   imports = [
@@ -13,6 +13,9 @@
 
   services.vscode-server = {
     enable = true;
+    # 同梱のnodeをpatchelfで書き換えるとsegfaultする（新しいpatchelfの不具合）ため、
+    # nixpkgsのnodeで起動する。メジャー版はVS Code同梱のnodeに合わせる。
+    nodejsPackage = pkgs.nodejs_24;
     installPath = [
       "$HOME/.vscode-server"
       "$HOME/.vscode-server-insiders"
