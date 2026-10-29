@@ -2787,9 +2787,32 @@ for cmd in 'git commit -q -m "docs: x"; git commit -q --amend -m "docs: y"' 'git
 done
 it "guard-git-amend: 別のディレクトリと、先端を動かさない前の git のコマンドは数えない"
 for cmd in "git -C $TEST_ROOT/amend-other commit -m x; git commit --amend --no-edit" \
-  'git add -A && git status --short && git commit --amend --no-edit'; do
+  'git add -A && git status --short && git commit --amend --no-edit' \
+  'git reset -q own.txt && git commit --amend --no-edit' 'git reset && git commit --amend --no-edit' \
+  'git reset -- own.txt && git commit --amend --no-edit' 'git checkout -- own.txt && git commit --amend --no-edit' \
+  'git checkout own.txt && git commit --amend --no-edit' 'git branch --show-current && git commit --amend --no-edit'; do
   out=$(run_hook guard-git-amend "$cmd")
   assert_eq "" "$out"
+done
+it "guard-git-amend: 前の reset、checkout、branch がコミットを指せば先端を動かすものとして数える"
+for cmd in 'git reset HEAD~1 && git commit --amend --no-edit' 'git reset -q --hard main && git commit --amend --no-edit' \
+  'git checkout main && git commit --amend --no-edit' 'git checkout --detach && git commit --amend --no-edit' \
+  'git branch -f own main && git commit --amend --no-edit'; do
+  out=$(run_hook guard-git-amend "$cmd")
+  assert_eq deny "$(decision "$out")"
+done
+git switch -q fresh
+
+it "guard-git-amend: 既定ブランチの上で、ブランチを移らない前のコマンドの後の amend は通す"
+git switch -q main
+for cmd in 'git merge --no-ff side -m "Merge: side again" && git commit --amend -m "Merge: side (fixed)"' \
+  'git commit -m x && git commit --amend --no-edit' 'git reset --soft HEAD~1 && git commit --amend --no-edit'; do
+  out=$(run_hook guard-git-amend "$cmd")
+  assert_eq "" "$out"
+done
+for cmd in 'git switch fresh && git commit --amend --no-edit' 'git checkout -b x && git commit --amend --no-edit'; do
+  out=$(run_hook guard-git-amend "$cmd")
+  assert_eq deny "$(decision "$out")"
 done
 git switch -q fresh
 
