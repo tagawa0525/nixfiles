@@ -27,14 +27,29 @@ use std::path::Path;
 
 pub struct GuardGitAmend;
 
-/// 前の `git <sub> args…` がブランチの先端か HEAD を動かしうるか。`reset` と `checkout` はコミットを指す引数（`--` より前で
-/// コミットとして解けるもの）か、ブランチを作る・切り離すオプションがあるときだけ（パスだけなら index と作業ツリーしか
-/// 変えない）。`branch` は既にあるブランチを動かす `-f` の形だけ
+/// 字面のままでは値が決まらない引数（変数やコマンドの置き換え）
+fn unexpanded(text: &str) -> bool {
+    text.contains('$') || text.contains('`')
+}
+
+/// 前の `git <sub> args…` がブランチの先端か HEAD を動かしうるか。`reset` は、パスを渡さずに 1 つのコミットを指す
+/// ときだけ（`reset HEAD -- <path>` や `reset <path>` は index しか変えない）。`checkout` は、ブランチを作る・切り離す
+/// オプションか、パスを渡さずに 1 つの引数を指し、それが `-`、コミット、作業ツリーに無い名前（リモートにだけある
+/// ブランチは git が追跡ブランチを作って移る）のどれかのとき。値の決まらない引数は止める側に倒す（ADR-0025）。
+/// `branch` は既にあるブランチを動かす `-f` の形だけ
 fn moves_tip(dir: &Path, sub: &str, args: &[Arg]) -> bool {
-    let before_dashdash = || args.iter().take_while(|a| a.text != "--");
+    let (before, after) = match args.iter().position(|a| a.text == "--") {
+        Some(i) => (&args[..i], &args[i + 1..]),
+        None => (args, &[][..]),
+    };
+    let positional: Vec<&str> = before
+        .iter()
+        .map(|a| a.text.as_str())
+        .filter(|t| !t.starts_with('-') || *t == "-")
+        .collect();
     let names_commit = |t: &str| {
-        !t.starts_with('-')
-            && git::git(
+        unexpanded(t)
+            || git::git(
                 dir,
                 &[
                     "rev-parse",
@@ -45,14 +60,24 @@ fn moves_tip(dir: &Path, sub: &str, args: &[Arg]) -> bool {
             )
             .is_some()
     };
+    let single = match positional.as_slice() {
+        [t] if after.is_empty() => Some(*t),
+        _ => None,
+    };
     match sub {
         "commit" | "switch" | "merge" | "rebase" | "pull" | "cherry-pick" | "revert" | "am"
         | "update-ref" => true,
-        "reset" => before_dashdash().any(|a| names_commit(&a.text)),
-        "checkout" => before_dashdash().any(|a| {
-            let t = a.text.as_str();
-            matches!(t, "-b" | "-B" | "--orphan" | "--detach") || names_commit(t)
-        }),
+        "reset" => single.is_some_and(names_commit),
+        "checkout" => {
+            let creates = before.iter().any(|a| {
+                let t = a.text.as_str();
+                matches!(t.split('=').next(), Some("--orphan" | "--detach"))
+                    || t.strip_prefix('-').is_some_and(|c| {
+                        !c.starts_with('-') && (c.contains('b') || c.contains('B'))
+                    })
+            });
+            creates || single.is_some_and(|t| t == "-" || names_commit(t) || !dir.join(t).exists())
+        }
         "branch" => args.iter().any(|a| {
             a.text == "--force"
                 || a.text
@@ -63,9 +88,10 @@ fn moves_tip(dir: &Path, sub: &str, args: &[Arg]) -> bool {
     }
 }
 
-/// 前の `git <sub>` が今のブランチから移りうるか（既定ブランチの上に留まるかの判定に使う）
+/// 前の `git <sub>` が今のブランチから移りうるか（既定ブランチの上に留まるかの判定に使う）。`rebase <upstream> <branch>` は
+/// 先に <branch> へ移る
 fn may_leave_branch(sub: &str) -> bool {
-    matches!(sub, "switch" | "checkout")
+    matches!(sub, "switch" | "checkout" | "rebase")
 }
 
 /// `git commit` の引数が amend を指すか。git は一意な略（`--am`、`--no-am` など）を受け付け、後に書いた
@@ -125,13 +151,11 @@ impl Rule for GuardGitAmend {
             }
             let dir = shell.target_dir(cmd, &input.cwd);
             let branch = git::current_branch(&dir);
-            let Some(default_ref) = git::default_branch(&dir) else {
-                continue;
-            };
-            let default = git::local_name(&default_ref);
+            let default_ref = git::default_branch(&dir);
+            let default = default_ref.as_deref().map(git::local_name);
             let moves = earlier_tip_moves(shell, cmd, &input.cwd, &dir);
             // 既定ブランチの上で、ブランチを移らない前のコマンド（merge、commit、reset）の後の amend は、既定ブランチの上の amend
-            let stays_on_default = branch == default
+            let stays_on_default = default == Some(branch.as_str())
                 && moves.iter().all(|c| {
                     c.git_subcommand()
                         .is_some_and(|(sub, _)| !may_leave_branch(sub))
@@ -147,9 +171,12 @@ impl Rule for GuardGitAmend {
                     raw.join(" ")
                 ))];
             }
+            let (Some(default_ref), Some(default)) = (default_ref.as_deref(), default) else {
+                continue;
+            };
             if branch.is_empty()
                 || branch == default
-                || !contained_in_default(&dir, &default_ref, default)
+                || !contained_in_default(&dir, default_ref, default)
             {
                 continue;
             }
