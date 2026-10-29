@@ -361,11 +361,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792962626,
-        "narHash": "sha256-w2NgU8cHNI99CGMFBU7527haMPQZ+3InijXha2Z1mQk=",
+        "lastModified": 1793308165,
+        "narHash": "sha256-59PLOKZSGDAzvpHPmUj0Yi52tP4UiiH/ftosUnPR5f4=",
         "owner": "tagawa0525",
         "repo": "nur-openlogi-latest",
-        "rev": "2566c6cf0d418bebb4965f486a1cbd68b311d794",
+        "rev": "2a754caea6a4d0b3b5bbbf63b73ff757753b4045",
         "type": "github"
       },
       "original": {
