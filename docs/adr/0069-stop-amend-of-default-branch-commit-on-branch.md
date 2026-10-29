@@ -48,10 +48,12 @@ amend することを書く。
 GitHub 以外の origin のリポジトリでは、/git-merge のマージが push されないまま、ローカルの main にだけある。
 
 hook は実行前の状態しか見られない。同じコマンドの前に、同じディレクトリでブランチの先端か HEAD を動かしうる git の
-コマンド（commit、switch、merge、rebase、pull、cherry-pick、revert、am、update-ref と、コミットを指す reset と checkout、
-`-f` の branch。サブシェルとコマンドの置き換えの中も）があれば止め、呼び出しを分けるよう示す。パスだけの reset と checkout
-（amend の前に 1 つのファイルをステージから外すなど）は index と作業ツリーしか変えないので数えない。既定ブランチの上で、前の
-コマンドがブランチを移らない（switch / checkout でない）なら、amend は既定ブランチの上のもの（マージの直後に本文を直す）なので通す。amend が書き換えるコミットは前のコマンドの
+コマンド（commit、switch、merge、rebase、pull、cherry-pick、revert、am、update-ref と、パスを渡さずに 1 つのコミットを指す
+reset、ブランチを作る・切り離すか、パスを渡さずに `-`・コミット・作業ツリーに無い名前を指す checkout、`-f` の branch。
+値の決まらない引数は指すものとして数える。サブシェルとコマンドの置き換えの中も）があれば止め、呼び出しを分けるよう示す。
+パスを渡す reset と checkout（`git reset HEAD -- <path>` でステージから外すなど）は index と作業ツリーしか変えないので数えない。
+既定ブランチの上で、前のコマンドがブランチを移らない（switch、checkout、rebase でない）なら、amend は既定ブランチの上のもの
+（マージの直後に本文を直す）なので通す。既定ブランチが見つからないリポジトリでも、この検査は行う。amend が書き換えるコミットは前のコマンドの
 成否と中身で決まり、書き方からは決められないため（ADR-0025 と同じく止める側に倒す）。`git commit -m a; git commit --amend` は
 前の commit が拒まれれば既定ブランチのコミットを書き換え、`git switch -C <b> && …`、`git checkout -b <b> origin/main && …`、
 `git reset --soft main && …` は先端を既定ブランチのコミットへ移す。分けた amend は、前のコマンドの後の状態で判定される。
@@ -65,7 +67,10 @@ block-main-commit が既定ブランチの commit を止め、push 済みのコ�
 前の `git reset --soft` の後の amend が既定ブランチのコミットを書き換えるのに通ることを示したので、今の形にした。同じレビューで、
 比べる先をローカルの既定ブランチにも広げ、`--no-am` などの略を `--no-amend` として読むようにした。2 周目のレビューが、パスだけの
 `git reset` / `git checkout`、`git branch --show-current`、既定ブランチの上の `git merge … && git commit --amend` も止めることを
-示したので、reset と checkout と branch は引数で見分け、既定ブランチに留まる形を通すようにした。
+示したので、reset と checkout と branch は引数で見分け、既定ブランチに留まる形を通すようにした。3 周目のレビューが、その見分けが
+値の決まらない引数（`$(git merge-base HEAD main)`）、`git checkout -`、`-qb`、リモートにだけあるブランチ名、既定ブランチの上の
+`git rebase main <branch>` を通し、`git reset HEAD -- <path>` を止め、既定ブランチの無いリポジトリで検査を飛ばすことを示したので、
+今の形にした。
 
 ### 帰結
 
