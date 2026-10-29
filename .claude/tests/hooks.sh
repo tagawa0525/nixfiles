@@ -2734,12 +2734,12 @@ cd "$AMEND" || exit 1
 it "guard-git-amend: 先端が既定ブランチに含まれる feature ブランチでの amend は deny し、git commit を示す"
 for cmd in 'git commit --amend -m "docs: x"' 'git commit -q --amend -m "docs: x"' 'git commit -m "docs: x" --amend' \
   'git commit --amend --no-edit' 'git commit --am --no-edit' 'git add -A docs && git commit -q --amend --no-edit' \
-  'git commit -q -m "docs: x"; git commit -q --amend -m "docs: y"' "bash -c 'git commit --amend --no-edit'" \
-  'env FOO=1 git commit --amend --no-edit'; do
+  "bash -c 'git commit --amend --no-edit'" 'env FOO=1 git commit --amend --no-edit'; do
   out=$(run_hook guard-git-amend "$cmd")
   assert_eq deny "$(decision "$out")"
   assert_contains "$(reason "$out")" "git log -1"
   assert_contains "$(reason "$out")" "fresh"
+  assert_contains "$(reason "$out")" "main の上で amend"
 done
 
 it "guard-git-amend: -C と cd で指した先のブランチで判定する"
@@ -2768,20 +2768,41 @@ git switch -q fresh
 
 it "guard-git-amend: --amend の無い commit と、--amend が値や pathspec の commit は通す"
 for cmd in 'git commit -m "docs: x"' 'git commit -m --amend' 'git commit -m"--amend"' 'git commit -F --amend' \
-  'git commit -m x -- --amend' 'git commit --amend --no-amend -m x' 'git log --amend' 'echo git commit --amend'; do
+  'git commit -m x -- --amend' 'git commit --amend --no-amend -m x' 'git commit --amend --no-am -m x' \
+  'git log --amend' 'echo git commit --amend'; do
   out=$(run_hook guard-git-amend "$cmd")
   assert_eq "" "$out"
 done
 
-it "guard-git-amend: 同じコマンドの前の git switch の先のブランチで判定する"
-git switch -q main
-out=$(run_hook guard-git-amend 'git switch own && git commit --amend --no-edit')
-assert_eq "" "$out"
-out=$(run_hook guard-git-amend 'git switch fresh && git commit --amend --no-edit')
-assert_eq deny "$(decision "$out")"
-out=$(run_hook guard-git-amend 'git switch -c brand-new && git commit --amend --no-edit')
-assert_eq deny "$(decision "$out")"
+it "guard-git-amend: 同じコマンドの前に先端を動かしうる git のコマンドがあれば、ブランチによらず deny し、呼び出しを分けるよう示す"
+git switch -q own
+for cmd in 'git commit -q -m "docs: x"; git commit -q --amend -m "docs: y"' 'git commit -m a && git commit --amend --no-edit' \
+  'git switch -C own && git commit --amend --no-edit' 'git checkout -b feat main && git commit --amend --no-edit' \
+  'git reset --soft HEAD~1 && git commit --amend --no-edit' 'git switch main && git commit --amend --no-edit' \
+  "cd $AMEND && git reset --soft main; git -C $AMEND commit --amend --no-edit" \
+  '(git reset --soft HEAD~1); git commit --amend --no-edit' 'echo $(git commit -m x); git commit --amend --no-edit'; do
+  out=$(run_hook guard-git-amend "$cmd")
+  assert_eq deny "$(decision "$out")"
+  assert_contains "$(reason "$out")" "別の呼び出しに分けて"
+done
+it "guard-git-amend: 別のディレクトリと、先端を動かさない前の git のコマンドは数えない"
+for cmd in "git -C $TEST_ROOT/amend-other commit -m x; git commit --amend --no-edit" \
+  'git add -A && git status --short && git commit --amend --no-edit'; do
+  out=$(run_hook guard-git-amend "$cmd")
+  assert_eq "" "$out"
+done
 git switch -q fresh
+
+it "guard-git-amend: ローカルの既定ブランチにだけある（push していない）コミットも既定ブランチのものとして扱う"
+AMEND_LOCAL="$TEST_ROOT/amend-local"
+make_repo "$AMEND_LOCAL"
+make_remote "$AMEND_LOCAL"
+commit_file "$AMEND_LOCAL" unpushed.txt "feat: unpushed"
+git -C "$AMEND_LOCAL" switch -q -c fresh
+cd "$AMEND_LOCAL" || exit 1
+out=$(run_hook guard-git-amend 'git commit --amend --no-edit')
+assert_eq deny "$(decision "$out")"
+cd "$AMEND" || exit 1
 
 it "guard-git-amend: GitHub リモートのあるリポジトリでは origin の既定ブランチと比べる"
 AMEND_GH="$TEST_ROOT/amend-gh"
@@ -2793,6 +2814,7 @@ cd "$AMEND_GH" || exit 1
 out=$(run_hook guard-git-amend 'git commit --amend --no-edit')
 assert_eq deny "$(decision "$out")"
 assert_contains "$(reason "$out")" "origin/main"
+assert_not_contains "$(reason "$out")" "の上で amend"
 commit_file "$AMEND_GH" gh.txt "feat: gh"
 out=$(run_hook guard-git-amend 'git commit --amend --no-edit')
 assert_eq "" "$out"
