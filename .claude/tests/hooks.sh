@@ -2797,9 +2797,19 @@ done
 it "guard-git-amend: 前の reset、checkout、branch がコミットを指せば先端を動かすものとして数える"
 for cmd in 'git reset HEAD~1 && git commit --amend --no-edit' 'git reset -q --hard main && git commit --amend --no-edit' \
   'git checkout main && git commit --amend --no-edit' 'git checkout --detach && git commit --amend --no-edit' \
-  'git branch -f own main && git commit --amend --no-edit'; do
+  'git branch -f own main && git commit --amend --no-edit' \
+  'git reset --soft $(git merge-base HEAD main) && git commit --amend --no-edit' \
+  'git reset --soft "$B" && git commit --amend --no-edit' 'git checkout - && git commit --amend --no-edit' \
+  'git checkout -qb x && git commit --amend --no-edit' 'git checkout -bfoo && git commit --amend --no-edit' \
+  'git checkout --orphan=o && git commit --amend --no-edit' 'git checkout only-on-remote && git commit --amend --no-edit'; do
   out=$(run_hook guard-git-amend "$cmd")
   assert_eq deny "$(decision "$out")"
+done
+it "guard-git-amend: コミットとパスを渡す reset と checkout（ステージから外す、ファイルを戻す）は数えない"
+for cmd in 'git reset HEAD -- own.txt && git commit --amend --no-edit' 'git reset HEAD own.txt && git commit --amend --no-edit' \
+  'git checkout HEAD -- own.txt && git commit --amend --no-edit' 'git checkout HEAD own.txt && git commit --amend --no-edit'; do
+  out=$(run_hook guard-git-amend "$cmd")
+  assert_eq "" "$out"
 done
 git switch -q fresh
 
@@ -2810,7 +2820,10 @@ for cmd in 'git merge --no-ff side -m "Merge: side again" && git commit --amend 
   out=$(run_hook guard-git-amend "$cmd")
   assert_eq "" "$out"
 done
-for cmd in 'git switch fresh && git commit --amend --no-edit' 'git checkout -b x && git commit --amend --no-edit'; do
+out=$(run_hook guard-git-amend 'git checkout HEAD -- side.txt && git commit --amend --no-edit')
+assert_eq "" "$out"
+for cmd in 'git switch fresh && git commit --amend --no-edit' 'git checkout -b x && git commit --amend --no-edit' \
+  'git rebase main fresh && git commit --amend --no-edit'; do
   out=$(run_hook guard-git-amend "$cmd")
   assert_eq deny "$(decision "$out")"
 done
@@ -2825,6 +2838,17 @@ git -C "$AMEND_LOCAL" switch -q -c fresh
 cd "$AMEND_LOCAL" || exit 1
 out=$(run_hook guard-git-amend 'git commit --amend --no-edit')
 assert_eq deny "$(decision "$out")"
+cd "$AMEND" || exit 1
+
+it "guard-git-amend: 既定ブランチが見つからないリポジトリでも、前に先端を動かすコマンドがあれば止める"
+AMEND_TRUNK="$TEST_ROOT/amend-trunk"
+mkdir -p "$AMEND_TRUNK" && git -C "$AMEND_TRUNK" init -q -b trunk
+commit_file "$AMEND_TRUNK" a.txt "chore: init"
+cd "$AMEND_TRUNK" || exit 1
+out=$(run_hook guard-git-amend 'git switch -C x && git commit --amend --no-edit')
+assert_eq deny "$(decision "$out")"
+out=$(run_hook guard-git-amend 'git commit --amend --no-edit')
+assert_eq "" "$out"
 cd "$AMEND" || exit 1
 
 it "guard-git-amend: GitHub リモートのあるリポジトリでは origin の既定ブランチと比べる"
