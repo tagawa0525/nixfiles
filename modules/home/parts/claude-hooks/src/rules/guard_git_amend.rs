@@ -13,7 +13,8 @@
 //! コマンド（commit、switch、checkout、reset など）があると、amend が書き換えるコミットは前のコマンドの成否と中身で
 //! 決まる（`git commit -m a; git commit --amend` は、前の commit が拒まれれば既定ブランチのコミットを書き換える。
 //! `git switch -C b && …` や `git reset --soft main && …` は先端を既定ブランチへ移す）。書き方から決められないので、
-//! 止める側に倒し、呼び出しを分けるよう示す（分ければ次の呼び出しは動いた後の状態で判定される）。
+//! 止める側に倒し、呼び出しを分けるよう示す（分ければ次の呼び出しは動いた後の状態で判定される）。ただし既定ブランチの上で、
+//! 前のコマンドがブランチを移らない（switch / checkout でない）なら、amend は既定ブランチの上のものなので通す。
 //! エスケープは無い。既定ブランチのコミットを feature ブランチで書き換えて残す正当な手順が無いため。比べた案は ADR-0069。
 
 use super::Rule;
@@ -21,26 +22,51 @@ use crate::git;
 use crate::git_args::{Item, items};
 use crate::input::Input;
 use crate::output::Finding;
-use crate::shell::{Cmd, Shell};
+use crate::shell::{Arg, Cmd, Shell};
 use std::path::Path;
 
 pub struct GuardGitAmend;
 
-/// ブランチの先端か HEAD を動かしうる git のサブコマンド
-const MOVES_TIP: &[&str] = &[
-    "commit",
-    "switch",
-    "checkout",
-    "reset",
-    "merge",
-    "rebase",
-    "pull",
-    "cherry-pick",
-    "revert",
-    "am",
-    "branch",
-    "update-ref",
-];
+/// 前の `git <sub> args…` がブランチの先端か HEAD を動かしうるか。`reset` と `checkout` はコミットを指す引数（`--` より前で
+/// コミットとして解けるもの）か、ブランチを作る・切り離すオプションがあるときだけ（パスだけなら index と作業ツリーしか
+/// 変えない）。`branch` は既にあるブランチを動かす `-f` の形だけ
+fn moves_tip(dir: &Path, sub: &str, args: &[Arg]) -> bool {
+    let before_dashdash = || args.iter().take_while(|a| a.text != "--");
+    let names_commit = |t: &str| {
+        !t.starts_with('-')
+            && git::git(
+                dir,
+                &[
+                    "rev-parse",
+                    "--verify",
+                    "--quiet",
+                    &format!("{t}^{{commit}}"),
+                ],
+            )
+            .is_some()
+    };
+    match sub {
+        "commit" | "switch" | "merge" | "rebase" | "pull" | "cherry-pick" | "revert" | "am"
+        | "update-ref" => true,
+        "reset" => before_dashdash().any(|a| names_commit(&a.text)),
+        "checkout" => before_dashdash().any(|a| {
+            let t = a.text.as_str();
+            matches!(t, "-b" | "-B" | "--orphan" | "--detach") || names_commit(t)
+        }),
+        "branch" => args.iter().any(|a| {
+            a.text == "--force"
+                || a.text
+                    .strip_prefix('-')
+                    .is_some_and(|c| !c.starts_with('-') && c.contains('f'))
+        }),
+        _ => false,
+    }
+}
+
+/// 前の `git <sub>` が今のブランチから移りうるか（既定ブランチの上に留まるかの判定に使う）
+fn may_leave_branch(sub: &str) -> bool {
+    matches!(sub, "switch" | "checkout")
+}
 
 /// `git commit` の引数が amend を指すか。git は一意な略（`--am`、`--no-am` など）を受け付け、後に書いた
 /// `--no-amend` が前の `--amend` を打ち消す。値（`-m --amend`）と `--` の後の pathspec は数えない
@@ -64,15 +90,19 @@ fn is_amend(cmd: &Cmd) -> bool {
     amend
 }
 
-/// cmd より前に、同じディレクトリを対象にして先端か HEAD を動かしうる git のコマンド。サブシェルとコマンドの置き換えの
-/// 中のものも数える（cwd と違い、リポジトリの状態はサブシェルの外にも残る）
-fn earlier_tip_move<'a>(shell: &'a Shell, cmd: &Cmd, base: &Path, dir: &Path) -> Option<&'a Cmd> {
-    shell.commands().iter().find(|c| {
-        c.start < cmd.start
-            && c.git_subcommand()
-                .is_some_and(|(sub, _)| MOVES_TIP.contains(&sub))
-            && shell.target_dir(c, base) == dir
-    })
+/// cmd より前に、同じディレクトリを対象にして先端か HEAD を動かしうる git のコマンド（[`moves_tip`]）。サブシェルとコマンドの
+/// 置き換えの中のものも数える（cwd と違い、リポジトリの状態はサブシェルの外にも残る）
+fn earlier_tip_moves<'a>(shell: &'a Shell, cmd: &Cmd, base: &Path, dir: &Path) -> Vec<&'a Cmd> {
+    shell
+        .commands()
+        .iter()
+        .filter(|c| {
+            c.start < cmd.start
+                && shell.target_dir(c, base) == dir
+                && c.git_subcommand()
+                    .is_some_and(|(sub, args)| moves_tip(dir, sub, args))
+        })
+        .collect()
 }
 
 /// HEAD が既定ブランチの ref（`origin/main` など）か、そのローカルのブランチ（push していないマージを含む）に含まれるか
@@ -94,7 +124,19 @@ impl Rule for GuardGitAmend {
                 continue;
             }
             let dir = shell.target_dir(cmd, &input.cwd);
-            if let Some(prev) = earlier_tip_move(shell, cmd, &input.cwd, &dir) {
+            let branch = git::current_branch(&dir);
+            let Some(default_ref) = git::default_branch(&dir) else {
+                continue;
+            };
+            let default = git::local_name(&default_ref);
+            let moves = earlier_tip_moves(shell, cmd, &input.cwd, &dir);
+            // 既定ブランチの上で、ブランチを移らない前のコマンド（merge、commit、reset）の後の amend は、既定ブランチの上の amend
+            let stays_on_default = branch == default
+                && moves.iter().all(|c| {
+                    c.git_subcommand()
+                        .is_some_and(|(sub, _)| !may_leave_branch(sub))
+                });
+            if let Some(prev) = moves.first().filter(|_| !stays_on_default) {
                 let raw: Vec<&str> = prev.args.iter().map(|a| a.raw.as_str()).collect();
                 return vec![Finding::Deny(format!(
                     "同じコマンドの前の `{} {}` がブランチの先端か HEAD を動かしうるので、git commit --amend が書き換える\
@@ -105,15 +147,10 @@ impl Rule for GuardGitAmend {
                     raw.join(" ")
                 ))];
             }
-            let branch = git::current_branch(&dir);
-            if branch.is_empty() {
-                continue;
-            }
-            let Some(default_ref) = git::default_branch(&dir) else {
-                continue;
-            };
-            let default = git::local_name(&default_ref);
-            if branch == default || !contained_in_default(&dir, &default_ref, default) {
+            if branch.is_empty()
+                || branch == default
+                || !contained_in_default(&dir, &default_ref, default)
+            {
                 continue;
             }
             let mut msg = format!(
