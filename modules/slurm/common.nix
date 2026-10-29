@@ -6,10 +6,11 @@
 # slurm.conf と同じ munge の鍵（secrets/slurm/munge.key を sops で復号したもの）を使う。
 #
 # 使い方の例（どのホストからでも）:
-#   ~/.claude/scripts/slurm-run.sh -t <見積もり> <名前> '<コマンド>'   # 投げて終わるまで待つ（main。割り込まれうる）
-#   squeue                                                            # 待ち行列を見る
-#   scontrol top <ジョブ番号>                                          # 待っている自分のジョブを先頭へ
-#   ~/.claude/scripts/slurm-run.sh --timed -t <見積もり> <名前> '<コマンド>' # 時間を記録する。main のジョブを止めて実行する
+#   ~/.claude/scripts/slurm-run.sh --class <区分> --ref '<参照>' --purpose '<目的>' -t <見積もり> <名前> '<コマンド>'
+#                                                  # 投げて終わるまで待つ（区分 timed のほかは main。割り込まれうる）
+#   ~/.claude/scripts/slurm-queue.sh               # 待ち行列を区分と目的つきで見る（ORDER: の行は区分の順に並べるコマンド）
+#   scontrol top <ジョブ番号>,…                    # 待っている自分のジョブを、並べた順に先頭へ
+#   ~/.claude/scripts/slurm-run.sh --class timed …  # 時間を記録する。パーティション timed で、main のジョブを止めて実行する
 #   scancel <ジョブ番号>                                               # 取り消す
 #
 # ジョブは r995 の上で、投入したときのディレクトリで走る。ほかのホストからは /mnt/r995/github
