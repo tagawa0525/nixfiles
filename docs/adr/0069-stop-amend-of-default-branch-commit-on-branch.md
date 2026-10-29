@@ -1,7 +1,7 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-30
-requires: [ADR-0023]
+requires: [ADR-0023, ADR-0025]
 supersedes: []
 superseded-by:
 issues: []
@@ -44,20 +44,33 @@ main の上でマージコミットの本文を amend で直した正当な例�
 `git log -1` で確かめること、`git commit` で新しいコミットを作ること、既定ブランチのコミットを直すなら既定ブランチの上で
 amend することを書く。
 
-判定は実行前の状態で行う。同じコマンドの前の `git switch` / `checkout` は、guard-branch-base の `branch_at` でその先の
-ブランチを見る（移る先のブランチの ref を見て、まだ無いブランチを作って移るなら起点の今の HEAD を見る）。前の `git commit`
-は見ない。前の commit が拒まれれば amend は実行前の HEAD を書き換えるので、`git commit -m a; git commit --amend` も止まる
-（`&&` でつないだ同じ形も止まるが、続けて amend する書き方に正当な理由は乏しい）。
+既定ブランチは `git::default_branch` の ref（origin があれば `origin/main` など）と、そのローカルのブランチの両方と比べる。
+GitHub 以外の origin のリポジトリでは、/git-merge のマージが push されないまま、ローカルの main にだけある。
+
+hook は実行前の状態しか見られない。同じコマンドの前に、同じディレクトリでブランチの先端か HEAD を動かしうる git の
+コマンド（commit、switch、checkout、reset、merge、rebase、pull、cherry-pick、revert、am、branch、update-ref。サブシェルと
+コマンドの置き換えの中も）があれば、ブランチによらず止め、呼び出しを分けるよう示す。amend が書き換えるコミットは前のコマンドの
+成否と中身で決まり、書き方からは決められないため（ADR-0025 と同じく止める側に倒す）。`git commit -m a; git commit --amend` は
+前の commit が拒まれれば既定ブランチのコミットを書き換え、`git switch -C <b> && …`、`git checkout -b <b> origin/main && …`、
+`git reset --soft main && …` は先端を既定ブランチのコミットへ移す。分けた amend は、前のコマンドの後の状態で判定される。
+`git commit -m a && git commit --amend` のように `&&` で成功が保証される形も止まるが、分ける 1 手で抜けられる。
+
+拒否の文言の「既定ブランチの上で amend する」は、GitHub リモートの無いリポジトリでだけ示す。GitHub リモートがあれば
+block-main-commit が既定ブランチの commit を止め、push 済みのコミットの書き換えは force push を要する。
+
+最初の実装は、前の `git switch` / `checkout` をその先のブランチで判定し（guard-branch-base の `branch_at`）、ほかの前のコマンドは
+見なかった。ローカルのレビュー（2026-10-30）が、既にあるブランチへの `git switch -C`、起点つきの `git checkout -b <b> origin/main`、
+前の `git reset --soft` の後の amend が既定ブランチのコミットを書き換えるのに通ることを示したので、今の形にした。同じレビューで、
+比べる先をローカルの既定ブランチにも広げ、`--no-am` などの略を `--no-amend` として読むようにした。
 
 ### 帰結
 
-- 既定ブランチの ref は `origin/HEAD` → `origin/main` → … の順で探すので、origin があれば origin の追跡ブランチと比べる。
-  fetch していない古い追跡ブランチでは、その後に既定ブランチに入ったコミットを先端に持つブランチを見逃す
-- `git switch -c <新> <起点>` に続く amend は、起点でなく今の HEAD で判定する（起点を読まない）。`git switch -` などの
-  移った先が分からない形に続く amend は通す
-- `git -c alias.<名前>=` の alias と利用者の gitconfig の alias の amend は見ない
+- fetch していない古い追跡ブランチと、ローカルの既定ブランチのどちらにも無いコミット（ほかの clone が既定ブランチに入れた
+  もの）を先端に持つブランチは見逃す
+- `git -c alias.<名前>=` の alias と利用者の gitconfig の alias の amend、`$CMD` などの決められないコマンドの中の amend は見ない
+- 同じコマンドで先端を動かした後の amend は、正当な形でも呼び出しを分ける手間がかかる
 
 ### 確認
 
 - `.claude/tests/hooks.sh` の guard-git-amend の節（止める形と `-C` / `cd` / `env -C`、固有のコミット、既定ブランチの上と
-  detached HEAD、`--amend` が値や pathspec の commit、前の `git switch`、GitHub リモートのある origin/main との比較）
+  detached HEAD、`--amend` が値や pathspec の commit と `--no-am`、前に先端を動かしうるコマンドがあるときと数えない前のコマンド、ローカルの既定ブランチにだけあるコミット、GitHub リモートのある origin/main との比較）
