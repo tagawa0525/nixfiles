@@ -7,6 +7,10 @@
 # cargoHash は finalAttrs 経由で cargoDeps に渡るので、overrideAttrs では
 # cargoDeps を作り直す必要がある。
 #
+# 0.17.1 のハッシュは他のバージョンでは合わないので、version が 0.17.1 のときだけ
+# 当てる。flake.lock が 0.16.2 のままの間や、nixpkgs が 0.17.2 以降に進んだあとは
+# 何もしない（ハッシュの不一致でビルドが壊れるのを防ぐ）。
+#
 # 撤去する場合:
 #   nixpkgs-unstable が 2cc8df229 以降に進んだら、flake.nix の import 行と
 #   本ファイルを削除する（確認: gh api repos/NixOS/nixpkgs/compare/2cc8df229...nixpkgs-unstable
@@ -16,15 +20,19 @@
 {
   nixpkgs.overlays = lib.mkAfter [
     (final: prev: {
-      neovide = prev.neovide.overrideAttrs (old: rec {
-        src = old.src.overrideAttrs (_: {
-          outputHash = "sha256-trl/YctM/E9vIXeJfwBEZLfNK7LS5fEaWthTbeg7Ba0=";
-        });
-        cargoDeps = final.rustPlatform.fetchCargoVendor {
-          inherit src;
-          hash = "sha256-WS44afUizU6qhXQY77TayNRvlUoS6GrBZ/uaXk+gjU0=";
-        };
-      });
+      neovide =
+        if prev.neovide.version == "0.17.1" then
+          prev.neovide.overrideAttrs (old: rec {
+            src = old.src.overrideAttrs (_: {
+              outputHash = "sha256-trl/YctM/E9vIXeJfwBEZLfNK7LS5fEaWthTbeg7Ba0=";
+            });
+            cargoDeps = final.rustPlatform.fetchCargoVendor {
+              inherit src;
+              hash = "sha256-WS44afUizU6qhXQY77TayNRvlUoS6GrBZ/uaXk+gjU0=";
+            };
+          })
+        else
+          prev.neovide;
     })
   ];
 }
