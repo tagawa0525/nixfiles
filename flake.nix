@@ -163,7 +163,6 @@
             ./modules/cc-bar.nix # cc-bar 統合（無効化するにはこの行をコメントアウト）
             ./modules/gcc16-compat.nix # zat の gcc 16 対処（撤去手順は同ファイル冒頭）
             ./modules/copilot-cli-fix.nix # copilot-cli の segfault 対処（撤去手順は同ファイル冒頭）
-            ./modules/neovide-fix.nix # neovide 0.17.1 のハッシュ対処（撤去手順は同ファイル冒頭）
             lanzaboote.nixosModules.lanzaboote # Secure Bootサポート
             sops-nix.nixosModules.sops # 秘密の復号（secrets/ と .sops.yaml）
             home-manager.nixosModules.home-manager
