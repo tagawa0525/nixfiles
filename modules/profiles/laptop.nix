@@ -10,6 +10,7 @@
 {
   imports = [
     ./laptop-power.nix
+    ./laptop-r995-link.nix
     # 重いビルドを builder ホスト（r995 など）にオフロードする
     ../nix-distributed-builds/client.nix
   ];
