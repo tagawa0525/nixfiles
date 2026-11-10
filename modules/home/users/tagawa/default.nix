@@ -22,6 +22,7 @@
     ../../parts/development.nix # 開発ツール, activation scripts
     ../../parts/mise.nix # mise（ランタイムバージョンマネージャー）
     ../../parts/vscode-server.nix # VS Code Server自動パッチ（NixOS用）
+    ../../parts/r995-link.nix # ~/r995/github（r995 の NFS を宣言したホストだけ）
   ];
 
   # Home Managerのバージョン（変更しない）

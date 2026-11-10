@@ -45,7 +45,7 @@ NFS は見えず、止まるのは `/mnt/r995` とその下を触ったときに
 置き場として FHS の慣習に合う。末尾を `github` にして、r995 の上の実体（`~/github`）と名前をそろえる。
 
 ノート PC には、使いやすさのために `~/r995/github` から `/mnt/r995/github` への symlink も置く
-（`modules/profiles/laptop-r995-link.nix`）。`~/r995` はローカルの実ディレクトリにし、symlink はその 1 階層下に置く
+（`modules/home/parts/r995-link.nix`）。`~/r995` はローカルの実ディレクトリにし、symlink はその 1 階層下に置く
 （下の「変更」）。
 
 パスは `modules/slurm/nfs-entry.nix` の 1 か所で定め、投入するホストのマウント点（`submit.nix`）と r995 の symlink
@@ -57,8 +57,9 @@ NFS は見えず、止まるのは `/mnt/r995` とその下を触ったときに
   テストから置き換える）、その SKILL.md、グローバルの CLAUDE.md を合わせて直す。`slurm-run.sh` は Nix の外で配るので、
   既定の値は `nfs-entry.nix` と手でそろえる
 - 既にあるホストには古い入口が残る（ノート PC の `~/r995`、r995 の symlink `~/r995`）。ノート PC の `~/r995` は、空の
-  ディレクトリなら tmpfiles がそのまま使い、symlink のまま残っていれば手で消す。tmpfiles の `L` は消さないので、
-  rebuild した後に手で消す。古いパスで投入して待っているジョブが無いことを先に確かめる（#439）
+  ディレクトリなら home-manager のユーザーの tmpfiles（`modules/home/parts/r995-link.nix`）がそのまま使い、symlink のまま残っていれば手で消す
+  （消さないと、tmpfiles が symlink を通って r995 の側に作ろうとする）。`~/r995/github` に別のものがあれば、tmpfiles の `L` は置き換えずに残す。
+  r995 の symlink `~/r995` は、tmpfiles の `L` が消さないので、rebuild した後に手で消す。古いパスで投入して待っているジョブが無いことを先に確かめる（#439）
 - 移すときの switch は旧マウントのユニットを止める。r995 に届かないまま `hard` の旧マウントが残っていると、そのアンマウントで
   switch が止まるので、r995 に届く状態で先に `~/r995` を外す（#439）
 - パスを鍵にした状態は引き継がれない。zoxide の記録、direnv の allow（`direnv allow` をやり直す）、Claude Code の
@@ -79,3 +80,7 @@ NFS は見えず、止まるのは `/mnt/r995` とその下を触ったときに
   - 1 階層下の symlink では、`~` で stat されるのはローカルの `~/r995` だけで、starship の件は起きない。`fd`、`rg`、`find`、
     `du` は symlink を既定では辿らない。`-L` や `--follow` を付けたツール、`~/r995` の下で開いたプロンプトは NFS に触れて
     止まりうる。この残りは、手で入ったときに限られるので許す
+  - 宣言の置き場: ユーザーの設定（home-manager）の `systemd.user.tmpfiles` に置く。NixOS の tmpfiles に置くと、ホームの
+    パスとユーザー名を直書きすることになる（`%h` でユーザーの tmpfiles は直書きが要らない）。`home.file`（`mkOutOfStoreSymlink`）
+    でも書けるが、試して退けた（2026-11-11）。home-manager は、衝突の確認（`check-link-targets.sh`）と古い世代の整理で、リンクを
+    `[[ -e ]]` で先まで辿り、activation のたびに NFS の automount を起こす。`force = true` は衝突の確認しか飛ばさない
