@@ -113,6 +113,18 @@ update() {
     cd - > /dev/null
     return 1
   fi
+  # nix flake update は、flake に無い input の名前を警告だけで通す（終了コード 0）。打ち間違いのまま検証と切り替えまで
+  # 進むと、直しが入っていないのに成功に見えるので、先に flake.lock の input の名前と照らす
+  local known input
+  known=$(jq -r '.nodes.root.inputs | keys[]' flake.lock)
+  for input in "$@"; do
+    if ! grep -qxF -- "$input" <<< "$known"; then
+      echo "❌ flake に無い input です: $input"
+      echo "   使える名前: ${known//$'\n'/ }"
+      cd - > /dev/null
+      return 1
+    fi
+  done
   echo "📥 Syncing with remote..."
   git fetch origin main
   # flake.lock以外にローカル変更がある場合は警告
@@ -154,6 +166,17 @@ update() {
     cd - > /dev/null
     return 1
   fi
+  # ハーネス（flake input の claude-harness）のスクリプトが固定で持つ名前と値が、この構成と合っていることを確かめる。
+  # ハーネスの lock を進めた版が約束を変えていたら、切り替える前に止める（照合する中身はスクリプトの冒頭）。
+  # 要るのはハーネスのソースと commit-msg の hook だけなので、全ホストのビルドの前に置く
+  contract="$NIXDIR/modules/home/parts/tests/harness-contract.sh"
+  echo "🤝 Checking the contract with claude-harness..."
+  if ! bash "$contract" "$HOSTNAME"; then
+    echo "❌ Harness contract check failed, not switching or pushing"
+    reset_lock
+    cd - > /dev/null
+    return 1
+  fi
   echo "🧪 Verifying all host configurations..."
   # 未検証の flake.lock を main に push しないための必須ゲート。
   # ラップトップでは nix-distributed-builds により実ビルドは r995 で走る
@@ -172,16 +195,6 @@ update() {
   done
   if ! built=$(nix build --no-link --print-out-paths "${targets[@]}"); then
     echo "❌ Verification failed for some hosts, not switching or pushing"
-    reset_lock
-    cd - > /dev/null
-    return 1
-  fi
-  # ハーネス（flake input の claude-harness）のスクリプトが固定で持つ名前と値が、この構成と合っていることを確かめる。
-  # ハーネスの lock を進めた版が約束を変えていたら、切り替える前に止める（照合する中身はスクリプトの冒頭）
-  contract="$NIXDIR/modules/home/parts/tests/harness-contract.sh"
-  echo "🤝 Checking the contract with claude-harness..."
-  if ! bash "$contract" "$HOSTNAME"; then
-    echo "❌ Harness contract check failed, not switching or pushing"
     reset_lock
     cd - > /dev/null
     return 1
