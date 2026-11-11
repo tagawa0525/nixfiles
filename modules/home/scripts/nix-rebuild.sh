@@ -176,6 +176,16 @@ update() {
     cd - > /dev/null
     return 1
   fi
+  # ハーネス（flake input の claude-harness）のスクリプトが固定で持つ名前と値が、この構成と合っていることを確かめる。
+  # ハーネスの lock を進めた版が約束を変えていたら、切り替える前に止める（照合する中身はスクリプトの冒頭）
+  contract="$NIXDIR/modules/home/parts/tests/harness-contract.sh"
+  echo "🤝 Checking the contract with claude-harness..."
+  if ! bash "$contract" "$HOSTNAME"; then
+    echo "❌ Harness contract check failed, not switching or pushing"
+    reset_lock
+    cd - > /dev/null
+    return 1
+  fi
   echo "🔨 Rebuilding NixOS..."
   if ! nixos_rebuild_switch; then
     echo "❌ Rebuild failed, not pushing changes"
