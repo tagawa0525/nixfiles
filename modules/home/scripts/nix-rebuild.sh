@@ -113,18 +113,6 @@ update() {
     cd - > /dev/null
     return 1
   fi
-  # nix flake update は、flake に無い input の名前を警告だけで通す（終了コード 0）。打ち間違いのまま検証と切り替えまで
-  # 進むと、直しが入っていないのに成功に見えるので、先に flake.lock の input の名前と照らす
-  local known input
-  known=$(jq -r '.nodes.root.inputs | keys[]' flake.lock)
-  for input in "$@"; do
-    if ! grep -qxF -- "$input" <<< "$known"; then
-      echo "❌ flake に無い input です: $input"
-      echo "   使える名前: ${known//$'\n'/ }"
-      cd - > /dev/null
-      return 1
-    fi
-  done
   echo "📥 Syncing with remote..."
   git fetch origin main
   # flake.lock以外にローカル変更がある場合は警告
@@ -155,6 +143,25 @@ update() {
       return 1
     fi
   fi
+  # nix flake update は、flake に無い input の名前を警告だけで通す（終了コード 0）。打ち間違いのまま検証と切り替えまで
+  # 進むと、直しが入っていないのに成功に見えるので、進める lock（pull の後）の input の名前と照らす。
+  # 引数の無い経路（毎朝の自動更新）は、jq と lock の形に頼らせない
+  if (($# > 0)); then
+    local known input
+    if ! known=$(jq -r '.nodes.root.inputs | keys[]' flake.lock); then
+      echo "❌ flake.lock の input の名前を読めません"
+      cd - > /dev/null
+      return 1
+    fi
+    for input in "$@"; do
+      if [[ -z "$input" ]] || ! grep -qxF -- "$input" <<< "$known"; then
+        echo "❌ flake に無い input です: $input"
+        echo "   使える名前: ${known//$'\n'/ }"
+        cd - > /dev/null
+        return 1
+      fi
+    done
+  fi
   echo "⬆️  Updating flake..."
   # set -e による即終了を避けて明示ハンドリングする（部分的に書き換わった
   # flake.lock が残ると翌日以降の git pull --rebase が詰まるため）
@@ -168,11 +175,12 @@ update() {
   fi
   # ハーネス（flake input の claude-harness）のスクリプトが固定で持つ名前と値が、この構成と合っていることを確かめる。
   # ハーネスの lock を進めた版が約束を変えていたら、切り替える前に止める（照合する中身はスクリプトの冒頭）。
-  # 要るのはハーネスのソースと commit-msg の hook だけなので、全ホストのビルドの前に置く
+  # ビルドするのは commit-msg の hook だけなので、全ホストのビルドの前に置く。hook を取り出すために、進めた lock で
+  # このホストの構成を評価するので、新しい nixpkgs で評価できないときもここで止まる
   contract="$NIXDIR/modules/home/parts/tests/harness-contract.sh"
   echo "🤝 Checking the contract with claude-harness..."
   if ! bash "$contract" "$HOSTNAME"; then
-    echo "❌ Harness contract check failed, not switching or pushing"
+    echo "❌ Harness contract check failed (or this host no longer evaluates with the new lock), not switching or pushing"
     reset_lock
     cd - > /dev/null
     return 1
