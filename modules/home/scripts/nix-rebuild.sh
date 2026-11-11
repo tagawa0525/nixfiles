@@ -2,8 +2,8 @@
 # =============================================================================
 # NixOS Rebuild Helper
 # =============================================================================
-# リモートのflake.lockを取得してからNixOSを再構築
-# Usage: nix-rebuild.sh rebuild
+# origin/main を取り込んでから NixOS を再構築
+# Usage: nix-rebuild.sh rebuild            main にいれば origin/main まで進めてからビルドする。ほかのブランチはそのままビルドする
 #        nix-rebuild.sh update [input...]   input を挙げると、その input だけを進める（例: update claude-harness）
 
 set -e
@@ -29,16 +29,24 @@ nixos_rebuild_switch() {
 
 rebuild() {
   cd "$NIXDIR" || return 1
-  echo "📥 Pulling latest changes from remote..."
-  # flake.lockのみをpull（他のファイルに影響しない）
-  git fetch origin main
-  if git diff --quiet flake.lock 2>/dev/null; then
-    # ローカルに変更がない場合のみリモート版を取得
-    git checkout origin/main -- flake.lock 2>/dev/null || echo "ℹ️  No remote changes to flake.lock"
+  # main にいれば、origin/main の全体を取り込んでからビルドする。flake.lock だけを取り込むと、origin でモジュールと
+  # lock が一緒に変わったとき、新しい lock と古いモジュールという、どこでも検証していない組み合わせをビルドする
+  local branch
+  branch=$(git symbolic-ref --short -q HEAD || echo "detached HEAD")
+  if [[ "$branch" != main ]]; then
+    # sudoers が --flake をこのディレクトリに固定しているので、ブランチの変更を試すにはここで checkout する。
+    # そのときは取り込まず、checkout した中身をそのままビルドする
+    echo "ℹ️  $branch をそのままビルドします（origin/main を取り込むのは、main にいるときだけ）"
   else
-    echo "⚠️  Local changes detected in flake.lock"
-    echo "   Run 'git diff flake.lock' to review changes"
-    echo "   Consider running 'update' instead to sync properly"
+    echo "📥 Pulling latest changes from remote..."
+    if ! git fetch origin main; then
+      echo "⚠️  origin に届かないので、手元の中身でビルドします"
+    elif ! git merge --ff-only origin/main; then
+      echo "❌ main を origin/main まで進められません（履歴の分岐か、手元の変更との衝突）。ビルドしません"
+      echo "   git status と git log main..origin/main で確かめてください"
+      cd - > /dev/null
+      return 1
+    fi
   fi
   echo "🔨 Rebuilding NixOS..."
   nixos_rebuild_switch
