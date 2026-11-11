@@ -2,8 +2,8 @@
 # =============================================================================
 # NixOS Rebuild Helper
 # =============================================================================
-# リモートのflake.lockを取得してからNixOSを再構築
-# Usage: nix-rebuild.sh rebuild
+# origin/main を取り込んでから NixOS を再構築
+# Usage: nix-rebuild.sh rebuild            main にいれば origin/main まで進めてからビルドする。ほかのブランチはそのままビルドする
 #        nix-rebuild.sh update [input...]   input を挙げると、その input だけを進める（例: update claude-harness）
 
 set -e
@@ -29,16 +29,50 @@ nixos_rebuild_switch() {
 
 rebuild() {
   cd "$NIXDIR" || return 1
-  echo "📥 Pulling latest changes from remote..."
-  # flake.lockのみをpull（他のファイルに影響しない）
-  git fetch origin main
-  if git diff --quiet flake.lock 2>/dev/null; then
-    # ローカルに変更がない場合のみリモート版を取得
-    git checkout origin/main -- flake.lock 2>/dev/null || echo "ℹ️  No remote changes to flake.lock"
+  # main にいれば、origin/main の全体を取り込んでからビルドする。flake.lock だけを取り込むと、origin でモジュールと
+  # lock が一緒に変わったとき、新しい lock と古いモジュールという、どこでも検証していない組み合わせをビルドする
+  local branch
+  branch=$(git symbolic-ref --short -q HEAD || echo "detached HEAD")
+  if [[ "$branch" != main ]]; then
+    # sudoers が --flake をこのディレクトリに固定しているので、ブランチの変更を試すにはここで checkout する
+    # （ブランチがほかの worktree にあれば git switch --detach <ブランチ>）。そのときは取り込まず、そのままビルドする
+    echo "ℹ️  $branch（$(git rev-parse --short HEAD)）をそのままビルドします（origin/main を取り込むのは、main にいるときだけ）"
+    echo "   試した後は main に戻してください（main 以外では、毎朝の自動更新が失敗します）"
   else
-    echo "⚠️  Local changes detected in flake.lock"
-    echo "   Run 'git diff flake.lock' to review changes"
-    echo "   Consider running 'update' instead to sync properly"
+    echo "📥 Pulling latest changes from remote..."
+    # 届かない、認証の失敗、URL の誤りのどれでも、origin の最新を確かめられない。手元の中身でビルドすると、
+    # マージした変更が入らないまま成功に見えるので止める
+    if ! git fetch origin main; then
+      echo "❌ git fetch に失敗しました（上の出力を参照）。origin の最新を確かめられないので、ビルドしません"
+      echo "   手元の中身でビルドするなら: git -C $NIXDIR switch --detach のあと rebuild（終わったら git switch main）"
+      cd - > /dev/null
+      return 1
+    fi
+    # コミットされていない変更は捨てない（走っている update の書きかけや、手で進めて試している lock でありうる）。
+    # origin の変更と重ならなければ残したまま進み、重なれば git が何も変えずに止める
+    # origin に無い手元のコミット。origin/main の ref が無い clone では空として扱う（下の merge が理由を出して止まる）
+    local ahead line
+    ahead=$(git log --oneline origin/main..main 2> /dev/null) || ahead=
+    if ! git merge --ff-only origin/main; then
+      echo "❌ main を origin/main まで進められません（上の git の出力を参照）。ビルドしません"
+      if [[ -n "$ahead" ]]; then
+        echo "   origin に無い手元のコミットがあり、履歴が分かれています（git log --oneline origin/main..main）:"
+        while IFS= read -r line; do echo "     $line"; done <<< "$ahead"
+        echo "   flake.lock の更新だけなら、nix-rebuild update で origin に合わせられます"
+      else
+        echo "   手元の状態（git status --short）:"
+        git status --short | sed 's/^/     /'
+        if [[ -n "$(git status --porcelain -- flake.lock)" ]]; then
+          echo "   手元の flake.lock を捨てて origin に合わせるなら: git -C $NIXDIR restore --staged --worktree flake.lock"
+        fi
+      fi
+      cd - > /dev/null
+      return 1
+    fi
+    if [[ -n "$ahead" ]]; then
+      echo "ℹ️  origin に無いコミットを含めてビルドします（push していない手元のコミット）:"
+      while IFS= read -r line; do echo "     $line"; done <<< "$ahead"
+    fi
   fi
   echo "🔨 Rebuilding NixOS..."
   nixos_rebuild_switch
@@ -259,12 +293,34 @@ update() {
   cd - > /dev/null
 }
 
+# rebuild と update を、同じ clone で同時に実行しない。実行中の update の検証の途中で HEAD や flake.lock を動かすと、
+# 検証していない組み合わせに切り替わる。ロックのファイルは .git の中に置く（作業ツリーを汚さない）。
+# ロックは flock のプロセスが持ち、このスクリプトを子として実行し直す。-o でロックの fd を子に継がせないので、子が後ろに
+# 残したプロセス（git が切り離して起動する maintenance など）がロックを持ち続けない
+exclusive() {
+  [[ -z "${NIX_REBUILD_LOCKED:-}" ]] || return 0
+  local gitdir rc=0
+  if ! gitdir=$(git -C "$NIXDIR" rev-parse --absolute-git-dir); then
+    echo "❌ $NIXDIR を git のリポジトリとして読めません"
+    exit 1
+  fi
+  # 75 は、ロックを取れなかったときだけの終了コード（このスクリプト自身は 0 か 1 で終わる）
+  NIX_REBUILD_LOCKED=1 flock -n -o -E 75 "$gitdir/nix-rebuild.lock" bash "$0" "$@" || rc=$?
+  if ((rc == 75)); then
+    echo "❌ ほかの nix-rebuild（rebuild か update。毎朝 06:30 の自動更新を含む）が実行中です。終わってから実行してください"
+    exit 1
+  fi
+  exit "$rc"
+}
+
 # メイン処理
 case "${1:-}" in
   rebuild)
+    exclusive "$@"
     rebuild
     ;;
   update)
+    exclusive "$@"
     update "${@:2}"
     ;;
   *)
