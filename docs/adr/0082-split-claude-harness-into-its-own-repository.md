@@ -60,15 +60,16 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
 （`git.nix` の main へのコミットの例外は `block_main_commit.rs` と揃える、`ja-terms` の textlint は両方が呼ぶ）、
 間に線を引くと 1 つの変更が 2 つのリポジトリにまたがる。
 
-| 行き先               | 入れるもの                                                                                                                                                                                                                                                                                                                                                                                   |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ハーネスのリポジトリ | `.claude/`（CLAUDE.md、スキル、スクリプト、テスト、README）、`claude-hooks`、`commit-refs`、`design-records`、`history-rewrite`、`ja-terms`、git の hook（`git.nix` の hook の部分、`staged-checks.sh`、`scan-staged-secrets.sh`）、`claude-sync.sh`、`claude-memory-backup.sh`、`claude-code.nix`（Claude Code と Claude Desktop の本体のパッケージを除く）、これらのテスト、ハーネスの ADR |
-| nixfiles             | `hosts/`、`secrets/`、`modules/` の残り（`git.nix` の利用者の設定、`slurm/`、`cc-bar.nix`、Claude Code と Claude Desktop の本体を入れる `claude-apps.nix` を含む）、PC の設定の ADR、ハーネスの input とホストごとの値                                                                                                                                                                       |
+| 行き先               | 入れるもの                                                                                                                                                                                                                                                                                                                         |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ハーネスのリポジトリ | `.claude/`（CLAUDE.md、スキル、スクリプト、テスト、README）、`claude-hooks`、`commit-refs`、`design-records`、`history-rewrite`、`ja-terms`、git の hook（`git.nix` の hook の部分、`staged-checks.sh`、`scan-staged-secrets.sh`）、`claude-sync.sh`、`claude-memory-backup.sh`、`claude-code.nix`、これらのテスト、ハーネスの ADR |
+| nixfiles             | `hosts/`、`secrets/`、`modules/` の残り（`git.nix` の利用者の設定、`slurm/`、`cc-bar.nix`、Claude Code と Claude Desktop の本体を入れる `claude-apps.nix` を含む）、PC の設定の ADR、ハーネスの input                                                                                                                              |
 
 - ハーネスのリポジトリは flake で、home-manager のモジュールと、CLI のパッケージ、checks を出す。nixfiles は input に足して
-  モジュールを import する。今 nixfiles が `claude-code.nix` に渡している値（flake のソース、外部のスキルの input、`lsp-det`）は
-  ハーネスの内容なので、ハーネスの flake が自分の input として持ち、nixfiles からは渡さない。Claude Code と Claude Desktop の
-  本体のパッケージは、版を nixfiles の `flake.lock`（`llm-agents`）が決める PC の構成なので、nixfiles に残す
+  モジュールを import する。今 nixfiles が `claude-code.nix` に渡している値は 3 つで、どれもハーネスの内容なので、nixfiles からは
+  渡さない。flake のソース（`claudeCodeSource = self`）はハーネスの flake の `self` になり、外部のスキル（`mattpocock-skills`）と
+  `lsp-det` はハーネスの flake の input になる。Claude Code と Claude Desktop の本体のパッケージは、版を nixfiles の
+  `flake.lock`（`llm-agents`）が決める PC の構成なので、nixfiles に残す
 - Slurm は、投げる側（`slurm-run.sh`、`slurm-queue.sh`、`slurm-history.sh`、スキル、sbatch を止める hook）がハーネス、
   クラスタの構成（`modules/slurm/`、パーティション、優先度）が nixfiles。間の約束は、パーティションの名前（`main`、`timed`）、
   NFS の入口（`/mnt/r995/github`）、ログの置き場で、ハーネスの側の文書に書く
@@ -114,8 +115,11 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
   rebuild）。文章とスクリプトも、lock を進める前の rebuild で lock の版に戻る。`claude-hooks` は直近 300 コミットで 41 件と多く、すぐ効かせたい変更では lock の更新を手で実行する。マージの前に
   手元で試す方法（`--override-input`）は、sudoers が rebuild のコマンド行を完全一致で許している（`nix-rebuild.sh`）ので、
   計画で決める
-- 悪い点: ハーネスのモジュールのオプションと nixfiles の設定の間に、版の食い違いが起こりうる（オプションの名前を変えた版を
-  取り込むと、nixfiles の評価が失敗する）。自動更新は全ホストの検証ビルドの失敗で lock を戻すので、壊れた構成は適用されない
+- 悪い点: ハーネスのモジュールは、nixfiles の nixpkgs と home-manager で評価される。ハーネスの新しい版が、nixfiles の版に無い
+  属性やオプションに頼ると、nixfiles の評価が失敗する。自動更新は全ホストの検証ビルドの失敗で lock を戻すので、壊れた構成は
+  適用されない
+- 悪い点: 外部のスキルと `lsp-det` の版を決める lock が、nixfiles からハーネスに移る。nixfiles の毎日の自動更新は
+  ハーネスの input を進めるだけで、ハーネスの中の lock は進めない。ハーネスの側に lock を進める手順が要る（#677）
 - 悪い点: 移した文書の中の issue の番号（`#417` の形。ハーネスのファイルに 50 か所ほど）と、コミットの番号、nixfiles の
   パスを直す作業が要る
 - 悪い点: `design-records check` は、参照先の ADR が同じリポジトリに無いと違反にする。リポジトリをまたぐ参照の形を
