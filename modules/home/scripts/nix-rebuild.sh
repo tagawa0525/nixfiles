@@ -34,16 +34,33 @@ rebuild() {
   local branch
   branch=$(git symbolic-ref --short -q HEAD || echo "detached HEAD")
   if [[ "$branch" != main ]]; then
-    # sudoers が --flake をこのディレクトリに固定しているので、ブランチの変更を試すにはここで checkout する。
-    # そのときは取り込まず、checkout した中身をそのままビルドする
-    echo "ℹ️  $branch をそのままビルドします（origin/main を取り込むのは、main にいるときだけ）"
+    # sudoers が --flake をこのディレクトリに固定しているので、ブランチの変更を試すにはここで checkout する
+    # （ブランチがほかの worktree にあれば git switch --detach <ブランチ>）。そのときは取り込まず、そのままビルドする
+    echo "ℹ️  $branch（$(git rev-parse --short HEAD)）をそのままビルドします（origin/main を取り込むのは、main にいるときだけ）"
+    echo "   試した後は main に戻してください（main 以外では、毎朝の自動更新が失敗します）"
   else
     echo "📥 Pulling latest changes from remote..."
+    # 届かない、認証の失敗、URL の誤りのどれでも、origin の最新を確かめられない。手元の中身でビルドすると、
+    # マージした変更が入らないまま成功に見えるので止める
     if ! git fetch origin main; then
-      echo "⚠️  origin に届かないので、手元の中身でビルドします"
-    elif ! git merge --ff-only origin/main; then
+      echo "❌ git fetch に失敗しました（上の出力を参照）。origin の最新を確かめられないので、ビルドしません"
+      echo "   手元の中身でビルドするなら: git -C $NIXDIR switch --detach のあと rebuild（終わったら git switch main）"
+      cd - > /dev/null
+      return 1
+    fi
+    # flake.lock は機械が書くファイルで、コミットするのは update だけ。コミットされていない lock（index に残った古い
+    # origin の lock、途中で止まった update）は、origin の lock が進むと fast-forward を止めるので、捨てる
+    if ! git diff --quiet HEAD -- flake.lock; then
+      echo "↩️  コミットされていない flake.lock を捨てます（origin/main の lock にします）"
+      git checkout HEAD -- flake.lock
+    fi
+    if ! git merge --ff-only origin/main; then
       echo "❌ main を origin/main まで進められません（履歴の分岐か、手元の変更との衝突）。ビルドしません"
-      echo "   git status と git log main..origin/main で確かめてください"
+      echo "   手元の変更（git status --short）:"
+      git status --short | sed 's/^/     /'
+      echo "   手元だけのコミット（git log --oneline origin/main..main）:"
+      git log --oneline origin/main..main | sed 's/^/     /'
+      echo "   手元だけのコミットが flake.lock の更新だけなら、nix-rebuild update で origin に合わせられます"
       cd - > /dev/null
       return 1
     fi

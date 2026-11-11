@@ -24,6 +24,8 @@ clone する（`git clone git@github.com:tagawa0525/claude-harness.git ~/nix/cla
 ## 構成の変更
 
 - 構成を変えたら、`nix flake check`（3 ホストの評価）を通す。適用は `nix-rebuild rebuild`
-- `rebuild` は、`~/nix/nixfiles` が main にあれば origin/main まで進めてからビルドする。ほかのブランチを checkout して
-  いれば、取り込まずにそのブランチをビルドする（ブランチの変更を実機で試すとき）
+- `rebuild` は、`~/nix/nixfiles` が main にあれば origin/main まで進めてからビルドする（fetch できなければ止まる。
+  コミットされていない `flake.lock` は捨てる）。main 以外にあれば、取り込まずにその中身をビルドする。ブランチの変更を
+  実機で試すときは `git -C ~/nix/nixfiles switch --detach <ブランチ>` のあと `rebuild` し、終わったら main に戻す（main 以外
+  では、毎朝の自動更新が失敗する）
 - `flake.lock` を main に直接コミットするのは `nix-rebuild update` だけ

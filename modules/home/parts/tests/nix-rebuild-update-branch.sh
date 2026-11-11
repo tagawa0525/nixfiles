@@ -264,7 +264,7 @@ if [[ "$(cat "$REPO/x")" == "wip" && "$(cat "$REPO/module.nix")" == "m2d" ]] && 
 else
   ng "origin の変更と重ならない未コミットの変更は、残したまま取り込んでビルドする"
 fi
-git -C "$REPO" checkout -q HEAD -- x
+rm -f "$REPO/x"
 # 重なるときは、何も変えずに止まる
 advance_origin m2e
 echo wip > "$REPO/module.nix"
