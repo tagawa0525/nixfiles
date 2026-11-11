@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# nix-rebuild update が main 以外のブランチでは何もせずに止まることを検証する
+# nix-rebuild update が main 以外のブランチでは何もせずに止まることと、進める input の選び方を検証する
 # =============================================================================
 # update は「origin/main を取り込み、lock を更新・検証して main に push する」処理。
 # 実際に起きた事故: PR ブランチをチェックアウトしたまま update を実行し、
@@ -37,6 +37,8 @@ for cmd in nix sudo; do
   printf '#!/bin/sh\necho "stub %s called" >&2\nexit 1\n' "$cmd" > "$WORK/bin/$cmd"
   chmod +x "$WORK/bin/$cmd"
 done
+# nix のスタブは、受けた引数も 1 回の呼び出しを 1 行にして残す
+printf '#!/bin/sh\necho "$*" >> "%s/nix.args"\necho "stub nix called" >&2\nexit 1\n' "$WORK" > "$WORK/bin/nix"
 export PATH="$WORK/bin:$PATH"
 
 # origin（bare）と clone を用意し、origin/main を clone より 1 コミット進める
@@ -107,6 +109,23 @@ if grep -q "stub nix called" "$WORK/out"; then
   ok "nix flake update まで進む"
 else
   ng "nix flake update まで進む"
+fi
+
+echo "==> update は、引数が無ければすべての input を、あれば挙げた input だけを進める"
+rm -f "$WORK/nix.args"
+bash "$SCRIPT" update >"$WORK/out" 2>&1 || true
+if [[ "$(cat "$WORK/nix.args" 2>/dev/null)" == "flake update" ]]; then
+  ok "引数の無い update は nix flake update を呼ぶ"
+else
+  ng "引数の無い update は nix flake update を呼ぶ"
+fi
+# ハーネスの直しだけを反映する（その日の nixpkgs のビルドの失敗に巻き込まれない）
+rm -f "$WORK/nix.args"
+bash "$SCRIPT" update claude-harness >"$WORK/out" 2>&1 || true
+if [[ "$(cat "$WORK/nix.args" 2>/dev/null)" == "flake update claude-harness" ]]; then
+  ok "update claude-harness は nix flake update claude-harness を呼ぶ"
+else
+  ng "update claude-harness は nix flake update claude-harness を呼ぶ"
 fi
 
 echo
