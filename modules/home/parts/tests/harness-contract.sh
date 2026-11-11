@@ -8,7 +8,8 @@
 #   1. 自動コミットするスクリプトの件名が、ハーネスの commit-msg hook を通る
 #      （実際に起きた不整合: nix-rebuild.sh が `flake: update (host)` を書き、hook の型の一覧に flake が無かったので、
 #      Claude Code のセッションからの update が最後のコミットで必ず失敗した）
-#   2. Slurm のパーティションの名前と NFS の入口が、ハーネスの slurm-run.sh と slurm-history.sh の値と同じ
+#   2. Slurm のパーティションの名前、NFS の入口、終わったジョブの記録の置き場が、ハーネスの slurm-run.sh と
+#      slurm-history.sh の値と同じ
 #   3. ハーネスの post-merge-cleanup.sh が「rebuild する構成のリポジトリ」の目印にするファイルがある
 #
 # 使い方（リポジトリルートで実行）:
@@ -46,6 +47,14 @@ export CLAUDECODE=1
 # （このリポジトリ自身の .git/hooks へ委譲されないよう、新しく init したものを使う）
 git init -q "$WORK/repo"
 
+# hook が件名を検査していることを先に確かめる（何でも通す状態だと、下の ✓ は何も確かめていない）
+printf '%s\n' "flake: update (testhost)" > "$WORK/msg"
+if (cd "$WORK/repo" && "$WORK/commit-msg" "$WORK/msg") >"$WORK/out" 2>&1; then
+  ng "commit-msg hook が、型の一覧に無い件名（flake: update）を通した（検査が走っていない）"
+else
+  ok "commit-msg hook は、型の一覧に無い件名を止める"
+fi
+
 echo "==> スクリプトが書くメッセージを集めて hook に通す"
 # `git commit -m "..."` の形で書かれたリテラルのメッセージを集める。変数の展開（$HOSTNAME など）は仮の値に置き換える
 found=0
@@ -72,9 +81,11 @@ echo "==> Slurm の構成（modules/slurm/）とハーネスのスクリプト�
 RUN="$HARNESS/.claude/scripts/slurm-run.sh"
 HISTORY="$HARNESS/.claude/scripts/slurm-history.sh"
 
-protected=$(grep -o '"[a-z]* Nodes=[^"]*PreemptMode=OFF' modules/slurm/common.nix | cut -d' ' -f1 | tr -d '"')
-default=$(grep -o '"[a-z]* Nodes=[^"]*Default=YES' modules/slurm/common.nix | cut -d' ' -f1 | tr -d '"')
-entry=$(grep -o '^"[^"]*"$' modules/slurm/nfs-entry.nix | tr -d '"')
+# 見つからないときは空にして、下の ✗ で知らせる（set -e と pipefail で、何も出さずに止まらないように）
+protected=$(grep -o '"[a-z0-9]* Nodes=[^"]*PreemptMode=OFF' modules/slurm/common.nix | cut -d' ' -f1 | tr -d '"' || true)
+default=$(grep -o '"[a-z0-9]* Nodes=[^"]*Default=YES' modules/slurm/common.nix | cut -d' ' -f1 | tr -d '"' || true)
+entry=$(grep -o '^"[^"]*"$' modules/slurm/nfs-entry.nix | tr -d '"' || true)
+jobcomp=$(grep -o 'JobCompLoc=[^ ]*' modules/slurm/common.nix | cut -d= -f2 || true)
 
 if [[ -n "$protected" ]] && grep -qF -- "--partition=$protected" "$RUN"; then
   ok "割り込まれないパーティション（$protected）に、slurm-run.sh が時間を記録するジョブを投げる"
@@ -95,6 +106,11 @@ if [[ -n "$entry" && "$(grep -o 'SLURM_RUN_NFS_ENTRY:-[^}]*' "$RUN" | cut -d- -f
   ok "NFS の入口（$entry）が、slurm-run.sh の既定の入口と同じ"
 else
   ng "NFS の入口（'$entry'）が slurm-run.sh の既定の入口と違う"
+fi
+if [[ -n "$jobcomp" ]] && grep -qF "FILE=\"\${FILE:-$jobcomp}\"" "$HISTORY"; then
+  ok "終わったジョブの記録の置き場（$jobcomp）が、slurm-history.sh の既定のファイルと同じ"
+else
+  ng "終わったジョブの記録の置き場（'$jobcomp'）が slurm-history.sh の既定のファイルと違う"
 fi
 
 # --- 3. rebuild する構成のリポジトリの目印 ------------------------------------------------------------
