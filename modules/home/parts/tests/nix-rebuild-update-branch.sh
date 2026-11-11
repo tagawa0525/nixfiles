@@ -291,6 +291,8 @@ if bash "$SCRIPT" rebuild >"$WORK/out" 2>&1; then
   ng "origin の変更と重なる未コミットの変更があれば失敗終了する"
 elif grep -q "stub sudo called" "$WORK/out" || [[ "$(cat "$REPO/module.nix")" != "wip" || "$(git -C "$REPO" rev-parse HEAD)" != "$before" ]]; then
   ng "origin の変更と重なる未コミットの変更があれば、ビルドせず、HEAD も変更もそのままにする"
+elif ! grep -q "module.nix" "$WORK/out" || grep -q "restore --staged --worktree flake.lock" "$WORK/out"; then
+  ng "重なっているファイルを示し、flake.lock が重なっていなければ lock を捨てる案内を出さない"
 else
   ok "origin の変更と重なる未コミットの変更があれば、ビルドせず、HEAD も変更もそのままにして失敗終了する"
 fi
@@ -357,6 +359,18 @@ echo "==> rebuild と update は、同じ clone で同時に走らない"
     echo "✗ ほかの実行が走っていれば update は失敗終了し、実行中だと知らせる" >&2; exit 1
   fi
 ) 9>"$(git -C "$REPO" rev-parse --absolute-git-dir)/nix-rebuild.lock" && ok "ほかの実行が走っていれば、rebuild も update も何もせずに止まり、実行中だと知らせる" || ng "ほかの実行が走っていれば、rebuild も update も何もせずに止まり、実行中だと知らせる"
+
+# ロックは、スクリプトが終われば外れる。スクリプトの子が後ろに残したプロセス（git が切り離して起動する maintenance など）が
+# ロックを持ち続けて、次の実行を断らない
+printf '#!/bin/sh\necho "stub sudo called" >&2\n(sleep 5 &) >/dev/null 2>&1\nexit 1\n' > "$WORK/bin/sudo"
+bash "$SCRIPT" rebuild >"$WORK/out" 2>&1 || true
+bash "$SCRIPT" rebuild >"$WORK/out" 2>&1 || true
+if grep -q "stub sudo called" "$WORK/out" && ! grep -q "実行中" "$WORK/out"; then
+  ok "子が後ろに残したプロセスがあっても、スクリプトが終わればロックは外れる"
+else
+  ng "子が後ろに残したプロセスがあっても、スクリプトが終わればロックは外れる"
+fi
+printf '#!/bin/sh\necho "stub sudo called" >&2\nexit 1\n' > "$WORK/bin/sudo"
 
 echo "==> rebuild は、main で fetch に失敗したら、古い中身をビルドせずに止まる"
 # 届かない、認証の失敗、URL の誤りのどれでも、origin の最新を確かめられない。手元の中身でビルドして成功に見せない
