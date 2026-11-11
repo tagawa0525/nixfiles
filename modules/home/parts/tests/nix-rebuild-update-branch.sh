@@ -241,19 +241,37 @@ else
   ng "origin の lock をステージしただけの状態からも、全体を取り込む"
 fi
 
-# flake.lock は機械が書くファイルで、コミットするのは update だけ。コミットされていない lock（index に古い origin の lock が
-# 残っている、update が途中で止まった）は捨てて、origin/main の lock にする
-advance_origin m2b
-git -C "$REPO" fetch -q origin main
-git -C "$REPO" checkout -q origin/main -- flake.lock
-advance_origin m2c
+# コミットされていない lock は捨てない（走っている update の書きかけや、手で進めて試している lock でありうる）。
+# origin の lock が進んでいなければ、手元の lock のままビルドする
+echo '{"lock":"mine"}' > "$REPO/flake.lock"
+advance_origin_module() {
+  git -C "$WORK/other" pull -q --ff-only origin main
+  echo "$1" > "$WORK/other/module.nix"
+  git -C "$WORK/other" add module.nix
+  git -C "$WORK/other" commit -qm "feat: $1"
+  git -C "$WORK/other" push -q origin main
+}
+advance_origin_module m2b
 bash "$SCRIPT" rebuild >"$WORK/out" 2>&1 || true
-if [[ "$(cat "$REPO/flake.lock")" == '{"lock":"m2c"}' && "$(cat "$REPO/module.nix")" == "m2c" && -z "$(git -C "$REPO" status --porcelain)" ]] \
-  && grep -q "stub sudo called" "$WORK/out"; then
-  ok "コミットされていない古い lock は捨てて、origin/main の全体を取り込んでビルドする"
+if [[ "$(cat "$REPO/flake.lock")" == '{"lock":"mine"}' && "$(cat "$REPO/module.nix")" == "m2b" ]] && grep -q "stub sudo called" "$WORK/out"; then
+  ok "origin の lock が進んでいなければ、コミットされていない手元の lock を残したまま取り込んでビルドする"
 else
-  ng "コミットされていない古い lock は捨てて、origin/main の全体を取り込んでビルドする"
+  ng "origin の lock が進んでいなければ、コミットされていない手元の lock を残したまま取り込んでビルドする"
 fi
+# origin の lock も進んでいれば、lock を捨てずに止まり、origin の lock に合わせる方法を示す
+advance_origin m2c
+before=$(git -C "$REPO" rev-parse HEAD)
+if bash "$SCRIPT" rebuild >"$WORK/out" 2>&1; then
+  ng "コミットされていない lock が origin の lock と重なれば失敗終了する"
+elif grep -q "stub sudo called" "$WORK/out" || [[ "$(cat "$REPO/flake.lock")" != '{"lock":"mine"}' || "$(git -C "$REPO" rev-parse HEAD)" != "$before" ]]; then
+  ng "コミットされていない lock が origin の lock と重なれば、ビルドせず、lock も HEAD もそのままにする"
+elif ! grep -q "restore --staged --worktree flake.lock" "$WORK/out"; then
+  ng "コミットされていない lock が origin の lock と重なれば、手元の lock を捨てる方法を示す"
+else
+  ok "コミットされていない lock が origin の lock と重なれば、lock も HEAD もそのままにして止まり、捨てる方法を示す"
+fi
+git -C "$REPO" restore --staged --worktree flake.lock
+bash "$SCRIPT" rebuild >/dev/null 2>&1 || true
 
 # lock のほかの未コミットの変更は捨てない。origin の変更と重ならなければ、残したまま取り込んでビルドする
 advance_origin m2d
@@ -312,6 +330,33 @@ else
   ok "履歴が分かれていれば、手元だけのコミットを示して、ビルドせずに失敗終了する"
 fi
 git -C "$REPO" reset -q --hard origin/main
+
+echo "==> rebuild は、手元の main が origin より先なだけなら、そのことを知らせてビルドする"
+# update が lock をコミットした後、push に失敗して残った状態
+echo '{"lock":"ahead"}' > "$REPO/flake.lock"
+git -C "$REPO" commit -qam "chore(flake): update (testhost)"
+bash "$SCRIPT" rebuild >"$WORK/out" 2>&1 || true
+if grep -q "stub sudo called" "$WORK/out" && grep -q "origin に無いコミット" "$WORK/out" && grep -q "chore(flake): update (testhost)" "$WORK/out"; then
+  ok "origin に無い手元のコミットを示して、ビルドに進む"
+else
+  ng "origin に無い手元のコミットを示して、ビルドに進む"
+fi
+git -C "$REPO" reset -q --hard origin/main
+
+echo "==> rebuild と update は、同じ clone で同時に走らない"
+# 走っている update の検証の途中で HEAD や lock を動かすと、検証していない組み合わせに切り替わる
+(
+  flock 9
+  if bash "$SCRIPT" rebuild >"$WORK/out" 2>&1; then
+    echo "✗ ほかの実行が走っていれば rebuild は失敗終了する" >&2; exit 1
+  fi
+  if grep -q "stub sudo called" "$WORK/out" || ! grep -q "実行中" "$WORK/out"; then
+    echo "✗ ほかの実行が走っていれば rebuild はビルドせず、実行中だと知らせる" >&2; sed 's/^/    /' "$WORK/out" >&2; exit 1
+  fi
+  if bash "$SCRIPT" update >"$WORK/out" 2>&1 || ! grep -q "実行中" "$WORK/out"; then
+    echo "✗ ほかの実行が走っていれば update は失敗終了し、実行中だと知らせる" >&2; exit 1
+  fi
+) 9>"$(git -C "$REPO" rev-parse --absolute-git-dir)/nix-rebuild.lock" && ok "ほかの実行が走っていれば、rebuild も update も何もせずに止まり、実行中だと知らせる" || ng "ほかの実行が走っていれば、rebuild も update も何もせずに止まり、実行中だと知らせる"
 
 echo "==> rebuild は、main で fetch に失敗したら、古い中身をビルドせずに止まる"
 # 届かない、認証の失敗、URL の誤りのどれでも、origin の最新を確かめられない。手元の中身でビルドして成功に見せない
