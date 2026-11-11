@@ -88,8 +88,8 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
 
 - 案 B は、決定の要因のうち、変更が 1 つの PR に収まることと、トピックごとに引けることを満たす。境界を上の線に引けば、
   hook のルール、スキル、テストは同じリポジトリにある
-- 速さの要因は、一部しか満たさない。文章とスクリプトを直してすぐ効かせる方法は変わらない（`claude-sync` が store を経ずに
-  手元の clone からコピーする）。ただし rebuild の activation も同じ同期を flake のソースから行い、ソースを正として上書きする
+- 速さの要因は、一部しか満たさない。文章とスクリプトを直してすぐ効かせる方法（`claude-sync` が store を経ずに
+  手元の clone からコピーする）は残るが、既定のソース（`claude-sync.sh` の `~/nix/nixfiles`）をハーネスの clone に変える必要がある。ただし rebuild の activation も同じ同期を flake のソースから行い、ソースを正として上書きする
   （`claude-code.nix` の `claudeCodeSource`、`claude-sync.sh`）。今のソースは nixfiles 自身で、分けた後は lock が固定した
   ハーネスの input になる。lock がハーネスの main より古い間に rebuild すると、`~/.claude` の文章とスクリプトは lock の版に戻る。
   Rust の CLI と Nix のモジュールは、lock の更新と rebuild まで効かない。どちらも、ハーネスのマージの後に nixfiles の lock を
