@@ -129,6 +129,17 @@ if [[ "$(cat "$WORK/nix.args" 2>/dev/null)" == "flake update claude-harness" ]];
 else
   ng "update claude-harness は nix flake update claude-harness を呼ぶ"
 fi
+# 名前を確かめるのは input を挙げたときだけ。毎朝の自動更新（引数なし）を、jq と lock の形に頼らせない
+printf '#!/bin/sh\necho "stub jq called" >&2\nexit 1\n' > "$WORK/bin/jq"
+chmod +x "$WORK/bin/jq"
+rm -f "$WORK/nix.args"
+bash "$SCRIPT" update >"$WORK/out" 2>&1 || true
+if [[ "$(cat "$WORK/nix.args" 2>/dev/null)" == "flake update" ]] && ! grep -q "stub jq called" "$WORK/out"; then
+  ok "引数の無い update は、jq を呼ばずに nix flake update まで進む"
+else
+  ng "引数の無い update は、jq を呼ばずに nix flake update まで進む"
+fi
+rm -f "$WORK/bin/jq"
 # nix flake update は、flake に無い input の名前を警告だけで通す（終了コード 0）。打ち間違いのまま検証と切り替えまで
 # 進み、直しが入っていないのに成功に見える
 for bad in claude-harnes --commit-lock-file; do
