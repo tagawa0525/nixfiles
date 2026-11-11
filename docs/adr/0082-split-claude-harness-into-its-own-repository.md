@@ -24,7 +24,8 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
 
 2 つのトピックが 1 つのリポジトリにあるので、次が起きている。
 
-- PC の設定の履歴、ADR、issue が、ハーネスのものに埋もれる。開いている issue は 100 件（`gh issue list --state open`）
+- PC の設定の履歴、ADR、issue が、ハーネスのものに埋もれる。開いている issue は 101 件
+  （2026-11-11、`gh issue list --state open --limit 1000 --json number -q length`。この ADR の #677 を含む）
 - PC の設定の変更にも、ハーネスの検査とテスト（flake の checks、pre-commit）がかかり、その逆もかかる
 - nixfiles の `.claude/CLAUDE.md` はグローバルの指示の元なので、nixfiles に固有のプロジェクトの指示（ホストの構成、
   rebuild の手順）を置く場所が無い
