@@ -3,7 +3,7 @@
 # このリポジトリの構成とスクリプトが、ハーネス（flake input の claude-harness）との約束を守っていることを検証する
 # =============================================================================
 # ハーネスのスクリプトと hook は、このリポジトリの名前や値を約束として固定で持つ。片方だけ変えると、どちらの
-# リポジトリのテストも通ったまま食い違うので、構成とスクリプトを持つこちらで突き合わせる。
+# リポジトリのテストも通ったまま食い違うので、構成とスクリプトを持つこちらで照合する。
 #
 #   1. 自動コミットするスクリプトの件名が、ハーネスの commit-msg hook を通る
 #      （実際に起きた不整合: nix-rebuild.sh が `flake: update (host)` を書き、hook の型の一覧に flake が無かったので、
@@ -11,14 +11,27 @@
 #   2. Slurm のパーティションの名前、NFS の入口、終わったジョブの記録の置き場が、ハーネスの slurm-run.sh と
 #      slurm-history.sh の値と同じ
 #   3. ハーネスの post-merge-cleanup.sh が「rebuild する構成のリポジトリ」の目印にするファイルがある
+#   4. nix-rebuild.sh が main に直接コミットするのは flake.lock だけ（hook の main への直接コミットの例外。hook の側の
+#      例外は、ハーネスの main-commit-gates.sh が確かめる）
+#
+# 照合しない約束: ハーネスの hook が rebuild として見るコマンドの名前（modules/home/parts/shell.nix の関数 rebuild と
+# update、スクリプト nix-rebuild）。hook の Rust のソースの文字列と照らすしかなく、ハーネスの書き方の直しで落ちる。
+# このスクリプトは毎日の自動更新を止めるので、挙動が変わらない直しで止まる照合は入れない
 #
 # 使い方（リポジトリルートで実行）:
 #   ./modules/home/parts/tests/harness-contract.sh [host]
+#
+# 呼ばれる場所:
+#   - nix-rebuild.sh の update が、lock を進めた後、検証のビルドと切り替えの前に呼ぶ（毎日の自動更新でも走る）
+#   - .pre-commit-config.yaml が、約束に関わるファイルを変えるコミットで呼ぶ
 
 set -euo pipefail
 
 ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT"
+# pre-commit から呼ばれると、git が GIT_DIR や GIT_INDEX_FILE を渡す。残したままだと、下の一時のリポジトリの git init が
+# 新しいリポジトリを作らず、commit-msg hook がコミット中のリポジトリを相手に動く
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR
 
 HOST="${1:-r995}"
 WORK=$(mktemp -d)
@@ -77,7 +90,7 @@ if ((found == 0)); then
 fi
 
 # --- 2. Slurm のパーティションの名前と NFS の入口 -----------------------------------------------------
-echo "==> Slurm の構成（modules/slurm/）とハーネスのスクリプトを突き合わせる"
+echo "==> Slurm の構成（modules/slurm/）とハーネスのスクリプトを照合する"
 RUN="$HARNESS/.claude/scripts/slurm-run.sh"
 HISTORY="$HARNESS/.claude/scripts/slurm-history.sh"
 
@@ -120,6 +133,16 @@ if [[ -f "$MARKER" ]] && grep -qF "HEAD:$MARKER" "$HARNESS/.claude/scripts/post-
   ok "post-merge-cleanup.sh が目印にする $MARKER がある（マージの後に rebuild の知らせが出る）"
 else
   ng "$MARKER が無いか、post-merge-cleanup.sh の目印と違う（マージの後に rebuild の知らせが出なくなる）"
+fi
+
+# --- 4. main に直接コミットするのは flake.lock だけ ---------------------------------------------------
+echo "==> nix-rebuild.sh がステージするファイルを確かめる"
+# hook は、既定ブランチへの直接のコミットを、ステージした変更が flake.lock だけのときに限って通す
+added=$(grep -oE 'git add [^;&|]*' "$MARKER" | sort -u || true)
+if [[ "$added" == "git add flake.lock" ]]; then
+  ok "nix-rebuild.sh がステージするのは flake.lock だけ"
+else
+  ng "nix-rebuild.sh が flake.lock のほかもステージする（main への直接のコミットを hook が止める）: $added"
 fi
 
 echo

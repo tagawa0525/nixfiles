@@ -4,7 +4,7 @@
 # =============================================================================
 # リモートのflake.lockを取得してからNixOSを再構築
 # Usage: nix-rebuild.sh rebuild
-#        nix-rebuild.sh update
+#        nix-rebuild.sh update [input...]   input を挙げると、その input だけを進める（例: update claude-harness）
 
 set -e
 
@@ -143,11 +143,44 @@ update() {
       return 1
     fi
   fi
+  # nix flake update は、flake に無い input の名前を警告だけで通す（終了コード 0）。打ち間違いのまま検証と切り替えまで
+  # 進むと、直しが入っていないのに成功に見えるので、進める lock（pull の後）の input の名前と照らす。
+  # 引数の無い経路（毎朝の自動更新）は、jq と lock の形に頼らせない
+  if (($# > 0)); then
+    local known input
+    if ! known=$(jq -r '.nodes.root.inputs | keys[]' flake.lock); then
+      echo "❌ flake.lock の input の名前を読めません"
+      cd - > /dev/null
+      return 1
+    fi
+    for input in "$@"; do
+      if [[ -z "$input" ]] || ! grep -qxF -- "$input" <<< "$known"; then
+        echo "❌ flake に無い input です: $input"
+        echo "   使える名前: ${known//$'\n'/ }"
+        cd - > /dev/null
+        return 1
+      fi
+    done
+  fi
   echo "⬆️  Updating flake..."
   # set -e による即終了を避けて明示ハンドリングする（部分的に書き換わった
   # flake.lock が残ると翌日以降の git pull --rebase が詰まるため）
-  if ! nix flake update; then
+  # input を挙げたときは、それだけを進める。ハーネス（claude-harness）の直しを、その日の nixpkgs のビルドの失敗に
+  # 巻き込まれずに反映するため
+  if ! nix flake update "$@"; then
     echo "❌ Flake update failed"
+    reset_lock
+    cd - > /dev/null
+    return 1
+  fi
+  # ハーネス（flake input の claude-harness）のスクリプトが固定で持つ名前と値が、この構成と合っていることを確かめる。
+  # ハーネスの lock を進めた版が約束を変えていたら、切り替える前に止める（照合する中身はスクリプトの冒頭）。
+  # ビルドするのは commit-msg の hook だけなので、全ホストのビルドの前に置く。hook を取り出すために、進めた lock で
+  # このホストの構成を評価するので、新しい nixpkgs で評価できないときもここで止まる
+  contract="$NIXDIR/modules/home/parts/tests/harness-contract.sh"
+  echo "🤝 Checking the contract with claude-harness..."
+  if ! bash "$contract" "$HOSTNAME"; then
+    echo "❌ Harness contract check failed (or this host no longer evaluates with the new lock), not switching or pushing"
     reset_lock
     cd - > /dev/null
     return 1
@@ -232,10 +265,10 @@ case "${1:-}" in
     rebuild
     ;;
   update)
-    update
+    update "${@:2}"
     ;;
   *)
-    echo "Usage: $0 {rebuild|update}"
+    echo "Usage: $0 {rebuild|update [input...]}"
     exit 1
     ;;
 esac
