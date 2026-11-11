@@ -50,25 +50,28 @@ rebuild() {
     fi
     # コミットされていない変更は捨てない（走っている update の書きかけや、手で進めて試している lock でありうる）。
     # origin の変更と重ならなければ残したまま進み、重なれば git が何も変えずに止める
-    local ahead
-    ahead=$(git log --oneline origin/main..main)
+    # origin に無い手元のコミット。origin/main の ref が無い clone では空として扱う（下の merge が理由を出して止まる）
+    local ahead line
+    ahead=$(git log --oneline origin/main..main 2> /dev/null) || ahead=
     if ! git merge --ff-only origin/main; then
-      echo "❌ main を origin/main まで進められません。ビルドしません"
+      echo "❌ main を origin/main まで進められません（上の git の出力を参照）。ビルドしません"
       if [[ -n "$ahead" ]]; then
         echo "   origin に無い手元のコミットがあり、履歴が分かれています（git log --oneline origin/main..main）:"
-        echo "${ahead//$'\n'/$'\n'     }" | sed '1s/^/     /'
+        while IFS= read -r line; do echo "     $line"; done <<< "$ahead"
         echo "   flake.lock の更新だけなら、nix-rebuild update で origin に合わせられます"
       else
-        echo "   コミットされていない変更が、origin の変更と重なっています（git status --short）:"
+        echo "   手元の状態（git status --short）:"
         git status --short | sed 's/^/     /'
-        echo "   手元の flake.lock を捨てて origin に合わせるなら: git -C $NIXDIR restore --staged --worktree flake.lock"
+        if [[ -n "$(git status --porcelain -- flake.lock)" ]]; then
+          echo "   手元の flake.lock を捨てて origin に合わせるなら: git -C $NIXDIR restore --staged --worktree flake.lock"
+        fi
       fi
       cd - > /dev/null
       return 1
     fi
     if [[ -n "$ahead" ]]; then
       echo "ℹ️  origin に無いコミットを含めてビルドします（push していない手元のコミット）:"
-      echo "${ahead//$'\n'/$'\n'     }" | sed '1s/^/     /'
+      while IFS= read -r line; do echo "     $line"; done <<< "$ahead"
     fi
   fi
   echo "🔨 Rebuilding NixOS..."
@@ -290,24 +293,34 @@ update() {
   cd - > /dev/null
 }
 
-# rebuild と update を、同じ clone で同時に実行しない。走っている update の検証の途中で HEAD や flake.lock を動かすと、
-# 検証していない組み合わせに切り替わる。ロックのファイルは .git の中に置く（作業ツリーを汚さない）
+# rebuild と update を、同じ clone で同時に実行しない。実行中の update の検証の途中で HEAD や flake.lock を動かすと、
+# 検証していない組み合わせに切り替わる。ロックのファイルは .git の中に置く（作業ツリーを汚さない）。
+# ロックは flock のプロセスが持ち、このスクリプトを子として実行し直す。-o でロックの fd を子に継がせないので、子が後ろに
+# 残したプロセス（git が切り離して起動する maintenance など）がロックを持ち続けない
 exclusive() {
-  exec 9> "$(git -C "$NIXDIR" rev-parse --absolute-git-dir)/nix-rebuild.lock"
-  if ! flock -n 9; then
+  [[ -z "${NIX_REBUILD_LOCKED:-}" ]] || return 0
+  local gitdir rc=0
+  if ! gitdir=$(git -C "$NIXDIR" rev-parse --absolute-git-dir); then
+    echo "❌ $NIXDIR を git のリポジトリとして読めません"
+    exit 1
+  fi
+  # 75 は、ロックを取れなかったときだけの終了コード（このスクリプト自身は 0 か 1 で終わる）
+  NIX_REBUILD_LOCKED=1 flock -n -o -E 75 "$gitdir/nix-rebuild.lock" bash "$0" "$@" || rc=$?
+  if ((rc == 75)); then
     echo "❌ ほかの nix-rebuild（rebuild か update。毎朝 06:30 の自動更新を含む）が実行中です。終わってから実行してください"
     exit 1
   fi
+  exit "$rc"
 }
 
 # メイン処理
 case "${1:-}" in
   rebuild)
-    exclusive
+    exclusive "$@"
     rebuild
     ;;
   update)
-    exclusive
+    exclusive "$@"
     update "${@:2}"
     ;;
   *)
