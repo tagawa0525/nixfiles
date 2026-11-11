@@ -29,6 +29,9 @@ set -euo pipefail
 
 ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT"
+# pre-commit から呼ばれると、git が GIT_DIR や GIT_INDEX_FILE を渡す。残したままだと、下の一時のリポジトリの git init が
+# 新しいリポジトリを作らず、commit-msg hook がコミット中のリポジトリを相手に動く
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR
 
 HOST="${1:-r995}"
 WORK=$(mktemp -d)
