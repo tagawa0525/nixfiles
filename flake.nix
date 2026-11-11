@@ -84,7 +84,7 @@
 
     # claude-harness: Claude Code のハーネス（自作。グローバルの指示、スキル、スクリプト、hook、それらが使う CLI）。
     # homeManagerModules.default が ~/.claude の中身と settings.json、git のグローバルの hook を配る（ADR-0082）。
-    # ハーネスを直した後は、この lock を進めて（nix-rebuild update）から rebuild する。
+    # ハーネスを直した後は、nix-rebuild update claude-harness でこの lock を進める（検証と切り替えまで行う）。
     # ハーネスの中の input（外部のスキル、lsp-det）も、ここで follows にして毎日の自動更新で進める
     claude-harness = {
       url = "github:tagawa0525/claude-harness";

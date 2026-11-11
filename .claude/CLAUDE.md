@@ -10,9 +10,11 @@ NixOS と home-manager の構成（r995、t14g4、x1ng1）。開発の進め方�
   `docs/adr/0082-split-claude-harness-into-its-own-repository.md`
 - ハーネスを直すのは `~/nix/claude-harness`。マージの後、このリポジトリの main で `nix-rebuild update claude-harness` を
   実行すると、ハーネスの lock だけが進み、全ホストの構成を検証して rebuild する（実行しなくても、毎日 06:30 の自動更新が
-  すべての input と一緒に進める）
-- Slurm のパーティションの名前、NFS の入口、`nix-rebuild.sh` の名前、件名、置き場は、ハーネスのスクリプトと hook との約束。
-  `modules/home/parts/tests/harness-contract.sh` が確かめ、`nix-rebuild update` が切り替えの前に実行する
+  すべての input と一緒に進める）。ハーネスが使う `lsp-det` と `mattpocock-skills` はこのリポジトリの input なので、一緒に
+  進めるときは名前を並べる（`nix-rebuild update claude-harness lsp-det`）
+- Slurm のパーティションの名前、NFS の入口、`nix-rebuild.sh` の件名と置き場は、ハーネスのスクリプトと hook との約束。
+  `modules/home/parts/tests/harness-contract.sh` が確かめる。約束に関わるファイルを変えるコミットと、`nix-rebuild update` が
+  実行する。`rebuild`、`update`、`nix-rebuild` という名前も、hook が rebuild として見る約束（機械では確かめていない）
 
 ## ホストを足すとき
 
