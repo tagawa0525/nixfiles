@@ -2,7 +2,7 @@
 # 開発環境の設定
 # =============================================================================
 # 開発ツール、activation scripts、言語設定など
-# Git関連は git.nix、Claude Code関連は claude-code.nix を参照
+# Git関連は git.nix、Claude Code の本体は claude-apps.nix、ハーネスは flake input の claude-harness を参照
 # =============================================================================
 { pkgs, lib, ... }:
 

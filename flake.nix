@@ -82,17 +82,27 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # mattpocock/skills: Claude Code 向けスキル集。grilling / grill-me を
-    # ~/.claude/skills にデプロイする（対象は modules/home/parts/claude-code.nix の
-    # externalSkills）。flake ではないので出所と rev の記録のためだけに input にする
+    # claude-harness: Claude Code のハーネス（自作。グローバルの指示、スキル、スクリプト、hook、それらが使う CLI）。
+    # homeManagerModules.default が ~/.claude の中身と settings.json、git のグローバルの hook を配る（ADR-0082）。
+    # ハーネスを直した後は、この lock を進めて（nix-rebuild update）から rebuild する。
+    # ハーネスの中の input（外部のスキル、lsp-det）も、ここで follows にして毎日の自動更新で進める
+    claude-harness = {
+      url = "github:tagawa0525/claude-harness";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.home-manager.follows = "home-manager";
+      inputs.mattpocock-skills.follows = "mattpocock-skills";
+      inputs.lsp-det.follows = "lsp-det";
+    };
+
+    # mattpocock/skills: Claude Code 向けスキル集。claude-harness が grilling / grill-me を ~/.claude/skills に
+    # デプロイする。flake ではないので出所と rev の記録のためだけに input にする
     mattpocock-skills = {
       url = "github:mattpocock/skills";
       flake = false;
     };
 
-    # lsp-det: 言語サーバーの状態を示す透過プロキシ（自作）。packages.default を
-    # Claude Code の LSP の経路に挟んでドッグフーディングする（claude-code.nix）。
-    # 更新は nix flake update lsp-det → rebuild
+    # lsp-det: 言語サーバーの状態を示す透過プロキシ（自作）。claude-harness が packages.default を
+    # Claude Code の LSP の経路に挟んでドッグフーディングする
     lsp-det = {
       url = "github:tagawa0525/lsp-det";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -129,8 +139,7 @@
       qmpo,
       cc-bar,
       nur-openlogi-latest,
-      mattpocock-skills,
-      lsp-det,
+      claude-harness,
       nucrawler,
       sops-nix,
       ...
@@ -186,9 +195,7 @@
                 nucrawler.homeManagerModules.default
               ];
               home-manager.extraSpecialArgs = {
-                claudeCodeSource = self; # flakeルートを渡す（Claude Code設定用）
-                inherit mattpocock-skills; # 外部スキルの取得元（claude-code.nix の externalSkills）
-                inherit lsp-det; # ドッグフーディングの lsp-det（claude-code.nix）
+                inherit claude-harness; # Claude Code のハーネスのモジュール（users/tagawa/default.nix が import する）
                 inherit qmpo; # directory:// URIハンドラ（desktop.nix）
                 inherit nur-vscode-latest; # 個人NUR: VSCode最新版（editors.nix）
                 vscode-server = nixos-vscode-server; # VS Code Server自動パッチモジュール
@@ -201,37 +208,5 @@
     in
     {
       nixosConfigurations = nixpkgs.lib.genAttrs hostNames mkHost;
-
-      packages.x86_64-linux = {
-        # Claude Code の PreToolUse hook（modules/home/parts/claude-code.nix が home に配置する）。
-        # nix build .#claude-hooks で単体ビルドし、テストから CLAUDE_HOOKS_BIN で参照する
-        claude-hooks =
-          nixpkgs.legacyPackages.x86_64-linux.callPackage ./modules/home/parts/claude-hooks/package.nix
-            { };
-        # 文書の中のコミットの番号の付け直しの CLI（modules/home/parts/git-hooks.nix の post-rewrite hook が呼ぶ）
-        commit-refs =
-          nixpkgs.legacyPackages.x86_64-linux.callPackage ./modules/home/parts/commit-refs/package.nix
-            { };
-        # 履歴の中の崩れた語を直し、番号を付け直す CLI（modules/home/parts/git-hooks.nix が PATH に入れる）
-        history-rewrite =
-          nixpkgs.legacyPackages.x86_64-linux.callPackage ./modules/home/parts/history-rewrite/package.nix
-            { inherit (self.packages.x86_64-linux) commit-refs; };
-        # 設計の記録（ADR）のテンプレートと検査の CLI（modules/home/parts/git-hooks.nix が PATH に入れる）
-        design-records =
-          nixpkgs.legacyPackages.x86_64-linux.callPackage ./modules/home/parts/design-records/package.nix
-            { };
-      };
-
-      # nix flake check は packages を評価するだけで checkPhase（cargo test）を実行しない。
-      # サンドボックスでだけ落ちるテスト（PATH に git が無い等）を rebuild の前に見つけるため、
-      # テストのあるパッケージを checks に入れる（ADR-0022）
-      checks.x86_64-linux = {
-        inherit (self.packages.x86_64-linux)
-          claude-hooks
-          commit-refs
-          design-records
-          history-rewrite
-          ;
-      };
     };
 }

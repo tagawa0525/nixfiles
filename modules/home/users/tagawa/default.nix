@@ -7,6 +7,7 @@
 # =============================================================================
 {
   pkgs,
+  claude-harness,
   ...
 }:
 
@@ -18,9 +19,8 @@
     ../../parts/desktop.nix # COSMIC, XDG, fcitx5, mimeApps
     ../../parts/communication.nix # Discord, Zoom などお仕事用GUIアプリ
     ../../parts/git.nix # Git, delta, GitHub CLI
-    ../../parts/git-hooks.nix # グローバルの Git Hooks と、hook が呼ぶ CLI
     ../../parts/claude-apps.nix # Claude Code CLI, Claude Desktop の本体
-    ../../parts/claude-code.nix # hooks/skills同期, settings管理
+    claude-harness.homeManagerModules.default # ~/.claude の中身と settings.json、git のグローバルの hook（別のリポジトリ）
     ../../parts/development.nix # 開発ツール, activation scripts
     ../../parts/mise.nix # mise（ランタイムバージョンマネージャー）
     ../../parts/vscode-server.nix # VS Code Server自動パッチ（NixOS用）
