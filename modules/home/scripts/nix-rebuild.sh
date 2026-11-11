@@ -4,7 +4,7 @@
 # =============================================================================
 # リモートのflake.lockを取得してからNixOSを再構築
 # Usage: nix-rebuild.sh rebuild
-#        nix-rebuild.sh update
+#        nix-rebuild.sh update [input...]   input を挙げると、その input だけを進める（例: update claude-harness）
 
 set -e
 
@@ -146,7 +146,9 @@ update() {
   echo "⬆️  Updating flake..."
   # set -e による即終了を避けて明示ハンドリングする（部分的に書き換わった
   # flake.lock が残ると翌日以降の git pull --rebase が詰まるため）
-  if ! nix flake update; then
+  # input を挙げたときは、それだけを進める。ハーネス（claude-harness）の直しを、その日の nixpkgs のビルドの失敗に
+  # 巻き込まれずに反映するため
+  if ! nix flake update "$@"; then
     echo "❌ Flake update failed"
     reset_lock
     cd - > /dev/null
@@ -232,10 +234,10 @@ case "${1:-}" in
     rebuild
     ;;
   update)
-    update
+    update "${@:2}"
     ;;
   *)
-    echo "Usage: $0 {rebuild|update}"
+    echo "Usage: $0 {rebuild|update [input...]}"
     exit 1
     ;;
 esac

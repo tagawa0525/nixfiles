@@ -47,7 +47,7 @@
     # NixOS再構築用コマンド（共通スクリプトのラッパー）
     functions = {
       rebuild = "nix-rebuild rebuild";
-      update = "nix-rebuild update";
+      update = "nix-rebuild update $argv";
     };
   };
 
@@ -69,7 +69,7 @@
     # NixOS再構築用関数（共通スクリプトのラッパー）
     bashrcExtra = ''
       rebuild() { nix-rebuild rebuild; }
-      update() { nix-rebuild update; }
+      update() { nix-rebuild update "$@"; }
 
       # mise有効化（Bashシェルで自動補完とコマンドが使えるようになる）
       if command -v mise &> /dev/null; then
