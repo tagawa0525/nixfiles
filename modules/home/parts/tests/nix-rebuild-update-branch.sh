@@ -45,7 +45,9 @@ export PATH="$WORK/bin:$PATH"
 git init -q --bare "$WORK/origin.git"
 git clone -q "$WORK/origin.git" "$HOME/nix/nixfiles" 2>/dev/null
 REPO="$HOME/nix/nixfiles"
-echo '{}' > "$REPO/flake.lock"
+# input の名前を確かめる先（flake.lock の root の inputs）
+LOCK0='{"nodes":{"root":{"inputs":{"claude-harness":"claude-harness","nixpkgs":"nixpkgs"}}}}'
+echo "$LOCK0" > "$REPO/flake.lock"
 git -C "$REPO" add flake.lock
 git -C "$REPO" commit -qm "chore: init"
 git -C "$REPO" push -q origin main
@@ -127,11 +129,26 @@ if [[ "$(cat "$WORK/nix.args" 2>/dev/null)" == "flake update claude-harness" ]];
 else
   ng "update claude-harness は nix flake update claude-harness を呼ぶ"
 fi
+# nix flake update は、flake に無い input の名前を警告だけで通す（終了コード 0）。打ち間違いのまま検証と切り替えまで
+# 進み、直しが入っていないのに成功に見える
+for bad in claude-harnes --commit-lock-file; do
+  rm -f "$WORK/nix.args"
+  if bash "$SCRIPT" update "$bad" >"$WORK/out" 2>&1; then
+    ng "flake に無い input の名前（$bad）では失敗終了する"
+  elif [[ -e "$WORK/nix.args" ]]; then
+    ng "flake に無い input の名前（$bad）では nix を呼ばない"
+  elif ! grep -qF -- "$bad" "$WORK/out" || ! grep -q "claude-harness" "$WORK/out"; then
+    ng "flake に無い input の名前（$bad）と、使える名前の一覧を出力する"
+  else
+    ok "flake に無い input の名前（$bad）では、nix を呼ばずに、使える名前を示して失敗終了する"
+  fi
+done
 
-echo "==> update は、検証のビルドの後、切り替えの前に、ハーネスとの約束の照合を通す"
+echo "==> update は、lock を進めた後、検証のビルドと切り替えの前に、ハーネスとの約束の照合を通す"
 # nix は成功するスタブにする（flake update は lock を書き換え、eval はホストの名前を、build はパスを返す）
 cat > "$WORK/bin/nix" <<STUB
 #!/bin/sh
+echo "\$1" >> "$WORK/nix.calls"
 case "\$1 \$2" in
   "flake update") echo '{"updated":true}' > "$REPO/flake.lock" ;;
   "eval "*) printf 'testhost' ;;
@@ -143,6 +160,7 @@ mkdir -p "$REPO/modules/home/parts/tests"
 CONTRACT="$REPO/modules/home/parts/tests/harness-contract.sh"
 
 printf '#!/usr/bin/env bash\necho "contract ng"\nexit 1\n' > "$CONTRACT"
+rm -f "$WORK/nix.calls"
 if bash "$SCRIPT" update >"$WORK/out" 2>&1; then
   ng "照合が落ちたら失敗終了する"
 else
@@ -153,10 +171,16 @@ if grep -q "stub sudo called" "$WORK/out"; then
 else
   ok "照合が落ちたら切り替えない"
 fi
-if [[ "$(cat "$REPO/flake.lock")" == "{}" ]]; then
+if [[ "$(cat "$REPO/flake.lock")" == "$LOCK0" ]]; then
   ok "照合が落ちたら flake.lock を戻す"
 else
   ng "照合が落ちたら flake.lock を戻す"
+fi
+# 照合に要るのはハーネスのソースと hook だけ。全ホストのビルドを終えてから落とすと、その成果物を捨てることになる
+if grep -qx "build" "$WORK/nix.calls" 2>/dev/null; then
+  ng "照合が落ちたら、全ホストの検証のビルドを始めない"
+else
+  ok "照合が落ちたら、全ホストの検証のビルドを始めない"
 fi
 
 printf '#!/usr/bin/env bash\nexit 0\n' > "$CONTRACT"
