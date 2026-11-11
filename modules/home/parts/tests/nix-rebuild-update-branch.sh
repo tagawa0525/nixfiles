@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# nix-rebuild update が main 以外のブランチでは何もせずに止まることと、進める input の選び方を検証する
+# nix-rebuild の update と rebuild が、origin/main をどう取り込むか（ブランチの扱い、進める input の選び方）を検証する
 # =============================================================================
 # update は「origin/main を取り込み、lock を更新・検証して main に push する」処理。
 # 実際に起きた事故: PR ブランチをチェックアウトしたまま update を実行し、
@@ -201,6 +201,86 @@ if grep -q "stub sudo called" "$WORK/out"; then
 else
   ng "照合が通れば切り替えに進む"
 fi
+
+echo "==> rebuild は、main にいれば origin/main の全体を取り込んでからビルドする"
+# flake.lock だけを取り込むと、origin でモジュールと lock が一緒に変わったとき、新しい lock と古いモジュールという、
+# どこでも検証していない組み合わせをビルドする
+printf '#!/bin/sh\necho "stub sudo called" >&2\nexit 1\n' > "$WORK/bin/sudo"
+rm -f "$CONTRACT"
+git -C "$REPO" checkout -q HEAD -- . 2>/dev/null || true
+git -C "$REPO" switch -q main
+git -C "$REPO" pull -q --ff-only origin main
+# other: origin/main を 1 コミット進める（モジュールと lock を一緒に変える）
+advance_origin() {
+  git -C "$WORK/other" pull -q --ff-only origin main
+  echo "$1" > "$WORK/other/module.nix"
+  echo "{\"lock\":\"$1\"}" > "$WORK/other/flake.lock"
+  git -C "$WORK/other" add module.nix flake.lock
+  git -C "$WORK/other" commit -qm "feat: $1"
+  git -C "$WORK/other" push -q origin main
+}
+advance_origin m1
+bash "$SCRIPT" rebuild >"$WORK/out" 2>&1 || true
+if [[ "$(cat "$REPO/module.nix" 2>/dev/null)" == "m1" && "$(cat "$REPO/flake.lock")" == '{"lock":"m1"}' ]] \
+  && [[ "$(git -C "$REPO" rev-parse HEAD)" == "$(git -C "$REPO" rev-parse origin/main)" ]] \
+  && [[ -z "$(git -C "$REPO" status --porcelain)" ]]; then
+  ok "main を origin/main まで進め、モジュールも lock も取り込み、作業ツリーを汚さない"
+else
+  ng "main を origin/main まで進め、モジュールも lock も取り込み、作業ツリーを汚さない"
+fi
+if grep -q "stub sudo called" "$WORK/out"; then ok "取り込んだ後にビルドに進む"; else ng "取り込んだ後にビルドに進む"; fi
+
+# 前の rebuild が残した状態（origin の lock をステージしただけで、HEAD は遅れている）からも進める
+advance_origin m2
+git -C "$REPO" fetch -q origin main
+git -C "$REPO" checkout -q origin/main -- flake.lock
+bash "$SCRIPT" rebuild >"$WORK/out" 2>&1 || true
+if [[ "$(cat "$REPO/module.nix")" == "m2" && -z "$(git -C "$REPO" status --porcelain)" ]]; then
+  ok "origin の lock をステージしただけの状態からも、全体を取り込む"
+else
+  ng "origin の lock をステージしただけの状態からも、全体を取り込む"
+fi
+
+echo "==> rebuild は、main 以外のブランチでは取り込まず、そのブランチをビルドする"
+# sudoers が --flake を ~/nix/nixfiles に固定しているので、ブランチの変更を試すにはここで checkout する
+advance_origin m3
+git -C "$REPO" switch -q feat/x
+before=$(git -C "$REPO" rev-parse HEAD)
+bash "$SCRIPT" rebuild >"$WORK/out" 2>&1 || true
+if [[ "$(git -C "$REPO" rev-parse HEAD)" == "$before" && -z "$(git -C "$REPO" status --porcelain)" ]]; then
+  ok "ブランチを動かさず、lock も書き換えない"
+else
+  ng "ブランチを動かさず、lock も書き換えない"
+fi
+if grep -q "feat/x" "$WORK/out" && grep -q "stub sudo called" "$WORK/out"; then
+  ok "ブランチの名前を出して、そのままビルドに進む"
+else
+  ng "ブランチの名前を出して、そのままビルドに進む"
+fi
+
+echo "==> rebuild は、main を origin/main まで進められなければ、ビルドせずに止まる"
+git -C "$REPO" switch -q main
+echo local > "$REPO/local.nix"
+git -C "$REPO" add local.nix
+git -C "$REPO" commit -qm "feat: local"
+if bash "$SCRIPT" rebuild >"$WORK/out" 2>&1; then
+  ng "履歴が分かれていれば失敗終了する"
+elif grep -q "stub sudo called" "$WORK/out"; then
+  ng "履歴が分かれていればビルドしない"
+else
+  ok "履歴が分かれていれば、ビルドせずに失敗終了する"
+fi
+git -C "$REPO" reset -q --hard origin/main
+
+echo "==> rebuild は、origin に届かなければ、警告して手元の中身でビルドする"
+git -C "$REPO" remote set-url origin "$WORK/no-such-origin.git"
+bash "$SCRIPT" rebuild >"$WORK/out" 2>&1 || true
+if grep -q "stub sudo called" "$WORK/out" && grep -q "origin に届かない" "$WORK/out"; then
+  ok "origin に届かないことを知らせて、ビルドに進む"
+else
+  ng "origin に届かないことを知らせて、ビルドに進む"
+fi
+git -C "$REPO" remote set-url origin "$WORK/origin.git"
 
 echo
 echo "passed: $PASS, failed: $FAIL"
