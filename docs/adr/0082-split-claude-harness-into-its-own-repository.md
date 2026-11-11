@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-11-11
+status: accepted
+date: 2026-11-12
 requires: []
 supersedes: []
 superseded-by:
@@ -81,10 +81,10 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
 
 - 履歴: ハーネスのパスだけを残す形で nixfiles の履歴を書き換えたものを、新しいリポジトリの履歴にする。文書の中のコミットの
   番号は `commit-refs` で付け直す。nixfiles の側は履歴を書き換えず、移したファイルを通常のコミットで消す
-- ADR: 番号を変えずに移し、両方のリポジトリで欠番を許す。確定した ADR は相互に参照していて、番号を振り直すと凍結する部分に
-  変更が及ぶ。ADR は、決定が変えるファイルのある側に置く。リポジトリをまたぐ参照は、リポジトリの名前を付けて書く
-- issue: 開いているハーネスの issue を新しいリポジトリに移す。閉じた issue は nixfiles に残し、移した文書からの参照は
-  リポジトリの名前を付けた形（`tagawa0525/nixfiles#417`）に直す
+- ADR: 番号を変えずに移し、両方のリポジトリで欠番を許す。ADR は、決定が扱うコードのある側に置く。置き場を、ADR どうしの
+  参照が切れないことに合わせない（主役はコードで、記録のつながりのために置き場やツールを決めない）。切れるフロントマターの
+  結びは、参照先の無い側で外す。本文の番号はそのまま残す
+- issue: 開いているハーネスの issue を新しいリポジトリに移す。閉じた issue と、文書の中の issue の番号はそのまま残す
 - リポジトリの名前、移す順序、切り替えの日の手順は、計画（`docs/plans/`）に書く
 
 ### 理由
@@ -111,26 +111,31 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
 - 良い点: nixfiles の `flake.lock` がハーネスの版を固定する。PC の設定を戻してもハーネスは戻らず、ハーネスだけを前の版に
   固定することもできる
 - 良い点: nixfiles に、プロジェクトの指示（`.claude/CLAUDE.md`）を置ける
-- 悪い点: Rust の CLI と Nix のモジュールの変更は、効くまでが 2 段になる（ハーネスのマージ、nixfiles の lock の更新と
-  rebuild）。文章とスクリプトも、lock を進める前の rebuild で lock の版に戻る。`claude-hooks` は直近 300 コミットで 41 件と多く、すぐ効かせたい変更では lock の更新を手で実行する。マージの前に
-  手元で試す方法（`--override-input`）は、sudoers が rebuild のコマンド行を完全一致で許している（`nix-rebuild.sh`）ので、
-  計画で決める
+- 悪い点: ハーネスの変更は、効くまでが 2 段になる（ハーネスのマージ、nixfiles の lock の更新と rebuild）。文章とスクリプトは
+  `claude-sync <ハーネスの clone>` ですぐ入るが、lock を進める前の rebuild で lock の版に戻る。lock は `nix-rebuild update` か
+  毎日 06:30 の自動更新が進める。マージの前に試すには、文章とスクリプトは worktree から `claude-sync`、Rust の CLI は
+  worktree でビルドしたバイナリをテストに渡す
 - 悪い点: ハーネスのモジュールは、nixfiles の nixpkgs と home-manager で評価される。ハーネスの新しい版が、nixfiles の版に無い
   属性やオプションに頼ると、nixfiles の評価が失敗する。自動更新は全ホストの検証ビルドの失敗で lock を戻すので、壊れた構成は
-  適用されない
-- 悪い点: 外部のスキルと `lsp-det` の版を決める lock が、nixfiles からハーネスに移る。nixfiles の毎日の自動更新は
-  ハーネスの input を進めるだけで、ハーネスの中の lock は進めない。ハーネスの側に lock を進める手順が要る（#677）
-- 悪い点: 移した文書の中の issue の番号（`#417` の形。ハーネスのファイルに 50 か所ほど）と、コミットの番号、nixfiles の
-  パスを直す作業が要る
-- 悪い点: `design-records check` は、参照先の ADR が同じリポジトリに無いと違反にする。リポジトリをまたぐ参照の形を
-  `design-records` に足す必要がある
-- 実装はまだ無い。計画と、計画で決める点（境界の表に無いファイル、分けた後の ADR の番号、lock を進める手順など）は #677
+  適用されない。ハーネスのテストは、ハーネスの `flake.lock` の nixpkgs でビルドした hook を確かめるので、配る hook の版と
+  離れうる
+- 悪い点: nixfiles の構成とハーネスのスクリプトの間に、名前と値の約束が残る（Slurm のパーティションの名前と NFS の入口、
+  自動コミットの件名、rebuild する構成の目印の `nix-rebuild.sh`）。`modules/home/parts/tests/harness-contract.sh` が
+  突き合わせる
+- 外部のスキルと `lsp-det` の版は、nixfiles の `flake.lock` が決めるままにした（ハーネスの input を nixfiles の input に
+  follows する）。毎日の自動更新が進める。ハーネスの `flake.lock` のそれらは、ハーネスのテストにだけ使う
+- 切り出したのは 2026-11-12、nixfiles の f02b191e。3916 コミットのうち 2752 件が `tagawa0525/claude-harness` の履歴に
+  なった。`claude-code.nix` を `development.nix` から切り出す前の 1 か月分（2026-01-12 から 02-20）は、nixfiles の履歴にだけ
+  残る。nixfiles の履歴は書き換えていない
+- 残り（#677）: 開いているハーネスの issue を新しいリポジトリに移す。t14g4 と x1ng1 で `~/nix/claude-harness` を clone する
 
 ### 確認
 
-- ハーネスのリポジトリで `nix flake check` が通り、今の `.claude/tests/` と `modules/home/parts/tests/` のうち移したテストが
-  すべて通る
-- 切り替えの前後で、`~/.claude/` の中身（CLAUDE.md、skills、scripts、bin）と `~/.claude/settings.json`、git の hook
-  （`core.hooksPath` の先）に差が無い
-- 切り替えの後、nixfiles の `git ls-files` に、上の表でハーネスに入れたパスが残っていない
+- ハーネスのリポジトリで `nix flake check` と、`.claude/tests/`、`modules/home/parts/tests/` のテストがすべて通る
+  （2026-11-12、tagawa0525/claude-harness#2 の時点。切り出す前から失敗していた 2 本は同じ PR で直した）
+- 切り替えの前後で、r995、t14g4、x1ng1 の構成の、4 つの hook の本文、`home.packages` の名前、`home.file` と
+  `xdg.configFile` のキー、`programs.git.settings` が、store の hash を除いて同じ。`claudeCodeSetup` の activation の差は、
+  消した分岐のコメント 1 行（2026-11-12、`nix eval` で比較）
+- nixfiles の `git ls-files` に、境界の表でハーネスに入れたパスが残っていない
 - 両方のリポジトリで `design-records check` が通る
+- `modules/home/parts/tests/harness-contract.sh` が通る
