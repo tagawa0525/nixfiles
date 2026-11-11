@@ -60,14 +60,15 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
 （`git.nix` の main へのコミットの例外は `block_main_commit.rs` と揃える、`ja-terms` の textlint は両方が呼ぶ）、
 間に線を引くと 1 つの変更が 2 つのリポジトリにまたがる。
 
-| 行き先               | 入れるもの                                                                                                                                                                                                                                                                                                                         |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ハーネスのリポジトリ | `.claude/`（CLAUDE.md、スキル、スクリプト、テスト、README）、`claude-hooks`、`commit-refs`、`design-records`、`history-rewrite`、`ja-terms`、git の hook（`git.nix` の hook の部分、`staged-checks.sh`、`scan-staged-secrets.sh`）、`claude-sync.sh`、`claude-memory-backup.sh`、`claude-code.nix`、これらのテスト、ハーネスの ADR |
-| nixfiles             | `hosts/`、`secrets/`、`modules/` の残り（`git.nix` の利用者の設定、`slurm/`、`cc-bar.nix` を含む）、PC の設定の ADR、ハーネスの input とホストごとの値                                                                                                                                                                             |
+| 行き先               | 入れるもの                                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ハーネスのリポジトリ | `.claude/`（CLAUDE.md、スキル、スクリプト、テスト、README）、`claude-hooks`、`commit-refs`、`design-records`、`history-rewrite`、`ja-terms`、git の hook（`git.nix` の hook の部分、`staged-checks.sh`、`scan-staged-secrets.sh`）、`claude-sync.sh`、`claude-memory-backup.sh`、`claude-code.nix`（Claude Code と Claude Desktop の本体のパッケージを除く）、これらのテスト、ハーネスの ADR |
+| nixfiles             | `hosts/`、`secrets/`、`modules/` の残り（`git.nix` の利用者の設定、`slurm/`、`cc-bar.nix`、Claude Code と Claude Desktop の本体を入れる `claude-apps.nix` を含む）、PC の設定の ADR、ハーネスの input とホストごとの値                                                                                                                                                                       |
 
 - ハーネスのリポジトリは flake で、home-manager のモジュールと、CLI のパッケージ、checks を出す。nixfiles は input に足して
-  モジュールを import する。ホストやユーザーで変わる値（外部のスキルの input、`lsp-det` のドッグフーディング、Slurm の NFS の
-  入口）は、モジュールのオプションにして nixfiles から渡す
+  モジュールを import する。今 nixfiles が `claude-code.nix` に渡している値（flake のソース、外部のスキルの input、`lsp-det`）は
+  ハーネスの内容なので、ハーネスの flake が自分の input として持ち、nixfiles からは渡さない。Claude Code と Claude Desktop の
+  本体のパッケージは、版を nixfiles の `flake.lock`（`llm-agents`）が決める PC の構成なので、nixfiles に残す
 - Slurm は、投げる側（`slurm-run.sh`、`slurm-queue.sh`、`slurm-history.sh`、スキル、sbatch を止める hook）がハーネス、
   クラスタの構成（`modules/slurm/`、パーティション、優先度）が nixfiles。間の約束は、パーティションの名前（`main`、`timed`）、
   NFS の入口（`/mnt/r995/github`）、ログの置き場で、ハーネスの側の文書に書く
