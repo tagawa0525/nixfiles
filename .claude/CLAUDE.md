@@ -13,6 +13,11 @@ NixOS と home-manager の構成（r995、t14g4、x1ng1）。開発の進め方�
 - Slurm のパーティションの名前、NFS の入口、`nix-rebuild.sh` の件名と置き場は、ハーネスのスクリプトとの約束。変えるときは
   `modules/home/parts/tests/harness-contract.sh` を実行する
 
+## ホストを足すとき
+
+`hosts/TEMPLATE.md` の手順に加えて、ハーネスを直すホストと、`claude-sync` を引数なしで使うホストでは、既定の場所に
+clone する（`git clone git@github.com:tagawa0525/claude-harness.git ~/nix/claude-harness`）。
+
 ## 構成の変更
 
 - 構成を変えたら、`nix flake check`（3 ホストの評価）を通す。適用は `nix-rebuild rebuild`

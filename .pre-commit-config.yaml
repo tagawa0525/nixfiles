@@ -2,7 +2,7 @@
 repos:
   - repo: local
     hooks:
-      # 設計の記録（docs/adr）の形と参照（ADR-0009）
+      # 設計の記録（docs/adr）の形と参照（claude-harness の ADR-0009）
       - id: design-records
         name: design-records
         entry: design-records check --changed

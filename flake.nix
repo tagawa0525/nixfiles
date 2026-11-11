@@ -189,7 +189,7 @@
               home-manager.useGlobalPkgs = true; # システムのnixpkgsを使用
               home-manager.useUserPackages = true; # ユーザーパッケージをシステムに統合
               home-manager.backupFileExtension = "backup"; # 既存ファイルのバックアップ拡張子
-              # flakeソースとVS Code ServerモジュールをHome Managerに渡す
+              # ハーネスと VS Code Server のモジュールなどを Home Manager に渡す
               # nucrawler の timer と Web UI の定義（services.nucrawler.*）を全ユーザーに公開
               home-manager.sharedModules = [
                 nucrawler.homeManagerModules.default

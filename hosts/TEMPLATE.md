@@ -71,12 +71,3 @@
 
 6. Secure Boot を有効化する場合は、sbctl で鍵を登録後に
    `boot-initial.nix` を `boot-lanzaboote.nix` に差し替えて再適用する
-
-## ハーネスの clone
-
-Claude Code のハーネス（指示、スキル、hook）は flake input の `claude-harness` が配る。ハーネスを直すホストと、`claude-sync` を
-引数なしで使うホストでは、既定の場所に clone する。
-
-```bash
-git clone git@github.com:tagawa0525/claude-harness.git ~/nix/claude-harness
-```

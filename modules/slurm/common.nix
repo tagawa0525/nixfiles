@@ -67,7 +67,7 @@ in
       # timed のジョブの合計は投げる側が数える（docs/adr/0052、docs/adr/0053）
       PreemptType=preempt/partition_prio
       PreemptMode=SUSPEND,GANG
-      # 利用者が待っている自分のジョブの順番を変えられるようにする（scontrol top。docs/adr/0007）
+      # 利用者が待っている自分のジョブの順番を変えられるようにする（scontrol top。claude-harness の docs/adr/0007）
       SchedulerParameters=enable_user_top
       # 優先度を「10000 + 待った分 − nice」にする。投げた順に走り、scontrol top が付けた nice は何分ぶん
       # 後ろに回したかの意味になる。基礎は、投げたばかりのジョブを優先度 1 にしないため（scontrol top は
@@ -76,9 +76,9 @@ in
       PriorityWeightPartition=10000
       PriorityWeightAge=10080
       PriorityCalcPeriod=1
-      # --time は待ち行列の見込みのための見積もりとして使い、超えても止めない（docs/adr/0007）
+      # --time は待ち行列の見込みのための見積もりとして使い、超えても止めない（claude-harness の docs/adr/0007）
       OverTimeLimit=UNLIMITED
-      # 終わったジョブを 1 行ずつ書き、見積もり（TimeLimit）と実際の時間を後から読めるようにする（docs/adr/0017）。
+      # 終わったジョブを 1 行ずつ書き、見積もり（TimeLimit）と実際の時間を後から読めるようにする（claude-harness の docs/adr/0017）。
       # 書くのは slurmctld だけで、置き場は ./server.nix の tmpfiles。slurm.conf は全ホストで同じにする
       # accounting は r995 の slurmdbd に置く（docs/adr/0031）
       AccountingStorageType=accounting_storage/slurmdbd
