@@ -4,7 +4,7 @@ date: 2026-11-11
 requires: []
 supersedes: []
 superseded-by:
-issues: []
+issues: ["#677"]
 ---
 
 # ADR-0082: Claude Code のハーネスを nixfiles から別のリポジトリに分け、flake input で取り込む
@@ -15,12 +15,12 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
 スクリプト、hook、それらが使う CLI とテスト）を `.claude/` と `modules/home/parts/` に足してきた。今は、変更の大半が
 ハーネスである（数は 2026-11-11、main の f5869b3f）。
 
-- 直近 300 コミットの表題のスコープで、PC の設定のもの（`r995`、`flake`、`neovide`、`laptop`、`git`、`home`）は 30 件。
+- 直近 300 コミットの表題のスコープで、PC の設定のもの（`flake`、`neovide`、`laptop`、`git`、`home`）は 19 件。
   多いのは `adr` 49、`claude-hooks` 41、`delegate` 34、`skills` 21、`scripts` 19 で、どれもハーネス
   （`git log -300 --format=%s` を数えた）
 - `docs/adr/` の 79 件を表題で分けると、PC の設定が 9 件、Slurm が 12 件、ハーネスが 58 件
 - ハーネスの Rust の CLI は 4 つ（`claude-hooks`、`commit-refs`、`design-records`、`history-rewrite`）で、`claude-hooks` だけで
-  44 ファイル、13,013 行
+  44 ファイル、うち Rust のソースが 37 ファイル、12,496 行
 
 2 つのトピックが 1 つのリポジトリにあるので、次が起きている。
 
@@ -88,9 +88,12 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
 
 - 案 B は、決定の要因のうち、変更が 1 つの PR に収まることと、トピックごとに引けることを満たす。境界を上の線に引けば、
   hook のルール、スキル、テストは同じリポジトリにある
-- 速さは、文章とスクリプトでは変わらない。`claude-sync` は store を経ずに手元の clone からコピーする。Rust の CLI と Nix の
-  モジュールは、ハーネスのマージの後に nixfiles の `flake.lock` の更新と rebuild が要る。lock は毎日 06:30 の自動更新
-  （`modules/nix-auto-update.nix`）が進めるので、急がない変更は何もしなくても翌日に効く
+- 速さの要因は、一部しか満たさない。文章とスクリプトを直してすぐ効かせる方法は変わらない（`claude-sync` が store を経ずに
+  手元の clone からコピーする）。ただし rebuild の activation も同じ同期を flake のソースから行い、ソースを正として上書きする
+  （`claude-code.nix` の `claudeCodeSource`、`claude-sync.sh`）。今のソースは nixfiles 自身で、分けた後は lock が固定した
+  ハーネスの input になる。lock がハーネスの main より古い間に rebuild すると、`~/.claude` の文章とスクリプトは lock の版に戻る。
+  Rust の CLI と Nix のモジュールは、lock の更新と rebuild まで効かない。どちらも、ハーネスのマージの後に nixfiles の lock を
+  進めれば揃う。lock は毎日 06:30 の自動更新（`modules/nix-auto-update.nix`）も進めるので、手で進めなくても翌日には揃う
 - 案 A は、背景の 4 つがそのまま残る。ハーネスの変更の割合は増え続けている
 - 案 C は、履歴、issue、検査の範囲、版の固定のどれも分かれない。分かれるのはディレクトリと ADR の置き場だけ
 - 案 D は、いちばん多い種類の変更（hook のルールと、それを説明するスキルの文と、テスト）が 2 つのリポジトリの 2 つの PR に
@@ -106,7 +109,7 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
   固定することもできる
 - 良い点: nixfiles に、プロジェクトの指示（`.claude/CLAUDE.md`）を置ける
 - 悪い点: Rust の CLI と Nix のモジュールの変更は、効くまでが 2 段になる（ハーネスのマージ、nixfiles の lock の更新と
-  rebuild）。`claude-hooks` は直近 300 コミットで 41 件と多く、すぐ効かせたい変更では lock の更新を手で実行する。マージの前に
+  rebuild）。文章とスクリプトも、lock を進める前の rebuild で lock の版に戻る。`claude-hooks` は直近 300 コミットで 41 件と多く、すぐ効かせたい変更では lock の更新を手で実行する。マージの前に
   手元で試す方法（`--override-input`）は、sudoers が rebuild のコマンド行を完全一致で許している（`nix-rebuild.sh`）ので、
   計画で決める
 - 悪い点: ハーネスのモジュールのオプションと nixfiles の設定の間に、版の食い違いが起こりうる（オプションの名前を変えた版を
@@ -115,7 +118,7 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
   パスを直す作業が要る
 - 悪い点: `design-records check` は、参照先の ADR が同じリポジトリに無いと違反にする。リポジトリをまたぐ参照の形を
   `design-records` に足す必要がある
-- 実装はまだ無い。計画を書き、issue を立ててここに結ぶ
+- 実装はまだ無い。計画と、計画で決める点（境界の表に無いファイル、分けた後の ADR の番号、lock を進める手順など）は #677
 
 ### 確認
 
