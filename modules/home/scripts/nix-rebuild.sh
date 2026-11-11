@@ -48,21 +48,27 @@ rebuild() {
       cd - > /dev/null
       return 1
     fi
-    # flake.lock は機械が書くファイルで、コミットするのは update だけ。コミットされていない lock（index に残った古い
-    # origin の lock、途中で止まった update）は、origin の lock が進むと fast-forward を止めるので、捨てる
-    if ! git diff --quiet HEAD -- flake.lock; then
-      echo "↩️  コミットされていない flake.lock を捨てます（origin/main の lock にします）"
-      git checkout HEAD -- flake.lock
-    fi
+    # コミットされていない変更は捨てない（走っている update の書きかけや、手で進めて試している lock でありうる）。
+    # origin の変更と重ならなければ残したまま進み、重なれば git が何も変えずに止める
+    local ahead
+    ahead=$(git log --oneline origin/main..main)
     if ! git merge --ff-only origin/main; then
-      echo "❌ main を origin/main まで進められません（履歴の分岐か、手元の変更との衝突）。ビルドしません"
-      echo "   手元の変更（git status --short）:"
-      git status --short | sed 's/^/     /'
-      echo "   手元だけのコミット（git log --oneline origin/main..main）:"
-      git log --oneline origin/main..main | sed 's/^/     /'
-      echo "   手元だけのコミットが flake.lock の更新だけなら、nix-rebuild update で origin に合わせられます"
+      echo "❌ main を origin/main まで進められません。ビルドしません"
+      if [[ -n "$ahead" ]]; then
+        echo "   origin に無い手元のコミットがあり、履歴が分かれています（git log --oneline origin/main..main）:"
+        echo "${ahead//$'\n'/$'\n'     }" | sed '1s/^/     /'
+        echo "   flake.lock の更新だけなら、nix-rebuild update で origin に合わせられます"
+      else
+        echo "   コミットされていない変更が、origin の変更と重なっています（git status --short）:"
+        git status --short | sed 's/^/     /'
+        echo "   手元の flake.lock を捨てて origin に合わせるなら: git -C $NIXDIR restore --staged --worktree flake.lock"
+      fi
       cd - > /dev/null
       return 1
+    fi
+    if [[ -n "$ahead" ]]; then
+      echo "ℹ️  origin に無いコミットを含めてビルドします（push していない手元のコミット）:"
+      echo "${ahead//$'\n'/$'\n'     }" | sed '1s/^/     /'
     fi
   fi
   echo "🔨 Rebuilding NixOS..."
@@ -284,12 +290,24 @@ update() {
   cd - > /dev/null
 }
 
+# rebuild と update を、同じ clone で同時に実行しない。走っている update の検証の途中で HEAD や flake.lock を動かすと、
+# 検証していない組み合わせに切り替わる。ロックのファイルは .git の中に置く（作業ツリーを汚さない）
+exclusive() {
+  exec 9> "$(git -C "$NIXDIR" rev-parse --absolute-git-dir)/nix-rebuild.lock"
+  if ! flock -n 9; then
+    echo "❌ ほかの nix-rebuild（rebuild か update。毎朝 06:30 の自動更新を含む）が実行中です。終わってから実行してください"
+    exit 1
+  fi
+}
+
 # メイン処理
 case "${1:-}" in
   rebuild)
+    exclusive
     rebuild
     ;;
   update)
+    exclusive
     update "${@:2}"
     ;;
   *)
