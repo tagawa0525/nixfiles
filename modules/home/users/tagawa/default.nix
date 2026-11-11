@@ -19,7 +19,8 @@
     ../../parts/communication.nix # Discord, Zoom などお仕事用GUIアプリ
     ../../parts/git.nix # Git, delta, GitHub CLI
     ../../parts/git-hooks.nix # グローバルの Git Hooks と、hook が呼ぶ CLI
-    ../../parts/claude-code.nix # Claude Code CLI, hooks/skills同期, settings管理
+    ../../parts/claude-apps.nix # Claude Code CLI, Claude Desktop の本体
+    ../../parts/claude-code.nix # hooks/skills同期, settings管理
     ../../parts/development.nix # 開発ツール, activation scripts
     ../../parts/mise.nix # mise（ランタイムバージョンマネージャー）
     ../../parts/vscode-server.nix # VS Code Server自動パッチ（NixOS用）
