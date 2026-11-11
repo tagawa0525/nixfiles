@@ -230,7 +230,7 @@ else
 fi
 if grep -q "stub sudo called" "$WORK/out"; then ok "取り込んだ後にビルドに進む"; else ng "取り込んだ後にビルドに進む"; fi
 
-# 前の rebuild が残した状態（origin の lock をステージしただけで、HEAD は遅れている）からも進める
+# index に origin/main と同じ lock がステージされ、HEAD が遅れている状態からも進める
 advance_origin m2
 git -C "$REPO" fetch -q origin main
 git -C "$REPO" checkout -q origin/main -- flake.lock
@@ -240,6 +240,44 @@ if [[ "$(cat "$REPO/module.nix")" == "m2" && -z "$(git -C "$REPO" status --porce
 else
   ng "origin の lock をステージしただけの状態からも、全体を取り込む"
 fi
+
+# flake.lock は機械が書くファイルで、コミットするのは update だけ。コミットされていない lock（index に古い origin の lock が
+# 残っている、update が途中で止まった）は捨てて、origin/main の lock にする
+advance_origin m2b
+git -C "$REPO" fetch -q origin main
+git -C "$REPO" checkout -q origin/main -- flake.lock
+advance_origin m2c
+bash "$SCRIPT" rebuild >"$WORK/out" 2>&1 || true
+if [[ "$(cat "$REPO/flake.lock")" == '{"lock":"m2c"}' && "$(cat "$REPO/module.nix")" == "m2c" && -z "$(git -C "$REPO" status --porcelain)" ]] \
+  && grep -q "stub sudo called" "$WORK/out"; then
+  ok "コミットされていない古い lock は捨てて、origin/main の全体を取り込んでビルドする"
+else
+  ng "コミットされていない古い lock は捨てて、origin/main の全体を取り込んでビルドする"
+fi
+
+# lock のほかの未コミットの変更は捨てない。origin の変更と重ならなければ、残したまま取り込んでビルドする
+advance_origin m2d
+echo wip > "$REPO/x"
+bash "$SCRIPT" rebuild >"$WORK/out" 2>&1 || true
+if [[ "$(cat "$REPO/x")" == "wip" && "$(cat "$REPO/module.nix")" == "m2d" ]] && grep -q "stub sudo called" "$WORK/out"; then
+  ok "origin の変更と重ならない未コミットの変更は、残したまま取り込んでビルドする"
+else
+  ng "origin の変更と重ならない未コミットの変更は、残したまま取り込んでビルドする"
+fi
+git -C "$REPO" checkout -q HEAD -- x
+# 重なるときは、何も変えずに止まる
+advance_origin m2e
+echo wip > "$REPO/module.nix"
+before=$(git -C "$REPO" rev-parse HEAD)
+if bash "$SCRIPT" rebuild >"$WORK/out" 2>&1; then
+  ng "origin の変更と重なる未コミットの変更があれば失敗終了する"
+elif grep -q "stub sudo called" "$WORK/out" || [[ "$(cat "$REPO/module.nix")" != "wip" || "$(git -C "$REPO" rev-parse HEAD)" != "$before" ]]; then
+  ng "origin の変更と重なる未コミットの変更があれば、ビルドせず、HEAD も変更もそのままにする"
+else
+  ok "origin の変更と重なる未コミットの変更があれば、ビルドせず、HEAD も変更もそのままにして失敗終了する"
+fi
+git -C "$REPO" checkout -q HEAD -- module.nix
+bash "$SCRIPT" rebuild >/dev/null 2>&1 || true
 
 echo "==> rebuild は、main 以外のブランチでは取り込まず、そのブランチをビルドする"
 # sudoers が --flake を ~/nix/nixfiles に固定しているので、ブランチの変更を試すにはここで checkout する
@@ -252,10 +290,11 @@ if [[ "$(git -C "$REPO" rev-parse HEAD)" == "$before" && -z "$(git -C "$REPO" st
 else
   ng "ブランチを動かさず、lock も書き換えない"
 fi
-if grep -q "feat/x" "$WORK/out" && grep -q "stub sudo called" "$WORK/out"; then
-  ok "ブランチの名前を出して、そのままビルドに進む"
+if grep -q "feat/x" "$WORK/out" && grep -q "$(git -C "$REPO" rev-parse --short HEAD)" "$WORK/out" \
+  && grep -q "main に戻" "$WORK/out" && grep -q "stub sudo called" "$WORK/out"; then
+  ok "ブランチの名前と短い hash、main に戻す案内を出して、そのままビルドに進む"
 else
-  ng "ブランチの名前を出して、そのままビルドに進む"
+  ng "ブランチの名前と短い hash、main に戻す案内を出して、そのままビルドに進む"
 fi
 
 echo "==> rebuild は、main を origin/main まで進められなければ、ビルドせずに止まる"
@@ -267,18 +306,24 @@ if bash "$SCRIPT" rebuild >"$WORK/out" 2>&1; then
   ng "履歴が分かれていれば失敗終了する"
 elif grep -q "stub sudo called" "$WORK/out"; then
   ng "履歴が分かれていればビルドしない"
+elif ! grep -q "origin/main..main" "$WORK/out" || ! grep -q "feat: local" "$WORK/out"; then
+  ng "履歴が分かれていれば、手元だけのコミットを示す"
 else
-  ok "履歴が分かれていれば、ビルドせずに失敗終了する"
+  ok "履歴が分かれていれば、手元だけのコミットを示して、ビルドせずに失敗終了する"
 fi
 git -C "$REPO" reset -q --hard origin/main
 
-echo "==> rebuild は、origin に届かなければ、警告して手元の中身でビルドする"
+echo "==> rebuild は、main で fetch に失敗したら、古い中身をビルドせずに止まる"
+# 届かない、認証の失敗、URL の誤りのどれでも、origin の最新を確かめられない。手元の中身でビルドして成功に見せない
 git -C "$REPO" remote set-url origin "$WORK/no-such-origin.git"
-bash "$SCRIPT" rebuild >"$WORK/out" 2>&1 || true
-if grep -q "stub sudo called" "$WORK/out" && grep -q "origin に届かない" "$WORK/out"; then
-  ok "origin に届かないことを知らせて、ビルドに進む"
+if bash "$SCRIPT" rebuild >"$WORK/out" 2>&1; then
+  ng "fetch に失敗したら失敗終了する"
+elif grep -q "stub sudo called" "$WORK/out"; then
+  ng "fetch に失敗したらビルドしない"
+elif ! grep -q "switch --detach" "$WORK/out"; then
+  ng "fetch に失敗したら、手元の中身でビルドする方法を示す"
 else
-  ng "origin に届かないことを知らせて、ビルドに進む"
+  ok "fetch に失敗したら、手元の中身でビルドする方法を示して、ビルドせずに失敗終了する"
 fi
 git -C "$REPO" remote set-url origin "$WORK/origin.git"
 
