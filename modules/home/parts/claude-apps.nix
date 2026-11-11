@@ -2,7 +2,7 @@
 # Claude のアプリケーション
 # =============================================================================
 # Claude Code CLI と Claude Desktop の本体。どの版を入れるかは PC の構成で、nixfiles の flake.lock の llm-agents の
-# rev が決める（pkgs.llm-agents は flake.nix の overlay）。~/.claude の中身と hook（ハーネス）は claude-code.nix
+# rev が決める（pkgs.llm-agents は flake.nix の overlay）。~/.claude の中身と hook（ハーネス）は flake input の claude-harness
 # =============================================================================
 { pkgs, ... }:
 

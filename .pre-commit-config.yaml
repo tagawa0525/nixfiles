@@ -1,8 +1,8 @@
-# プロジェクトの pre-commit の設定。グローバルの git hook（modules/home/parts/git-hooks.nix）が prek で実行する
+# プロジェクトの pre-commit の設定。グローバルの git hook（claude-harness の modules/home/parts/git-hooks.nix）が prek で実行する
 repos:
   - repo: local
     hooks:
-      # 設計の記録（docs/adr）の形と参照（ADR-0009）
+      # 設計の記録（docs/adr）の形と参照（claude-harness の ADR-0009）
       - id: design-records
         name: design-records
         entry: design-records check --changed

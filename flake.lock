@@ -55,6 +55,35 @@
         "type": "github"
       }
     },
+    "claude-harness": {
+      "inputs": {
+        "home-manager": [
+          "home-manager"
+        ],
+        "lsp-det": [
+          "lsp-det"
+        ],
+        "mattpocock-skills": [
+          "mattpocock-skills"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1794412512,
+        "narHash": "sha256-8sLSCltToIhz9uTtS8QeYiQUDyMinS4otFFiimfDeTw=",
+        "owner": "tagawa0525",
+        "repo": "claude-harness",
+        "rev": "472f906269fa3afea419c9b6b21d1188a53263af",
+        "type": "github"
+      },
+      "original": {
+        "owner": "tagawa0525",
+        "repo": "claude-harness",
+        "type": "github"
+      }
+    },
     "crane": {
       "locked": {
         "lastModified": 1781825982,
@@ -440,6 +469,7 @@
     "root": {
       "inputs": {
         "cc-bar": "cc-bar",
+        "claude-harness": "claude-harness",
         "home-manager": "home-manager",
         "lanzaboote": "lanzaboote",
         "llm-agents": "llm-agents",

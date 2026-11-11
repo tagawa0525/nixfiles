@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-10-12
-requires: [ADR-0007, ADR-0017]
+requires: []
 supersedes: []
 superseded-by:
 issues: ["#340"]

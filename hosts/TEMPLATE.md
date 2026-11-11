@@ -46,12 +46,12 @@
 
    役割プロファイルの使い分け:
 
-   | プロファイル    | 用途                                                       |
-   | --------------- | ---------------------------------------------------------- |
-   | server.nix      | headless 常時稼働機（サスペンド無効化）                    |
-   | desktop.nix     | 据え置き GUI 機（リモートビルドの builder 側）             |
-   | laptop.nix      | バッテリー駆動機（TLP、リモートビルドの client 側）        |
-   | workstation.nix | 役割と直交する「GUI 開発機」用途（COSMIC、日本語入力 等）  |
+| プロファイル    | 用途                                                      |
+| --------------- | --------------------------------------------------------- |
+| server.nix      | headless 常時稼働機（サスペンド無効化）                   |
+| desktop.nix     | 据え置き GUI 機（リモートビルドの builder 側）            |
+| laptop.nix      | バッテリー駆動機（TLP、リモートビルドの client 側）       |
+| workstation.nix | 役割と直交する「GUI 開発機」用途（COSMIC、日本語入力 等） |
 
    ベース設定（SSH、Tailscale、Podman、CLI ツール等）は全ホスト共通の
    base.nix が flake.nix 経由で自動適用される。

@@ -1,10 +1,10 @@
 ---
 status: accepted
 date: 2026-10-23
-requires: [ADR-0007, ADR-0017, ADR-0026, ADR-0029, ADR-0030, ADR-0041, ADR-0052]
+requires: [ADR-0030, ADR-0052]
 supersedes: []
 superseded-by:
-amends: [ADR-0029, ADR-0052]
+amends: [ADR-0052]
 issues: ["#458"]
 ---
 
