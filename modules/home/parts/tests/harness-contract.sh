@@ -3,7 +3,7 @@
 # このリポジトリの構成とスクリプトが、ハーネス（flake input の claude-harness）との約束を守っていることを検証する
 # =============================================================================
 # ハーネスのスクリプトと hook は、このリポジトリの名前や値を約束として固定で持つ。片方だけ変えると、どちらの
-# リポジトリのテストも通ったまま食い違うので、構成とスクリプトを持つこちらで突き合わせる。
+# リポジトリのテストも通ったまま食い違うので、構成とスクリプトを持つこちらで照合する。
 #
 #   1. 自動コミットするスクリプトの件名が、ハーネスの commit-msg hook を通る
 #      （実際に起きた不整合: nix-rebuild.sh が `flake: update (host)` を書き、hook の型の一覧に flake が無かったので、
@@ -11,9 +11,13 @@
 #   2. Slurm のパーティションの名前、NFS の入口、終わったジョブの記録の置き場が、ハーネスの slurm-run.sh と
 #      slurm-history.sh の値と同じ
 #   3. ハーネスの post-merge-cleanup.sh が「rebuild する構成のリポジトリ」の目印にするファイルがある
+#   4. ハーネスの hook が rebuild として見るコマンドの名前（排他の Slurm のジョブの間は止める）が、こちらの名前と同じ
+#   5. nix-rebuild.sh が main に直接コミットするのは flake.lock だけ（hook の main への直接コミットの例外）
 #
 # 使い方（リポジトリルートで実行）:
 #   ./modules/home/parts/tests/harness-contract.sh [host]
+#
+# nix-rebuild.sh の update が、検証のビルドの後、切り替えの前に呼ぶ（毎日の自動更新でも走る）。
 
 set -euo pipefail
 
@@ -77,7 +81,7 @@ if ((found == 0)); then
 fi
 
 # --- 2. Slurm のパーティションの名前と NFS の入口 -----------------------------------------------------
-echo "==> Slurm の構成（modules/slurm/）とハーネスのスクリプトを突き合わせる"
+echo "==> Slurm の構成（modules/slurm/）とハーネスのスクリプトを照合する"
 RUN="$HARNESS/.claude/scripts/slurm-run.sh"
 HISTORY="$HARNESS/.claude/scripts/slurm-history.sh"
 
@@ -120,6 +124,36 @@ if [[ -f "$MARKER" ]] && grep -qF "HEAD:$MARKER" "$HARNESS/.claude/scripts/post-
   ok "post-merge-cleanup.sh が目印にする $MARKER がある（マージの後に rebuild の知らせが出る）"
 else
   ng "$MARKER が無いか、post-merge-cleanup.sh の目印と違う（マージの後に rebuild の知らせが出なくなる）"
+fi
+
+# --- 4. rebuild として見るコマンドの名前 --------------------------------------------------------------
+echo "==> rebuild のコマンドの名前を照合する"
+GUARD="$HARNESS/modules/home/parts/claude-hooks/src/rules/guard_exclusive_slurm.rs"
+SHELL_NIX=modules/home/parts/shell.nix
+# シェルの関数（rebuild、update）と、置くスクリプトの名前（nix-rebuild）、スクリプトのサブコマンド
+if grep -qF 'matches!(program, "rebuild" | "update")' "$GUARD" \
+  && grep -qE '^ *rebuild\(\) \{ nix-rebuild rebuild' "$SHELL_NIX" \
+  && grep -qE '^ *update\(\) \{ nix-rebuild update' "$SHELL_NIX"; then
+  ok "シェルの関数 rebuild と update を、hook が rebuild として見る"
+else
+  ng "シェルの関数 rebuild と update の名前が、hook の判定（guard_exclusive_slurm.rs）と違う"
+fi
+if grep -qF '"nix-rebuild" | "nix-rebuild.sh"' "$GUARD" \
+  && grep -qF 'home.file.".local/bin/nix-rebuild"' "$SHELL_NIX" \
+  && grep -qE '^ +rebuild\)$' "$MARKER" && grep -qE '^ +update\)$' "$MARKER"; then
+  ok "スクリプト nix-rebuild と、サブコマンド rebuild と update を、hook が rebuild として見る"
+else
+  ng "スクリプト nix-rebuild の名前かサブコマンドが、hook の判定（guard_exclusive_slurm.rs）と違う"
+fi
+
+# --- 5. main に直接コミットするのは flake.lock だけ ---------------------------------------------------
+echo "==> nix-rebuild.sh がステージするファイルを確かめる"
+# hook は、既定ブランチへの直接のコミットを、ステージした変更が flake.lock だけのときに限って通す
+added=$(grep -oE 'git add [^;&|]*' "$MARKER" | sort -u || true)
+if [[ "$added" == "git add flake.lock" ]]; then
+  ok "nix-rebuild.sh がステージするのは flake.lock だけ"
+else
+  ng "nix-rebuild.sh が flake.lock のほかもステージする（main への直接のコミットを hook が止める）: $added"
 fi
 
 echo
