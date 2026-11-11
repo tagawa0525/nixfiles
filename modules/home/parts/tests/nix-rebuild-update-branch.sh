@@ -128,6 +128,45 @@ else
   ng "update claude-harness は nix flake update claude-harness を呼ぶ"
 fi
 
+echo "==> update は、検証のビルドの後、切り替えの前に、ハーネスとの約束の照合を通す"
+# nix は成功するスタブにする（flake update は lock を書き換え、eval はホストの名前を、build はパスを返す）
+cat > "$WORK/bin/nix" <<STUB
+#!/bin/sh
+case "\$1 \$2" in
+  "flake update") echo '{"updated":true}' > "$REPO/flake.lock" ;;
+  "eval "*) printf 'testhost' ;;
+  "build "*) echo /nix/store/fake-toplevel ;;
+esac
+STUB
+printf '#!/bin/sh\necho "stub sudo called" >&2\nexit 1\n' > "$WORK/bin/sudo"
+mkdir -p "$REPO/modules/home/parts/tests"
+CONTRACT="$REPO/modules/home/parts/tests/harness-contract.sh"
+
+printf '#!/usr/bin/env bash\necho "contract ng"\nexit 1\n' > "$CONTRACT"
+if bash "$SCRIPT" update >"$WORK/out" 2>&1; then
+  ng "照合が落ちたら失敗終了する"
+else
+  ok "照合が落ちたら失敗終了する"
+fi
+if grep -q "stub sudo called" "$WORK/out"; then
+  ng "照合が落ちたら切り替えない"
+else
+  ok "照合が落ちたら切り替えない"
+fi
+if [[ "$(cat "$REPO/flake.lock")" == "{}" ]]; then
+  ok "照合が落ちたら flake.lock を戻す"
+else
+  ng "照合が落ちたら flake.lock を戻す"
+fi
+
+printf '#!/usr/bin/env bash\nexit 0\n' > "$CONTRACT"
+bash "$SCRIPT" update >"$WORK/out" 2>&1 || true
+if grep -q "stub sudo called" "$WORK/out"; then
+  ok "照合が通れば切り替えに進む"
+else
+  ng "照合が通れば切り替えに進む"
+fi
+
 echo
 echo "passed: $PASS, failed: $FAIL"
 (( FAIL == 0 ))
