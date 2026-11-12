@@ -33,19 +33,19 @@ xlc の性能の測定で、カーネル側を含む呼び出しの連鎖つき�
 | 0                     | 加えて、システム全体（`perf record -a`、`perf top`）。raw のトレースポイントと ftrace の function は不可                                                                                     |
 | -1                    | 加えて、raw のトレースポイントのデータと ftrace の function。`perf_event_mlock_kb` の上限も外れる                                                                                            |
 
-- カーネルのトレースポイントはカーネルで起きるので、記録には上の表のカーネル側の許可（paranoid 1 以下）が要る。そのうえで raw の
-  データ（`perf trace` などが読む）は、プロセスに付けた記録でイベントが `TRACE_EVENT_FL_CAP_ANY`（システムコールの入口と出口
-  など）なら追加の確認なしに許され、ほかのイベント（`sched:*` など）は -1 か CAP_PERFMON が要る
-  （`kernel/trace/trace_event_perf.c` の `perf_trace_event_perm`）。paranoid を 1 にすると、システムコールの入口と出口の raw の
-  データが、自分のプロセスに付けた記録で利用者に開く
-- 物理アドレスのサンプル（`PERF_SAMPLE_PHYS_ADDR`）も `perf_allow_kernel()` だけで決まり、paranoid 1 以下で利用者に開く
-  （`kernel/events/core.c` の `perf_event_open` の確認）
+- トレースポイントの raw のデータ（`perf trace` などが読む）は、プロセスに付けた記録でイベントが `TRACE_EVENT_FL_CAP_ANY`
+  （システムコールの入口と出口、uprobe など）なら paranoid の確認なしに許され、ほかのイベント（`sched:*` など）は -1 か
+  CAP_PERFMON が要る（`kernel/trace/trace_event_perf.c` の `perf_trace_event_perm`）。この判定は paranoid 1 と 2 で変わらない
+- paranoid 1 で開くのは、`perf_allow_kernel()` だけが守るもの全部で、カーネル側の事象と呼び出しの連鎖のほかに、物理アドレスの
+  サンプル（`PERF_SAMPLE_PHYS_ADDR`）、カーネルの分岐の記録（`PERF_SAMPLE_BRANCH_KERNEL` など）、PMU の raw のサンプルの物理アドレス
+  （r995 の AMD の IBS は、`perf_allow_kernel()` が失敗したときだけ消す）などがある（`kernel/events/core.c` の `perf_copy_attr` と
+  `perf_event_open`、`arch/x86/events/amd/ibs.c` の `perf_ibs_phyaddr_clear`。網羅ではない）
 - カーネルのシンボル名は、perf が `/proc/kallsyms` のアドレスから引く。アドレスが見えるのは `kallsyms_show_value()`
   （`kernel/ksyms_common.c`）が真のときで、kptr_restrict が 0 かつ paranoid が 1 以下（資格を見ない）、または CAP_SYSLOG を
   持つとき。paranoid が 1 以下ならカーネル側のサンプルの IP（カーネルのアドレスそのもの）が利用者に渡るので、カーネルは
   kallsyms の公開をこの条件に結んでいる（同じファイルの注釈）。
   kptr_restrict が 1 のままでは、paranoid を下げてもアドレスが 0 になり、カーネルのサンプルに名前が付かない。
-  kptr_restrict が 0 のとき `%pK` はハッシュした値を出す（kernel.rst）。生のアドレスは、カーネル側のサンプルの IP と呼び出しの連鎖と、
+  kptr_restrict が 0 のとき `%pK` はハッシュした値を出す（kernel.rst）。生のアドレスは、paranoid 1 で開く perf のサンプル（上の項）と、
   `kallsyms_show_value()` が守るもの（`/proc/kallsyms`、`/proc/modules` など）に出る
 - CAP_PERFMON を持つプロセスは paranoid の制限を受けない（perf-security.rst。`perf_allow_kernel()`、`perf_allow_cpu()`、
   `perf_allow_tracepoint()` は、paranoid が制限する値でも `perfmon_capable()` なら通す）。kptr_restrict が 1 でも、CAP_SYSLOG を持てば `/proc/kallsyms` のアドレスが見える
@@ -56,9 +56,8 @@ xlc の性能の測定で、カーネル側を含む呼び出しの連鎖つき�
 
 - 案 1（採用）: sysctl で `kernel.perf_event_paranoid = 1`、`kernel.kptr_restrict = 0` にする。要る情報（自分のジョブのカーネル側の
   サンプル、呼び出しの連鎖、シンボル名、ページフォルトとコンテキストスイッチの事象）が取れる最も高い paranoid の値。解析の対象は
-  呼び出した環境のまま走り、どの perf の実行ファイルでも、どの文脈（Slurm のジョブ、sandbox の中）でも効く。sysctl は全アカウントに
-  効き、サービスのアカウントと `nixbld*` のビルドも、自分のプロセスのカーネル側の `perf_event_open` と、`/proc/kallsyms` と
-  `/proc/modules` のカーネルのアドレス（KASLR の配置）を得る
+  呼び出した環境のまま走り、どの perf の実行ファイルでも、どの文脈（Slurm のジョブ、sandbox の中）でも効く。sysctl は資格を見ずに
+  r995 のすべてのプロセスに効く（範囲は「決定と理由」の「緩める範囲」）
 - 案 2: paranoid を 0 か -1 にする。案 1 に加え、システム全体の記録と raw のトレースポイント（`sched:*` など）まで全アカウントに
   許す。ジョブの解析は `perf record -- <コマンド>` か `-p <pid>` のプロセスに付けた記録で足りるので、採らない
 - 案 3: sysctl を変えず、NixOS の `security.wrappers` で perf に `cap_perfmon,cap_syslog` を付け、ラッパーを `perf` group（tagawa
@@ -86,13 +85,14 @@ xlc の性能の測定で、カーネル側を含む呼び出しの連鎖つき�
 案 1 にする。`hosts/r995/default.nix` に `boot.kernel.sysctl` の 2 つの値を置く。ほかのホスト（t14g4、x1ng1）は変えない。
 
 - **緩める範囲**: r995 のすべてのプロセス（どのアカウントでも、コンテナと sandbox の中でも、seccomp などで別に止めていなければ）が、
-  自分のプロセスについて、カーネル側の事象と呼び出しの連鎖、システムコールの入口と出口の raw のデータ、物理アドレスを記録でき、
-  カーネルのアドレスを読める。個々のアカウントは列挙しない（sysctl は資格を見ないので、範囲は「全部」で、列挙は漏れる）
+  自分のプロセスについて、`perf_allow_kernel()` だけが守るもの（背景の項。カーネル側の事象と呼び出しの連鎖、物理アドレス
+  など）を記録でき、`kallsyms_show_value()` が守るカーネルのアドレスを読める。個々のアカウントと開くものは列挙しない（範囲は
+  2 つの関数の判定で決まり、列挙は漏れる）
 - **受け入れる理由**: これは外から r995 に入る入口を増やさない。外から届くもの（sshd、avahi、Tailscale の内側のサービス、
   デスクトップで扱う外の入力など）は変わらない。増えるのは、どれかのプロセスを乗っ取った者がカーネルの権限に上がるときの
-  手がかり（KASLR の配置、物理アドレス）と、カーネル側の `perf_event_open` という局所的な攻撃面。ユーザーは、r995 が 1 人で使う計算用の機械であることを前提に、
+  手がかり（KASLR の配置、物理アドレスなど）と、カーネル側の `perf_event_open` という局所的な攻撃面。ユーザーは、r995 が 1 人で使う計算用の機械であることを前提に、
   要る情報を得る変更を認めた（ユーザー 2026-11-12）。ほかの人のアカウントを足すか、r995 を共用にするときは見直す
-- システム全体の記録と、システムコール以外の raw のトレースポイントは、今までどおり CAP_PERFMON（root を含む）だけ
+- システム全体の記録と、`TRACE_EVENT_FL_CAP_ANY` でない raw のトレースポイントは、今までどおり CAP_PERFMON（root を含む）だけ
 
 ### 帰結
 
