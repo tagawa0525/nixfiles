@@ -11,8 +11,8 @@ issues: ["#685"]
 
 ## 背景
 
-r995 は tagawa が 1 人で使う計算用の機械で、Slurm のジョブも tagawa で走る。ほかに、サービスのアカウント（atuin、PostgreSQL、
-ノート PC からのビルドを ssh で受ける `nix-ssh`）と、第三者のビルドのコードを sandbox で実行する `nixbld*` がある。
+r995 は tagawa が 1 人で使う計算用の機械（デスクトップを兼ねる）で、Slurm のジョブも tagawa で走る。人のアカウントは tagawa だけで、
+ほかはサービスのアカウントと `nixbld*` のビルドのアカウント（コンテナの中も含む）。
 
 xlc の性能の測定で、カーネル側を含む呼び出しの連鎖つきの記録（`perf record -g`）が失敗した。2026-11-12 の r995（カーネル 7.3.1）の値は `kernel.perf_event_paranoid = 2`
 （カーネルの既定）、`kernel.kptr_restrict = 1`（NixOS の `nixos/modules/config/sysctl.nix` が `mkDefault 1` で入れる）で、
@@ -33,17 +33,20 @@ xlc の性能の測定で、カーネル側を含む呼び出しの連鎖つき�
 | 0                     | 加えて、システム全体（`perf record -a`、`perf top`）。raw のトレースポイントと ftrace の function は不可                                                                                     |
 | -1                    | 加えて、raw のトレースポイントのデータと ftrace の function。`perf_event_mlock_kb` の上限も外れる                                                                                            |
 
-- トレースポイントはカーネルで起きるので、記録には上の表のカーネル側の許可（paranoid 1 以下）が要る。そのうえで raw のデータ
-  （`perf trace` などが読む）は、プロセスに付けた記録でイベントが `TRACE_EVENT_FL_CAP_ANY`（システムコールの入口と出口）なら
-  追加の確認なしに許され、ほかのイベント（`sched:*` など）は -1 か CAP_PERFMON が要る（`kernel/trace/trace_event_perf.c` の
-  `perf_trace_event_perm`）
+- カーネルのトレースポイントはカーネルで起きるので、記録には上の表のカーネル側の許可（paranoid 1 以下）が要る。そのうえで raw の
+  データ（`perf trace` などが読む）は、プロセスに付けた記録でイベントが `TRACE_EVENT_FL_CAP_ANY`（システムコールの入口と出口
+  など）なら追加の確認なしに許され、ほかのイベント（`sched:*` など）は -1 か CAP_PERFMON が要る
+  （`kernel/trace/trace_event_perf.c` の `perf_trace_event_perm`）。paranoid を 1 にすると、システムコールの入口と出口の raw の
+  データが、自分のプロセスに付けた記録で利用者に開く
+- 物理アドレスのサンプル（`PERF_SAMPLE_PHYS_ADDR`）も `perf_allow_kernel()` だけで決まり、paranoid 1 以下で利用者に開く
+  （`kernel/events/core.c` の `perf_event_open` の確認）
 - カーネルのシンボル名は、perf が `/proc/kallsyms` のアドレスから引く。アドレスが見えるのは `kallsyms_show_value()`
   （`kernel/ksyms_common.c`）が真のときで、kptr_restrict が 0 かつ paranoid が 1 以下（資格を見ない）、または CAP_SYSLOG を
   持つとき。paranoid が 1 以下ならカーネル側のサンプルの IP（カーネルのアドレスそのもの）が利用者に渡るので、カーネルは
   kallsyms の公開をこの条件に結んでいる（同じファイルの注釈）。
   kptr_restrict が 1 のままでは、paranoid を下げてもアドレスが 0 になり、カーネルのサンプルに名前が付かない。
-  kptr_restrict が 0 のとき `%pK` はハッシュした値を出す（kernel.rst）。生のアドレスが出るのは `kallsyms_show_value()` を通るもの
-  （`/proc/kallsyms`、`/proc/modules`、`/sys/module/*/sections`）
+  kptr_restrict が 0 のとき `%pK` はハッシュした値を出す（kernel.rst）。生のアドレスは、カーネル側のサンプルの IP と呼び出しの連鎖と、
+  `kallsyms_show_value()` が守るもの（`/proc/kallsyms`、`/proc/modules` など）に出る
 - CAP_PERFMON を持つプロセスは paranoid の制限を受けない（perf-security.rst。`perf_allow_kernel()`、`perf_allow_cpu()`、
   `perf_allow_tracepoint()` は、paranoid が制限する値でも `perfmon_capable()` なら通す）。kptr_restrict が 1 でも、CAP_SYSLOG を持てば `/proc/kallsyms` のアドレスが見える
 - トレースポイントのイベントの名前から番号を引くには、tracefs（`/sys/kernel/tracing`）が読める必要がある。r995 では
@@ -82,19 +85,14 @@ xlc の性能の測定で、カーネル側を含む呼び出しの連鎖つき�
 
 案 1 にする。`hosts/r995/default.nix` に `boot.kernel.sysctl` の 2 つの値を置く。ほかのホスト（t14g4、x1ng1）は変えない。
 
-- **緩める範囲**: r995 のすべてのアカウントのプロセスが、自分のプロセスのカーネル側の事象を記録でき、カーネルのアドレスを
-  読める。対象は r995 のすべてのアカウントとコンテナで、次を含む
-  - tagawa のデスクトップのプロセス（ブラウザなど、外からの入力を扱うもの）と、tagawa の rootless Podman のコンテナ
-    （nucrawler の埋め込みのサーバーの、第三者のイメージ）。Podman は `/proc/kallsyms` を隠さない
-  - サービスのアカウント: atuin（Tailscale）、PostgreSQL（UNIX ソケット）、`nix-ssh`（鍵を登録したノート PC の root）、
-    Slurm と munge、libvirt の `qemu-libvirtd`。nucrawler の Web UI（Tailscale、認証なし）は tagawa で走る
-  - `nixbld*` の sandbox のビルド（nixpkgs と自分の flake のもの）
-
-  これらのどれかを乗っ取った者には、カーネルの脆弱性を突くときの KASLR の手間が減り、カーネル側の `perf_event_open` が攻撃の
-  入口に加わる。外から届く入口は Tailscale の内側と、デスクトップで扱う外の入力に限られ、どれも乗っ取った後の 2 段目の手間を
-  減らすもので、それ自体が入口ではないので、この危険を受け入れる（ユーザーは、r995 が 1 人で使う計算用の機械であることを前提に、
-  要る情報を得る変更を認めた。ユーザー 2026-11-12）。ほかの人のアカウントを足すか、Tailscale の外から届くサービスを足すときは見直す
-- システム全体の記録と raw のトレースポイントは、今までどおり root だけ
+- **緩める範囲**: r995 のすべてのプロセス（どのアカウントでも、コンテナと sandbox の中でも、seccomp などで別に止めていなければ）が、
+  自分のプロセスについて、カーネル側の事象と呼び出しの連鎖、システムコールの入口と出口の raw のデータ、物理アドレスを記録でき、
+  カーネルのアドレスを読める。個々のアカウントは列挙しない（sysctl は資格を見ないので、範囲は「全部」で、列挙は漏れる）
+- **受け入れる理由**: これは外から r995 に入る入口を増やさない。外から届くもの（sshd、avahi、Tailscale の内側のサービス、
+  デスクトップで扱う外の入力など）は変わらない。増えるのは、どれかのプロセスを乗っ取った者がカーネルの権限に上がるときの
+  手がかり（KASLR の配置、物理アドレス）と、カーネル側の `perf_event_open` という局所的な攻撃面。ユーザーは、r995 が 1 人で使う計算用の機械であることを前提に、
+  要る情報を得る変更を認めた（ユーザー 2026-11-12）。ほかの人のアカウントを足すか、r995 を共用にするときは見直す
+- システム全体の記録と、システムコール以外の raw のトレースポイントは、今までどおり CAP_PERFMON（root を含む）だけ
 
 ### 帰結
 
@@ -114,5 +112,6 @@ rebuild の後に、r995 の実機で利用者の権限で確かめる（issue #
 - `perf stat -e page-faults,minor-faults,major-faults,context-switches,cpu-migrations -- sleep 0.2` が権限のエラーなく数える
 - `perf record -a -o <一時ファイル> -- sleep 0.2` が権限のエラーで止まる（paranoid 1 の範囲の外）
 - Slurm のジョブの中で `perf record -e cycles -g -- sleep 0.2` が成功する
-- 受け入れた範囲の確認: tagawa の外のアカウント（`sudo -u nobody head -1 /proc/kallsyms`）でアドレスが 0 でない
+- 受け入れた範囲の確認: tagawa の外のアカウントで、`sudo -u nobody head -1 /proc/kallsyms` のアドレスが 0 でなく、
+  `sudo -u nobody perf stat -e cycles:k -- true` が数える
 - `perf trace -s -- sleep 0.2` が tracefs の権限で止まるか（帰結の見込みのとおりか）
