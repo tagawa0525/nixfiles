@@ -35,7 +35,9 @@ xlc の性能の測定で、カーネル側を含む呼び出しの連鎖つき�
 
 - トレースポイントの raw のデータ（`perf trace` などが読む）は、プロセスに付けた記録でイベントが `TRACE_EVENT_FL_CAP_ANY`
   （システムコールの入口と出口、uprobe など）なら paranoid の確認なしに許され、ほかのイベント（`sched:*` など）は -1 か
-  CAP_PERFMON が要る（`kernel/trace/trace_event_perf.c` の `perf_trace_event_perm`）。この判定は paranoid 1 と 2 で変わらない
+  CAP_PERFMON が要る（`kernel/trace/trace_event_perf.c` の `perf_trace_event_perm`）。この判定は paranoid 1 と 2 で変わらない。システムコールの
+  トレースポイントは利用者のレジスタで出る（`kernel/trace/trace_syscalls.c` の `perf_syscall_enter` が渡す `regs`）ので、
+  `perf_tp_event_match` の `exclude_kernel` の判定で落ちず、paranoid 2 でも記録できる見込み（実機では確かめていない）
 - paranoid 1 で開くのは、`perf_allow_kernel()` だけが守るもの全部で、カーネル側の事象と呼び出しの連鎖のほかに、物理アドレスの
   サンプル（`PERF_SAMPLE_PHYS_ADDR`）、カーネルの分岐の記録（`PERF_SAMPLE_BRANCH_KERNEL` など）、PMU の raw のサンプルの物理アドレス
   （r995 の AMD の IBS は、`perf_allow_kernel()` が失敗したときだけ消す）などがある（`kernel/events/core.c` の `perf_copy_attr` と
