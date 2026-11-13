@@ -121,7 +121,10 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
   離れうる
 - 悪い点: nixfiles の構成とハーネスのスクリプトの間に、名前と値の約束が残る（Slurm のパーティションの名前と NFS の入口、
   自動コミットの件名、rebuild する構成の目印の `nix-rebuild.sh`）。`modules/home/parts/tests/harness-contract.sh` が
-  突き合わせる
+  突き合わせる。ただし目印は、こちらにファイルがあるかだけを確かめ、ハーネスの側の値とは照らさない（ハーネスの
+  post-merge-cleanup が Rust に移り、値は claude-hooks のソースの文字列になった。2026-11-14 に、そのソースから引用符で
+  囲んだ目印のパスを探す照合を試したが、ファイルの分割や定数への切り出しのような挙動を変えない直しで毎日の自動更新が
+  止まるので捨てた。ハーネスの側の挙動は、ハーネスのテストが確かめる）
 - 外部のスキルと `lsp-det` の版は、nixfiles の `flake.lock` が決めるままにした（ハーネスの input を nixfiles の input に
   follows する）。毎日の自動更新が進める。ハーネスの `flake.lock` のそれらは、ハーネスのテストにだけ使う
 - 切り出したのは 2026-11-12、nixfiles の f02b191e。3916 コミットのうち 2752 件が `tagawa0525/claude-harness` の履歴に
