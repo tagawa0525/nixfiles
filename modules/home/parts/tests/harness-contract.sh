@@ -131,7 +131,7 @@ fi
 echo "==> post-merge-cleanup の目印を確かめる"
 MARKER=modules/home/scripts/nix-rebuild.sh
 if [[ -f "$MARKER" ]]; then
-  ok "post-merge-cleanup が目印にする $MARKER がある（マージの後に rebuild の知らせが出る）"
+  ok "post-merge-cleanup が目印にする $MARKER がある（ハーネスの側の値とは照らさない）"
 else
   ng "$MARKER が無い（post-merge-cleanup がマージの後に rebuild の知らせを出さなくなる）"
 fi

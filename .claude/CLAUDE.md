@@ -14,7 +14,8 @@ NixOS と home-manager の構成（r995、t14g4、x1ng1）。開発の進め方�
   進めるときは名前を並べる（`nix-rebuild update claude-harness lsp-det`）
 - Slurm のパーティションの名前、NFS の入口、`nix-rebuild.sh` の件名と置き場は、ハーネスのスクリプトと hook との約束。
   `modules/home/parts/tests/harness-contract.sh` が確かめる。約束に関わるファイルを変えるコミットと、`nix-rebuild update` が
-  実行する。`rebuild`、`update`、`nix-rebuild` という名前も、hook が rebuild として見る約束（機械では確かめていない）
+  実行する。ただし置き場は、こちらにファイルがあるかだけを確かめ、ハーネスの側の目印の値とは照らさない。`rebuild`、
+  `update`、`nix-rebuild` という名前も、hook が rebuild として見る約束（機械では確かめていない）
 
 ## ホストを足すとき
 
