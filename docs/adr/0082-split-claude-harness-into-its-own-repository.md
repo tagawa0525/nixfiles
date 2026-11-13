@@ -144,7 +144,10 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
 ## 補足
 
 - 2026-11-14: ハーネスの post-merge-cleanup が Rust（`claude-hooks script post-merge-cleanup`）に移り、`harness-contract.sh`
-  が sh の本文に目印を見つけられず、`nix-rebuild update` が止まった。Rust のソースから引用符で囲んだ目印のパスを探す照合を
-  試したが、ファイルの分割、定数への切り出し、パスの組み立てのような挙動を変えない直しで毎日の自動更新が止まるので捨て、
-  こちらにファイルがあるかだけを確かめる。ハーネスのテストの目印も同じ値を固定で持つので、ハーネスの側で値を変えたときの
-  食い違いはどちらのテストも捕まえない。ロックした版の claude-hooks を動かして確かめる方式は #688 に書いた
+  が sh の本文に探していた `HEAD:modules/home/scripts/nix-rebuild.sh` が、Rust では `format!("HEAD:{path}")` と目印のパスに
+  分かれて見つからず、`nix-rebuild update` が止まった（挙動は同じ）。代わりに claude-hooks の `post_merge_cleanup.rs` から
+  引用符で囲んだ `"modules/home/scripts/nix-rebuild.sh"` を grep する照合を試したが、捨てた。ソースの文字列の照合は、今回と
+  同じくパスの組み立て方（`format!`、`concat!`、`Path::join`）を変える直しで落ち、逆にコメントやテストに同じ文字列が
+  残れば、目印を変えても通る。こちらにファイルがあるかだけを確かめる。ハーネスのテストの目印も同じ値を固定で持つので、
+  ハーネスの側で値を変えたときの食い違いはどちらのテストも捕まえない。ロックした版の claude-hooks を動かして確かめる
+  方式は #688 に書いた
