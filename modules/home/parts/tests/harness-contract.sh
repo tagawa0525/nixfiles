@@ -10,13 +10,16 @@
 #      Claude Code のセッションからの update が最後のコミットで必ず失敗した）
 #   2. Slurm のパーティションの名前、NFS の入口、終わったジョブの記録の置き場が、ハーネスの slurm-run.sh と
 #      slurm-history.sh の値と同じ
-#   3. ハーネスの post-merge-cleanup.sh が「rebuild する構成のリポジトリ」の目印にするファイルがある
+#   3. ハーネスの post-merge-cleanup が「rebuild する構成のリポジトリ」の目印にするファイル（nix-rebuild.sh）がある
+#      （こちらの側だけ。ハーネスの側の値は下の照合しない約束）
 #   4. nix-rebuild.sh が main に直接コミットするのは flake.lock だけ（hook の main への直接コミットの例外。hook の側の
 #      例外は、ハーネスの main-commit-gates.sh が確かめる）
 #
 # 照合しない約束: ハーネスの hook が rebuild として見るコマンドの名前（modules/home/parts/shell.nix の関数 rebuild と
-# update、スクリプト nix-rebuild）。hook の Rust のソースの文字列と照らすしかなく、ハーネスの書き方の直しで落ちる。
-# このスクリプトは毎日の自動更新を止めるので、挙動が変わらない直しで止まる照合は入れない
+# update、スクリプト nix-rebuild）と、post-merge-cleanup が目印にするパスの、ハーネスの側の値。どちらも claude-hooks の
+# Rust のソースの文字列と照らすしかなく、ハーネスの書き方の直しで落ちる。
+# このスクリプトは毎日の自動更新を止めるので、挙動が変わらない直しで止まる照合は入れない（試して捨てた照合は ADR-0082 の
+# 補足 2026-11-14、ハーネスを動かして確かめる方式は #688）
 #
 # 使い方（リポジトリルートで実行）:
 #   ./modules/home/parts/tests/harness-contract.sh [host]
@@ -127,12 +130,12 @@ else
 fi
 
 # --- 3. rebuild する構成のリポジトリの目印 ------------------------------------------------------------
-echo "==> post-merge-cleanup.sh の目印を確かめる"
+echo "==> post-merge-cleanup の目印を確かめる"
 MARKER=modules/home/scripts/nix-rebuild.sh
-if [[ -f "$MARKER" ]] && grep -qF "HEAD:$MARKER" "$HARNESS/.claude/scripts/post-merge-cleanup.sh"; then
-  ok "post-merge-cleanup.sh が目印にする $MARKER がある（マージの後に rebuild の知らせが出る）"
+if [[ -f "$MARKER" ]]; then
+  ok "post-merge-cleanup が目印にする $MARKER がある（ハーネスの側の値とは照らさない）"
 else
-  ng "$MARKER が無いか、post-merge-cleanup.sh の目印と違う（マージの後に rebuild の知らせが出なくなる）"
+  ng "$MARKER が無い（post-merge-cleanup がマージの後に rebuild の知らせを出さなくなる）"
 fi
 
 # --- 4. main に直接コミットするのは flake.lock だけ ---------------------------------------------------

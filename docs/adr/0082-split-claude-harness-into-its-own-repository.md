@@ -4,7 +4,7 @@ date: 2026-11-12
 requires: []
 supersedes: []
 superseded-by:
-issues: ["#677"]
+issues: ["#677", "#688"]
 ---
 
 # ADR-0082: Claude Code のハーネスを nixfiles から別のリポジトリに分け、flake input で取り込む
@@ -121,7 +121,8 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
   離れうる
 - 悪い点: nixfiles の構成とハーネスのスクリプトの間に、名前と値の約束が残る（Slurm のパーティションの名前と NFS の入口、
   自動コミットの件名、rebuild する構成の目印の `nix-rebuild.sh`）。`modules/home/parts/tests/harness-contract.sh` が
-  突き合わせる
+  突き合わせる。ただし目印は、こちらにファイルがあるかだけを確かめ、ハーネスの側の値とは照らさない（ハーネスの
+  post-merge-cleanup が Rust に移り、値は claude-hooks のソースの文字列になった。照らす方式は補足の 2026-11-14 の項）
 - 外部のスキルと `lsp-det` の版は、nixfiles の `flake.lock` が決めるままにした（ハーネスの input を nixfiles の input に
   follows する）。毎日の自動更新が進める。ハーネスの `flake.lock` のそれらは、ハーネスのテストにだけ使う
 - 切り出したのは 2026-11-12、nixfiles の f02b191e。3916 コミットのうち 2752 件が `tagawa0525/claude-harness` の履歴に
@@ -139,3 +140,14 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
 - nixfiles の `git ls-files` に、境界の表でハーネスに入れたパスが残っていない
 - 両方のリポジトリで `design-records check` が通る
 - `modules/home/parts/tests/harness-contract.sh` が通る
+
+## 補足
+
+- 2026-11-14: ハーネスの post-merge-cleanup が Rust（`claude-hooks script post-merge-cleanup`）に移り、`harness-contract.sh`
+  が sh の本文に探していた `HEAD:modules/home/scripts/nix-rebuild.sh` が、Rust では `format!("HEAD:{path}")` と目印のパスに
+  分かれて見つからず、`nix-rebuild update` が止まった（挙動は同じ）。代わりに claude-hooks の `post_merge_cleanup.rs` から
+  引用符で囲んだ `"modules/home/scripts/nix-rebuild.sh"` を grep する照合を試したが、捨てた。ソースの文字列の照合は、今回と
+  同じくパスの組み立て方（`format!`、`concat!`、`Path::join`）を変える直しで落ち、逆にコメントやテストに同じ文字列が
+  残れば、目印を変えても通る。こちらにファイルがあるかだけを確かめる。ハーネスのテストの目印も同じ値を固定で持つので、
+  ハーネスの側で値を変えたときの食い違いはどちらのテストも捕まえない。ロックした版の claude-hooks を動かして確かめる
+  方式は #688 に書いた
