@@ -10,7 +10,8 @@
 #      Claude Code のセッションからの update が最後のコミットで必ず失敗した）
 #   2. Slurm のパーティションの名前、NFS の入口、終わったジョブの記録の置き場が、ハーネスの slurm-run.sh と
 #      slurm-history.sh の値と同じ
-#   3. ハーネスの post-merge-cleanup.sh が「rebuild する構成のリポジトリ」の目印にするファイルがある
+#   3. ハーネスの post-merge-cleanup（claude-hooks script。照らすのは目印のパスの値で、書き方ではない）が「rebuild する
+#      構成のリポジトリ」の目印にするファイルがある
 #   4. nix-rebuild.sh が main に直接コミットするのは flake.lock だけ（hook の main への直接コミットの例外。hook の側の
 #      例外は、ハーネスの main-commit-gates.sh が確かめる）
 #
@@ -127,12 +128,14 @@ else
 fi
 
 # --- 3. rebuild する構成のリポジトリの目印 ------------------------------------------------------------
-echo "==> post-merge-cleanup.sh の目印を確かめる"
+echo "==> post-merge-cleanup の目印を確かめる"
+# post-merge-cleanup.sh の中身は claude-hooks script post-merge-cleanup（Rust）にあり、sh は起動するだけ
 MARKER=modules/home/scripts/nix-rebuild.sh
-if [[ -f "$MARKER" ]] && grep -qF "HEAD:$MARKER" "$HARNESS/.claude/scripts/post-merge-cleanup.sh"; then
-  ok "post-merge-cleanup.sh が目印にする $MARKER がある（マージの後に rebuild の知らせが出る）"
+CLEANUP=$HARNESS/modules/home/parts/claude-hooks/src/script/post_merge_cleanup.rs
+if [[ -f "$MARKER" ]] && grep -qF "\"$MARKER\"" "$CLEANUP"; then
+  ok "post-merge-cleanup が目印にする $MARKER がある（マージの後に rebuild の知らせが出る）"
 else
-  ng "$MARKER が無いか、post-merge-cleanup.sh の目印と違う（マージの後に rebuild の知らせが出なくなる）"
+  ng "$MARKER が無いか、post-merge-cleanup の目印（$CLEANUP）と違う（マージの後に rebuild の知らせが出なくなる）"
 fi
 
 # --- 4. main に直接コミットするのは flake.lock だけ ---------------------------------------------------
