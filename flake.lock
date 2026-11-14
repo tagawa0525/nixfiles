@@ -71,11 +71,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794631338,
-        "narHash": "sha256-0uRr/0lRzbPMZRu8FqcCKbnz0Hz3AX2w8MyVz7Mgaqo=",
+        "lastModified": 1794634287,
+        "narHash": "sha256-jjTuK/eVw+4UrP8YgiLq1JWZCY7ikwgqKMsCsUIyCUg=",
         "owner": "tagawa0525",
         "repo": "claude-harness",
-        "rev": "d3153c232b29f0ae39d274a4c2a54946bb35329e",
+        "rev": "aaa93149f2c979b57007c4c7e774f04e82d9326d",
         "type": "github"
       },
       "original": {
@@ -410,11 +410,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794436425,
-        "narHash": "sha256-+kJeh0DH4lLX71o1iNOWhTpqJIpiLTcFQvHatMKIBLI=",
+        "lastModified": 1794635658,
+        "narHash": "sha256-PYnz/3MtiokKv5Q7Y2j+GX5srwSqF3aGfrAkEmHyl54=",
         "owner": "tagawa0525",
         "repo": "nur-vscode-latest",
-        "rev": "4b950fec7c7730baf1961409a986c6394957a9e3",
+        "rev": "111a2f23b86cd766717ed0ff33dd7f91f7375b0a",
         "type": "github"
       },
       "original": {
