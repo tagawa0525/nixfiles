@@ -1,8 +1,8 @@
 # =============================================================================
 # nix-rebuild の switch をパスワードなしで許可する
 # =============================================================================
-# nix-rebuild.sh の nixos_rebuild_switch() が発行する固定コマンド行
-# （引数まで完全一致）に限り NOPASSWD を許可する。
+# nix-rebuild.sh の nixos_rebuild_switch() が発行する固定コマンド行（--local の有無で 2 つ。
+# 引数まで完全一致）に限り NOPASSWD を許可する。
 #
 # 動機:
 #   - 自動更新（modules/nix-auto-update.nix）は systemd user service なので
@@ -43,6 +43,12 @@ in
       commands = [
         {
           command = "/run/current-system/sw/bin/nixos-rebuild switch --flake ${nixdir}";
+          options = [ "NOPASSWD" ];
+        }
+        # nix-rebuild --local（r995 に投げず手元でビルドする。r995 が時間を記録するジョブを実行している間の逃げ道）。
+        # 足すのはビルドの置き場を決める固定の引数だけで、上と同じく任意の flake やコマンドには使えない
+        {
+          command = "/run/current-system/sw/bin/nixos-rebuild switch --flake ${nixdir} --builders @/dev/null --max-jobs auto";
           options = [ "NOPASSWD" ];
         }
       ];

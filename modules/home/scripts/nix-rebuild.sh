@@ -5,6 +5,8 @@
 # origin/main を取り込んでから NixOS を再構築
 # Usage: nix-rebuild.sh rebuild            main にいれば origin/main まで進めてからビルドする。ほかのブランチはそのままビルドする
 #        nix-rebuild.sh update [input...]   input を挙げると、その input だけを進める（例: update claude-harness）
+#        --local（rebuild か update の後に付ける）: ラップトップでも r995 に投げず、手元でビルドする。既定は r995 に
+#        投げる（速い）。r995 が時間を記録する Slurm のジョブを実行している間に、その時間を乱さずにビルドするための逃げ道
 
 set -e
 
@@ -23,8 +25,16 @@ GCROOTS=~/.local/state/nix-rebuild/gcroots
 # `--flake .` を許可しない理由: sudo は cwd を制約できないため、`.` を許した
 # ルールは「任意のディレクトリに置いた flake をパスワードなしで root 適用
 # できる」ことと等価になり、コマンド行を固定した意味が失われる。
+#
+# --local の switch は、root の nixos-rebuild が /etc/nix のリモートのビルダー（r995）を使わず手元でビルドするよう、
+# 固定した 2 つ目のコマンド行で呼ぶ（sudoers の 2 つ目のルール）。`--builders ""` の空の引数は sudoers の完全一致で
+# 「引数なし」と紛れるので、空のファイルを読ませる `@/dev/null` で外す（捨てた方式は #692）
 nixos_rebuild_switch() {
-  sudo /run/current-system/sw/bin/nixos-rebuild switch --flake "$NIXDIR"
+  if [[ -n "$LOCAL" ]]; then
+    sudo /run/current-system/sw/bin/nixos-rebuild switch --flake "$NIXDIR" --builders @/dev/null --max-jobs auto
+  else
+    sudo /run/current-system/sw/bin/nixos-rebuild switch --flake "$NIXDIR"
+  fi
 }
 
 rebuild() {
@@ -313,18 +323,58 @@ exclusive() {
   exit "$rc"
 }
 
-# メイン処理
+# --local（サブコマンドの後）: 手元でビルドする。引数からだけ読む（環境から受けると、残った変数で毎朝の自動更新まで
+# 手元でビルドしうる）。NIX_CONFIG で nix と、ハーネスとの約束の確認に渡す。ラップトップは r995 だけでビルドする
+# 設定（max-jobs = 0）なので、手元のジョブも許す。NIX_CONFIG は wheel（trusted-users）のユーザーの設定として
+# nix-daemon に渡る。switch の 2 つ目の sudoers の行は、それを入れた rebuild の後に効く（最初の 1 回は --local なしで入れる）
+LOCAL=
+ARGS=()
+parse_args() {
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --local) LOCAL=1 ;;
+      -*)
+        echo "❌ 知らないオプションです: $arg"
+        usage
+        ;;
+      *) ARGS+=("$arg") ;;
+    esac
+  done
+  if [[ -n "$LOCAL" && "$HOSTNAME" == r995 ]]; then
+    echo "❌ r995 の上では --local でも r995 でビルドします（--local はラップトップで r995 に投げないための逃げ道）"
+    exit 1
+  fi
+}
+
+use_local_builds() {
+  [[ -n "$LOCAL" ]] || return 0
+  export NIX_CONFIG="${NIX_CONFIG:+$NIX_CONFIG
+}builders =
+max-jobs = auto"
+}
+
+usage() {
+  echo "Usage: $0 {rebuild|update [input...]} [--local]"
+  exit 1
+}
+
+# メイン処理。引数はロックを取る前に確かめる（誤りを、ほかの nix-rebuild の実行中の知らせに隠さない）
 case "${1:-}" in
   rebuild)
+    parse_args "${@:2}"
+    ((${#ARGS[@]} == 0)) || usage
     exclusive "$@"
+    use_local_builds
     rebuild
     ;;
   update)
+    parse_args "${@:2}"
     exclusive "$@"
-    update "${@:2}"
+    use_local_builds
+    update "${ARGS[@]}"
     ;;
   *)
-    echo "Usage: $0 {rebuild|update [input...]}"
-    exit 1
+    usage
     ;;
 esac

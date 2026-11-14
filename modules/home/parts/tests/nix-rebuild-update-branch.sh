@@ -26,6 +26,8 @@ export HOME="$WORK/home"
 mkdir -p "$HOME/nix"
 export GIT_CONFIG_GLOBAL="$HOME/.gitconfig"
 export GIT_CONFIG_NOSYSTEM=1
+# 呼ぶ側の NIX_CONFIG を持ち込まない（--local の有無を、スクリプトが足した設定だけで見る）
+unset NIX_CONFIG
 git config --global user.name test
 git config --global user.email test@example.com
 git config --global init.defaultBranch main
@@ -37,8 +39,8 @@ for cmd in nix sudo; do
   printf '#!/bin/sh\necho "stub %s called" >&2\nexit 1\n' "$cmd" > "$WORK/bin/$cmd"
   chmod +x "$WORK/bin/$cmd"
 done
-# nix のスタブは、受けた引数も 1 回の呼び出しを 1 行にして残す
-printf '#!/bin/sh\necho "$*" >> "%s/nix.args"\necho "stub nix called" >&2\nexit 1\n' "$WORK" > "$WORK/bin/nix"
+# nix のスタブは、受けた引数も 1 回の呼び出しを 1 行にして残し、呼ばれたときの NIX_CONFIG も残す
+printf '#!/bin/sh\necho "$*" >> "%s/nix.args"\nprintf "%%s\\n" "$NIX_CONFIG" >> "%s/nix.config"\necho "stub nix called" >&2\nexit 1\n' "$WORK" "$WORK" > "$WORK/bin/nix"
 export PATH="$WORK/bin:$PATH"
 
 # origin（bare）と clone を用意し、origin/main を clone より 1 コミット進める
@@ -148,12 +150,37 @@ for bad in claude-harnes --commit-lock-file; do
     ng "flake に無い input の名前（$bad）では失敗終了する"
   elif [[ -e "$WORK/nix.args" ]]; then
     ng "flake に無い input の名前（$bad）では nix を呼ばない"
-  elif ! grep -qF -- "$bad" "$WORK/out" || ! grep -q "claude-harness" "$WORK/out"; then
+  elif ! grep -qF -- "$bad" "$WORK/out"; then
+    ng "flake に無い input の名前（$bad）を出力する"
+  elif [[ "$bad" != -* ]] && ! grep -q "claude-harness" "$WORK/out"; then
+    # - で始まる語は、input の名前の前に、知らないオプションとして止まる
     ng "flake に無い input の名前（$bad）と、使える名前の一覧を出力する"
   else
     ok "flake に無い input の名前（$bad）では、nix を呼ばずに、使える名前を示して失敗終了する"
   fi
 done
+
+echo "==> --local は、r995 に投げずに手元でビルドする（既定は r995 に投げる）"
+git -C "$REPO" switch -q main
+rm -f "$WORK/nix.args" "$WORK/nix.config"
+bash "$SCRIPT" update >"$WORK/out" 2>&1 || true
+if [[ ! -s "$WORK/nix.config" ]] || grep -q "builders =" "$WORK/nix.config"; then
+  ng "--local の無い update は、ビルドの置き場を変えない"
+else
+  ok "--local の無い update は、ビルドの置き場を変えない"
+fi
+rm -f "$WORK/nix.args" "$WORK/nix.config"
+bash "$SCRIPT" update --local claude-harness >"$WORK/out" 2>&1 || true
+if [[ "$(head -1 "$WORK/nix.args" 2>/dev/null)" == "flake update claude-harness" ]]; then
+  ok "update --local は、--local を input の名前に数えない"
+else
+  ng "update --local は、--local を input の名前に数えない"
+fi
+if grep -qx "builders =" "$WORK/nix.config" 2>/dev/null && grep -qx "max-jobs = auto" "$WORK/nix.config"; then
+  ok "update --local は、リモートのビルダーを使わず手元でビルドするよう nix に渡す"
+else
+  ng "update --local は、リモートのビルダーを使わず手元でビルドするよう nix に渡す"
+fi
 
 echo "==> update は、lock を進めた後、検証のビルドと切り替えの前に、ハーネスとの約束の照合を通す"
 # nix は成功するスタブにする（flake update は lock を書き換え、eval はホストの名前を、build はパスを返す）
@@ -385,6 +412,76 @@ else
   ok "fetch に失敗したら、手元の中身でビルドする方法を示して、ビルドせずに失敗終了する"
 fi
 git -C "$REPO" remote set-url origin "$WORK/origin.git"
+
+# 引数と NIX_CONFIG を残して失敗する nix に戻す（上の照合のテストが成功するスタブに替えている）
+printf '#!/bin/sh\necho "$*" >> "%s/nix.args"\nprintf "%%s\\n" "$NIX_CONFIG" >> "%s/nix.config"\necho "stub nix called" >&2\nexit 1\n' "$WORK" "$WORK" > "$WORK/bin/nix"
+git -C "$REPO" switch -q main
+# --local はサブコマンドの後でだけ受ける（ハーネスの hook は最初の引数でサブコマンドを見る）。環境の変数では手元に
+# ビルドしない
+rm -f "$WORK/nix.args" "$WORK/nix.config"
+if bash "$SCRIPT" --local update >"$WORK/out" 2>&1 || [[ -e "$WORK/nix.args" ]]; then
+  ng "サブコマンドの前の --local は、nix を呼ばずに使い方の誤りで止まる"
+else
+  ok "サブコマンドの前の --local は、nix を呼ばずに使い方の誤りで止まる"
+fi
+NIX_REBUILD_LOCAL=1 LOCAL=1 bash "$SCRIPT" update >"$WORK/out" 2>&1 || true
+if [[ ! -s "$WORK/nix.config" ]] || grep -q "builders =" "$WORK/nix.config"; then
+  ng "--local の無い update は、環境の変数があってもビルドの置き場を変えない"
+else
+  ok "--local の無い update は、環境の変数があってもビルドの置き場を変えない"
+fi
+
+echo "==> --local の switch は、sudoers の 2 つ目の固定のコマンド行で、手元でビルドさせる"
+# sudo のスタブは引数を残す。sudoers（modules/nix-rebuild-nopasswd.nix）の 2 つのコマンド行と同じ形かを見る
+printf '#!/bin/sh\necho "$*" >> "%s/sudo.args"\necho "stub sudo called" >&2\nexit 1\n' "$WORK" > "$WORK/bin/sudo"
+for mode in "" --local; do
+  rm -f "$WORK/sudo.args"
+  bash "$SCRIPT" rebuild $mode >"$WORK/out" 2>&1 || true
+  expected="/run/current-system/sw/bin/nixos-rebuild switch --flake $REPO"
+  [[ -z "$mode" ]] || expected+=" --builders @/dev/null --max-jobs auto"
+  if [[ "$(cat "$WORK/sudo.args" 2>/dev/null)" == "$expected" ]] &&
+    grep -qF "command = \"${expected/$REPO/\$\{nixdir\}}\";" "$ROOT/modules/nix-rebuild-nopasswd.nix"; then
+    ok "rebuild ${mode:-（--local なし）} は、sudoers の固定のコマンド行で switch する"
+  else
+    ng "rebuild ${mode:-（--local なし）} は、sudoers の固定のコマンド行で switch する: $(cat "$WORK/sudo.args" 2>/dev/null)"
+  fi
+done
+
+# update も同じ switch を呼ぶ。nix は成功するスタブ（検証のビルドまで進める）にし、受けた NIX_CONFIG を残す
+cat > "$WORK/bin/nix" <<STUB
+#!/bin/sh
+printf '%s\\n' "\$NIX_CONFIG" >> "$WORK/nix.config"
+case "\$1 \$2" in
+  "flake update") echo '{"updated":true}' > "$REPO/flake.lock" ;;
+  "eval "*) printf 'testhost' ;;
+  "build "*) echo /nix/store/fake-toplevel ;;
+esac
+STUB
+printf '#!/usr/bin/env bash\nexit 0\n' > "$CONTRACT"
+for mode in "" --local; do
+  git -C "$REPO" checkout -q -- flake.lock 2>/dev/null || true
+  rm -f "$WORK/sudo.args" "$WORK/nix.config"
+  bash "$SCRIPT" update $mode >"$WORK/out" 2>&1 || true
+  expected="/run/current-system/sw/bin/nixos-rebuild switch --flake $REPO"
+  [[ -z "$mode" ]] || expected+=" --builders @/dev/null --max-jobs auto"
+  if [[ "$(cat "$WORK/sudo.args" 2>/dev/null)" != "$expected" ]]; then
+    ng "update ${mode:-（--local なし）} は、sudoers の固定のコマンド行で switch する: $(cat "$WORK/sudo.args" 2>/dev/null)"
+  elif [[ -n "$mode" ]] && ! { grep -qx "builders =" "$WORK/nix.config" && grep -qx "max-jobs = auto" "$WORK/nix.config"; }; then
+    ng "update --local は、検証のビルドも手元でビルドさせる"
+  else
+    ok "update ${mode:-（--local なし）} は、sudoers の固定のコマンド行で switch する（--local は検証のビルドも手元）"
+  fi
+done
+
+# 知らないオプションは、ロックも fetch もせずに使い方の誤りで止まる
+before=$(git -C "$REPO" rev-parse HEAD)
+rm -f "$WORK/nix.args"
+if bash "$SCRIPT" update --Local claude-harness >"$WORK/out" 2>&1 || [[ -e "$WORK/nix.args" ]] ||
+  ! grep -q "知らないオプション" "$WORK/out"; then
+  ng "update の知らないオプションは、nix を呼ばずに使い方の誤りで止まる"
+else
+  ok "update の知らないオプションは、nix を呼ばずに使い方の誤りで止まる"
+fi
 
 echo
 echo "passed: $PASS, failed: $FAIL"
