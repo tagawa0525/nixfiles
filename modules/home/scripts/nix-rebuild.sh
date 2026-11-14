@@ -5,8 +5,9 @@
 # origin/main を取り込んでから NixOS を再構築
 # Usage: nix-rebuild.sh rebuild            main にいれば origin/main まで進めてからビルドする。ほかのブランチはそのままビルドする
 #        nix-rebuild.sh update [input...]   input を挙げると、その input だけを進める（例: update claude-harness）
-#        --local（rebuild か update の後に付ける）: ラップトップでも r995 に投げず、手元でビルドする。既定は r995 に
-#        投げる（速い）。r995 が時間を記録する Slurm のジョブを実行している間に、その時間を乱さずにビルドするための逃げ道
+#        --local（rebuild か update の後に付ける）: リモートのビルダー（ラップトップでは計算ノードの r995）に投げず、
+#        手元でビルドする。既定は投げる（速い）。計算ノードが時間を記録する Slurm のジョブを実行している間に、その時間を
+#        乱さずにビルドするための逃げ道
 
 set -e
 
@@ -341,9 +342,11 @@ parse_args() {
       *) ARGS+=("$arg") ;;
     esac
   done
-  # Slurm の計算ノード（ラップトップのリモートのビルダー）かは、名前でなく scontrol で見る（scontrol が無いホストはノードでない）
-  if [[ -n "$LOCAL" ]] && scontrol show node "$HOSTNAME" >/dev/null 2>&1; then
-    echo "❌ 計算ノードの上では --local でもこのノードでビルドします（--local はラップトップで計算ノードに投げないための逃げ道）"
+  # リモートのビルダーの無いホスト（計算ノード自身）では、--local でも同じく手元でビルドするので、逃げ道にならない。
+  # ビルダーは NixOS の nix.buildMachines が書く ${NIX_CONF_DIR:-/etc/nix}/machines（ホストの名前でなく、ネットワークも使わずに見る）
+  local machines="${NIX_CONF_DIR:-/etc/nix}/machines"
+  if [[ -n "$LOCAL" && ! -s "$machines" ]]; then
+    echo "❌ このホストにはリモートのビルダーが無く（$machines）、--local でもこのホストでビルドします（--local はビルドをリモートのビルダーに投げないための逃げ道）"
     exit 1
   fi
 }
