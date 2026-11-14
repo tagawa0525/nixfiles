@@ -25,8 +25,16 @@ GCROOTS=~/.local/state/nix-rebuild/gcroots
 # `--flake .` を許可しない理由: sudo は cwd を制約できないため、`.` を許した
 # ルールは「任意のディレクトリに置いた flake をパスワードなしで root 適用
 # できる」ことと等価になり、コマンド行を固定した意味が失われる。
+#
+# --local の switch は、root の nixos-rebuild が /etc/nix のリモートのビルダー（r995）を使わず手元でビルドするよう、
+# 固定した 2 つ目のコマンド行で呼ぶ（sudoers の 2 つ目のルール）。`--builders ""` の空の引数は sudoers の完全一致で
+# 「引数なし」と紛れるので、空のファイルを読ませる `@/dev/null` で外す（捨てた方式は #692）
 nixos_rebuild_switch() {
-  sudo /run/current-system/sw/bin/nixos-rebuild switch --flake "$NIXDIR"
+  if [[ -n "$LOCAL" ]]; then
+    sudo /run/current-system/sw/bin/nixos-rebuild switch --flake "$NIXDIR" --builders @/dev/null --max-jobs auto
+  else
+    sudo /run/current-system/sw/bin/nixos-rebuild switch --flake "$NIXDIR"
+  fi
 }
 
 rebuild() {
@@ -74,16 +82,6 @@ rebuild() {
     if [[ -n "$ahead" ]]; then
       echo "ℹ️  origin に無いコミットを含めてビルドします（push していない手元のコミット）:"
       while IFS= read -r line; do echo "     $line"; done <<< "$ahead"
-    fi
-  fi
-  # switch は sudoers がコマンド行を固定していて引数を足せないので、手元でビルドするときは先にこのホストの構成を
-  # ビルドし、switch にビルドを残さない（root の nixos-rebuild は NIX_CONFIG を受けず、残れば r995 に投げる）
-  if [[ -n "${NIX_REBUILD_LOCAL:-}" ]]; then
-    echo "🔨 Building locally..."
-    if ! nix build --no-link ".#nixosConfigurations.${HOSTNAME}.config.system.build.toplevel"; then
-      echo "❌ 手元のビルドに失敗しました。switch しません"
-      cd - > /dev/null
-      return 1
     fi
   fi
   echo "🔨 Rebuilding NixOS..."
@@ -325,36 +323,47 @@ exclusive() {
   exit "$rc"
 }
 
-# --local を引数から外し、子（exclusive が実行し直すこのスクリプト、nix、ハーネスとの約束の確認）へは環境で渡す。
+# --local（サブコマンドの後）: 手元でビルドする。引数からだけ読む（環境から受けると、残った変数で毎朝の自動更新まで
+# 手元でビルドしうる）。exclusive が実行し直した子が読み、NIX_CONFIG で nix と、ハーネスとの約束の確認に渡す。
 # ラップトップは r995 だけでビルドする設定（max-jobs = 0）なので、手元のジョブも許す。NIX_CONFIG は wheel
 # （trusted-users）のユーザーの設定として nix-daemon に渡る
-args=()
-for arg in "$@"; do
-  if [[ "$arg" == --local ]]; then
-    export NIX_REBUILD_LOCAL=1
-  else
-    args+=("$arg")
-  fi
-done
-set -- "${args[@]}"
-if [[ -n "${NIX_REBUILD_LOCAL:-}" ]]; then
-  export NIX_CONFIG="${NIX_CONFIG:+$NIX_CONFIG
+LOCAL=
+use_local_builds() {
+  local arg rest=()
+  for arg in "$@"; do
+    if [[ "$arg" == --local ]]; then
+      LOCAL=1
+    else
+      rest+=("$arg")
+    fi
+  done
+  ARGS=("${rest[@]}")
+  if [[ -n "$LOCAL" ]]; then
+    export NIX_CONFIG="${NIX_CONFIG:+$NIX_CONFIG
 }builders =
 max-jobs = auto"
-fi
+  fi
+}
+
+usage() {
+  echo "Usage: $0 {rebuild|update [input...]} [--local]"
+  exit 1
+}
 
 # メイン処理
 case "${1:-}" in
   rebuild)
     exclusive "$@"
+    use_local_builds "${@:2}"
+    ((${#ARGS[@]} == 0)) || usage
     rebuild
     ;;
   update)
     exclusive "$@"
-    update "${@:2}"
+    use_local_builds "${@:2}"
+    update "${ARGS[@]}"
     ;;
   *)
-    echo "Usage: $0 {rebuild|update [input...]} [--local]"
-    exit 1
+    usage
     ;;
 esac
