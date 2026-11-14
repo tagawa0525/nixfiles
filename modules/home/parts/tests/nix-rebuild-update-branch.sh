@@ -37,8 +37,8 @@ for cmd in nix sudo; do
   printf '#!/bin/sh\necho "stub %s called" >&2\nexit 1\n' "$cmd" > "$WORK/bin/$cmd"
   chmod +x "$WORK/bin/$cmd"
 done
-# nix のスタブは、受けた引数も 1 回の呼び出しを 1 行にして残す
-printf '#!/bin/sh\necho "$*" >> "%s/nix.args"\necho "stub nix called" >&2\nexit 1\n' "$WORK" > "$WORK/bin/nix"
+# nix のスタブは、受けた引数も 1 回の呼び出しを 1 行にして残し、呼ばれたときの NIX_CONFIG も残す
+printf '#!/bin/sh\necho "$*" >> "%s/nix.args"\nprintf "%%s\\n" "$NIX_CONFIG" >> "%s/nix.config"\necho "stub nix called" >&2\nexit 1\n' "$WORK" "$WORK" > "$WORK/bin/nix"
 export PATH="$WORK/bin:$PATH"
 
 # origin（bare）と clone を用意し、origin/main を clone より 1 コミット進める
@@ -385,6 +385,38 @@ else
   ok "fetch に失敗したら、手元の中身でビルドする方法を示して、ビルドせずに失敗終了する"
 fi
 git -C "$REPO" remote set-url origin "$WORK/origin.git"
+
+echo "==> --local は、r995 に投げずに手元でビルドする（既定は r995 に投げる）"
+git -C "$REPO" switch -q main
+rm -f "$WORK/nix.args" "$WORK/nix.config"
+bash "$SCRIPT" update >"$WORK/out" 2>&1 || true
+if grep -q "builders =" "$WORK/nix.config" 2>/dev/null; then
+  ng "--local の無い update は、ビルドの置き場を変えない"
+else
+  ok "--local の無い update は、ビルドの置き場を変えない"
+fi
+rm -f "$WORK/nix.args" "$WORK/nix.config"
+bash "$SCRIPT" update --local claude-harness >"$WORK/out" 2>&1 || true
+if [[ "$(head -1 "$WORK/nix.args" 2>/dev/null)" == "flake update claude-harness" ]]; then
+  ok "update --local は、--local を input の名前に数えない"
+else
+  ng "update --local は、--local を input の名前に数えない"
+fi
+if grep -qx "builders =" "$WORK/nix.config" 2>/dev/null && grep -qx "max-jobs = auto" "$WORK/nix.config"; then
+  ok "update --local は、リモートのビルダーを使わず手元でビルドするよう nix に渡す"
+else
+  ng "update --local は、リモートのビルダーを使わず手元でビルドするよう nix に渡す"
+fi
+rm -f "$WORK/nix.args" "$WORK/nix.config"
+bash "$SCRIPT" rebuild --local >"$WORK/out" 2>&1 || true
+# switch は sudoers がコマンド行を固定しているので引数を足せない。先に手元でビルドし、switch にビルドを残さない
+if ! grep -q "build --no-link .#nixosConfigurations.$(hostname).config.system.build.toplevel" "$WORK/nix.args" 2>/dev/null; then
+  ng "rebuild --local は、このホストの構成を先に手元でビルドする"
+elif grep -q "stub sudo called" "$WORK/out"; then
+  ng "rebuild --local は、手元のビルドに失敗したら switch しない"
+else
+  ok "rebuild --local は、このホストの構成を先に手元でビルドし、失敗したら switch しない"
+fi
 
 echo
 echo "passed: $PASS, failed: $FAIL"
