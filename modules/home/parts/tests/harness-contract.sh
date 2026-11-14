@@ -130,7 +130,7 @@ submit() {
   shift 2
   rm -f "$WORK/sbatch.args"
   (cd "$dir" && env -u SLURM_RUN_NFS_ENTRY -u CLAUDE_CODE_SESSION_ID HOME="$WORK/home" PATH="$SLURM_BIN:$PATH" \
-    FAKE_HOST="$host" FAKE_SLURM="$WORK" "$RUN" --ref '#0' --purpose 'ハーネスとの約束の確認' -t 1 "$@" contract true) \
+    FAKE_HOST="$host" FAKE_SLURM="$WORK" timeout 60 "$RUN" --ref '#0' --purpose 'ハーネスとの約束の確認' -t 1 "$@" contract true) \
     >/dev/null 2>"$WORK/slurm.err" || true
 }
 
@@ -148,7 +148,7 @@ else
 fi
 # r995 の外で、入口の外から投げると、既定の入口の下で投げるよう求めて止まる
 submit t14g4 "$WORK" --class trial
-if [[ -n "$entry" ]] && [[ ! -e "$WORK/sbatch.args" ]] && grep -qF -- "$entry の下で" "$WORK/slurm.err"; then
+if [[ -n "$entry" ]] && [[ ! -e "$WORK/sbatch.args" ]] && grep -qF -- " $entry の下で" "$WORK/slurm.err"; then
   ok "NFS の入口（$entry）が、slurm-run.sh の既定の入口と同じ"
 else
   ng "NFS の入口（'$entry'）が slurm-run.sh の既定の入口と違う: $(cat "$WORK/slurm.err")"
@@ -162,17 +162,19 @@ job() {
   job 1 contract-protected "$protected"
   job 2 contract-other "$protected-other"
 } >"$WORK/job_completions"
-history_out=$("$HISTORY" "$WORK/job_completions" 2>&1 || true)
+history_out=$(timeout 60 "$HISTORY" "$WORK/job_completions" 2>&1 || true)
 if [[ -n "$protected" ]] && grep -qF contract-protected <<<"$history_out" && ! grep -qF contract-other <<<"$history_out"; then
   ok "割り込まれないパーティション（$protected）のジョブを、slurm-history.sh が表に入れる"
 else
   ng "割り込まれないパーティション（'$protected'）のジョブだけを slurm-history.sh が表に入れない: $history_out"
 fi
-# 既定のファイルを読めなければ、そのパスを示して止まる（読めるホストでは、読んで 0 で終わる）
-if history_err=$("$HISTORY" 2>&1 >/dev/null); then
-  [[ -n "$jobcomp" && -r "$jobcomp" ]] && ok "終わったジョブの記録の置き場（$jobcomp）を、slurm-history.sh が既定で読む" ||
-    ng "slurm-history.sh が既定のファイルを読んで終わったが、'$jobcomp' はこのホストで読めない（別の既定を読んだ）"
-elif [[ -n "$jobcomp" ]] && grep -qF -- "$jobcomp" <<<"$history_err"; then
+# 既定のファイルは、読めないホストで、読めないと止まる案内のパスを見る。読めるホスト（r995）では、動かすと slurmctld が
+# 書き足している本物の記録を読み、何と比べたかも分からないので確かめない（ほかのホストの毎日の自動更新が確かめる）
+if [[ -n "$jobcomp" && -r "$jobcomp" ]]; then
+  echo "- 終わったジョブの記録の置き場（$jobcomp）は、このホストで読めるので確かめない"
+elif history_err=$(timeout 60 "$HISTORY" 2>&1 >/dev/null); then
+  ng "slurm-history.sh が既定のファイルを読んで終わったが、'$jobcomp' はこのホストで読めない（別の既定を読んだ）"
+elif [[ -n "$jobcomp" && "$history_err" == *": $jobcomp" ]]; then
   ok "終わったジョブの記録の置き場（$jobcomp）が、slurm-history.sh の既定のファイルと同じ"
 else
   ng "終わったジョブの記録の置き場（'$jobcomp'）が slurm-history.sh の既定のファイルと違う: $history_err"
@@ -180,7 +182,7 @@ fi
 
 # --- 3. rebuild する構成のリポジトリの目印 ------------------------------------------------------------
 # lock の版の claude-hooks の post-merge-cleanup を、目印のあるリポジトリとないリポジトリで動かし、hosts/ を変えた
-# マージの後に rebuild を知らせるのが、目印のあるほうだけかを見る。gh は PATH に置かない（open PR を確かめずに残す）
+# マージの後に rebuild を知らせるのが、目印のあるほうだけかを見る。リモートは手元のパスで、gh は PATH に置かない
 echo "==> post-merge-cleanup を一時のリポジトリで動かす"
 MARKER=modules/home/scripts/nix-rebuild.sh
 # 配置の source は「<パッケージ>/bin/claude-hooks」の文字列で、nix build に渡せないので、文字列の元の derivation を作る
@@ -190,24 +192,24 @@ HOOKS="$(nix build --no-link --print-out-paths --option warn-dirty false "$HOOKS
 GIT_BIN="$WORK/git-bin"
 mkdir -p "$GIT_BIN"
 ln -s "$(command -v git)" "$GIT_BIN/git"
+# cleanup_note <名前> <目印のパス | 空>: 一時のリポジトリを作り、post-merge-cleanup の出力を返す。git はすべて -C で
+# 一時のリポジトリに向け、作れなければ動かさない（呼ぶ側は || true なので set -e が効かず、cd の失敗の後の手順が
+# このリポジトリで走ってしまう）
 cleanup_note() {
-  local name=$1 marker=$2 r="$WORK/cleanup-$1"
+  local marker=$2 r="$WORK/cleanup-$1"
+  local repo="$r/repo"
   (
     export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=c GIT_AUTHOR_EMAIL=c@example.com \
       GIT_COMMITTER_NAME=c GIT_COMMITTER_EMAIL=c@example.com
-    git init -q --bare -b main "$r/origin.git"
-    git clone -q "$r/origin.git" "$r/repo" 2>/dev/null
-    cd "$r/repo"
-    if [[ -n "$marker" ]]; then
-      mkdir -p "$(dirname "$marker")" && touch "$marker"
-    else
-      touch README
-    fi
-    git add -A && git commit -q -m init && git push -q origin main
-    git switch -q -c feat && mkdir hosts && touch hosts/x && git add hosts && git commit -q -m feat
-    git push -q origin feat feat:main
-    git switch -q main
-    PATH="$GIT_BIN" "$HOOKS" script post-merge-cleanup feat 2>&1
+    git init -q --bare -b main "$r/origin.git" &&
+      git clone -q "$r/origin.git" "$repo" 2>/dev/null &&
+      mkdir -p "$repo/$(dirname "${marker:-README}")" && touch "$repo/${marker:-README}" &&
+      git -C "$repo" add -A && git -C "$repo" commit -q -m init && git -C "$repo" push -q origin main &&
+      git -C "$repo" switch -q -c feat && mkdir "$repo/hosts" && touch "$repo/hosts/x" &&
+      git -C "$repo" add hosts && git -C "$repo" commit -q -m feat && git -C "$repo" push -q origin feat:main &&
+      git -C "$repo" switch -q main || { echo "一時のリポジトリを作れない: $repo"; exit 1; }
+    cd "$repo" || exit 1
+    timeout 60 env PATH="$GIT_BIN" "$HOOKS" script post-merge-cleanup feat 2>&1
   ) || true
 }
 with=$(cleanup_note with "$MARKER")
