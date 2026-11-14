@@ -10,7 +10,7 @@
 #   ./modules/home/parts/tests/nix-rebuild-store-lock.sh
 #
 # sudo はスタブに差し替え、/proc/locks と big-lock は一時のファイルに向ける。実システムには触れない。
-# nix-daemon のワーカーとクライアントは、同じ引数の並びを持つ本物のプロセス（中身は sleep）で作る。
+# nix-daemon のワーカー、クライアント、ロックを待つ nix は、同じ引数の並びを持つ本物のプロセスで作る。
 
 set -euo pipefail
 
@@ -78,10 +78,14 @@ spawn() {
   PIDS+=("$SPAWNED")
 }
 
-# nix-daemon のワーカー（プロセスの題名は「nix-daemon <クライアントの pid>」）
+# nix-daemon のワーカー（プロセスのタイトルは「nix-daemon <クライアントの pid>」）
 spawn_worker() {
   spawn nix-daemon "$1"
 }
+
+# 排他ロックを待つ root の nix（nixos-rebuild が最初に呼ぶ）。全部の場面で再利用する
+spawn nix-instantiate --find-file
+WAITER=$SPAWNED
 
 alive() { kill -0 "$1" 2> /dev/null; }
 gone() { ! alive "$1"; }
@@ -122,7 +126,7 @@ spawn_worker "$nixd"
 worker=$SPAWNED
 {
   holder_line "$worker"
-  waiter_line 999999
+  waiter_line "$WAITER"
 } > "$NIX_REBUILD_PROC_LOCKS"
 sudo_waits_for "$nixd"
 check "switch が先へ進んで成功する" run_rebuild
@@ -136,7 +140,7 @@ spawn_worker "$client"
 worker=$SPAWNED
 {
   holder_line "$worker"
-  waiter_line 999999
+  waiter_line "$WAITER"
 } > "$NIX_REBUILD_PROC_LOCKS"
 sudo_takes 1.5 0
 check "switch の終了コードをそのまま返す" run_rebuild
@@ -149,12 +153,28 @@ spawn some-other-holder
 other=$SPAWNED
 {
   holder_line "$other"
-  waiter_line 999999
+  waiter_line "$WAITER"
 } > "$NIX_REBUILD_PROC_LOCKS"
 sudo_takes 1.5 0
 check "成功する" run_rebuild
 check "待っていることを知らせる" said "排他ロックを待っています"
 check "待っていることは 1 回だけ知らせる" test "$(grep -c -- "排他ロックを待っています" "$WORK/out")" = 1
+check "ロックを持つプロセスを知らせる" said "$other.*some-other-holder"
+
+echo "==> 同じ inode 番号の、nix でないプロセスの排他ロックが待っている（btrfs の別の subvolume のファイル）"
+spawn nixd-attrset-eval
+nixd=$SPAWNED
+spawn_worker "$nixd"
+worker=$SPAWNED
+spawn some-other-waiter
+{
+  holder_line "$worker"
+  waiter_line "$SPAWNED"
+} > "$NIX_REBUILD_PROC_LOCKS"
+sudo_takes 1.5 0
+check "成功する" run_rebuild
+check "nixd の評価プロセスを止めない" alive "$nixd"
+check "何も知らせない" not_said "排他ロック"
 
 echo "==> 共有のロックが待っている（排他ロックの待ちではない）"
 spawn nixd-attrset-eval
@@ -163,7 +183,7 @@ spawn_worker "$nixd"
 worker=$SPAWNED
 {
   holder_line "$worker"
-  echo "1: -> FLOCK  ADVISORY  READ 999999 00:24:$INODE 0 EOF"
+  echo "1: -> FLOCK  ADVISORY  READ $WAITER 00:24:$INODE 0 EOF"
 } > "$NIX_REBUILD_PROC_LOCKS"
 sudo_takes 1.5 0
 check "成功する" run_rebuild
@@ -184,7 +204,7 @@ check "何も知らせない" not_said "nixd-attrset-eval"
 echo "==> 別のファイルの排他ロックが待っている"
 {
   echo "1: FLOCK  ADVISORY  READ $worker 00:24:${INODE}0 0 EOF"
-  echo "1: -> FLOCK  ADVISORY  WRITE 999999 00:24:${INODE}0 0 EOF"
+  echo "1: -> FLOCK  ADVISORY  WRITE $WAITER 00:24:${INODE}0 0 EOF"
 } > "$NIX_REBUILD_PROC_LOCKS"
 sudo_takes 1.5 0
 check "成功する" run_rebuild
