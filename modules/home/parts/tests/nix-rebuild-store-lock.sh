@@ -144,6 +144,32 @@ check "クライアントは止めない" alive "$client"
 check "つないだままのプロセスを知らせる" said "$client.*some-nix-client"
 check "同じプロセスは 1 回だけ知らせる" test "$(grep -c -- "some-nix-client" "$WORK/out")" = 1
 
+echo "==> 排他ロックが待っているが、持ち主が nix-daemon のワーカーの形でない"
+spawn some-other-holder
+other=$SPAWNED
+{
+  holder_line "$other"
+  waiter_line 999999
+} > "$NIX_REBUILD_PROC_LOCKS"
+sudo_takes 1.5 0
+check "成功する" run_rebuild
+check "待っていることを知らせる" said "排他ロックを待っています"
+check "待っていることは 1 回だけ知らせる" test "$(grep -c -- "排他ロックを待っています" "$WORK/out")" = 1
+
+echo "==> 共有のロックが待っている（排他ロックの待ちではない）"
+spawn nixd-attrset-eval
+nixd=$SPAWNED
+spawn_worker "$nixd"
+worker=$SPAWNED
+{
+  holder_line "$worker"
+  echo "1: -> FLOCK  ADVISORY  READ 999999 00:24:$INODE 0 EOF"
+} > "$NIX_REBUILD_PROC_LOCKS"
+sudo_takes 1.5 0
+check "成功する" run_rebuild
+check "nixd の評価プロセスを止めない" alive "$nixd"
+check "何も知らせない" not_said "排他ロック"
+
 echo "==> big-lock を持つプロセスはあるが、排他ロックを待つものがない（普段の rebuild）"
 spawn nixd-attrset-eval
 nixd=$SPAWNED
@@ -170,6 +196,13 @@ sudo_takes 0 1
 if run_rebuild; then ng "失敗終了する"; else ok "失敗終了する"; fi
 sleep 0.5
 check "監視のプロセスを残さない" test -z "$(pgrep -f "$SCRIPT" || true)"
+
+echo "==> 出力をパイプで受ける呼び出し"
+# 監視が子プロセスを残すと、それが出力を持ち続け、受ける側は監視の間隔のぶん待たされる
+sudo_takes 0 0
+start=$(date +%s)
+NIX_REBUILD_LOCK_POLL=5 bash "$SCRIPT" rebuild 2>&1 | cat > "$WORK/out"
+check "switch が終わったら、すぐに出力が閉じる" test $(($(date +%s) - start)) -lt 3
 
 echo
 echo "passed: $PASS, failed: $FAIL"
