@@ -159,7 +159,7 @@ echo "==> --local は、r995 に投げずに手元でビルドする（既定は
 git -C "$REPO" switch -q main
 rm -f "$WORK/nix.args" "$WORK/nix.config"
 bash "$SCRIPT" update >"$WORK/out" 2>&1 || true
-if grep -q "builders =" "$WORK/nix.config" 2>/dev/null; then
+if [[ ! -s "$WORK/nix.config" ]] || grep -q "builders =" "$WORK/nix.config"; then
   ng "--local の無い update は、ビルドの置き場を変えない"
 else
   ok "--local の無い update は、ビルドの置き場を変えない"
@@ -408,20 +408,65 @@ else
 fi
 git -C "$REPO" remote set-url origin "$WORK/origin.git"
 
-echo "==> rebuild --local は、switch の前に手元でビルドする"
+# 引数と NIX_CONFIG を残して失敗する nix に戻す（上の照合のテストが成功するスタブに替えている）
+printf '#!/bin/sh\necho "$*" >> "%s/nix.args"\nprintf "%%s\\n" "$NIX_CONFIG" >> "%s/nix.config"\necho "stub nix called" >&2\nexit 1\n' "$WORK" "$WORK" > "$WORK/bin/nix"
 git -C "$REPO" switch -q main
-# 引数を残して失敗する nix に戻す（上の照合のテストが成功するスタブに替えている）
-printf '#!/bin/sh\necho "$*" >> "%s/nix.args"\necho "stub nix called" >&2\nexit 1\n' "$WORK" > "$WORK/bin/nix"
+# --local はサブコマンドの後でだけ受ける（ハーネスの hook は最初の引数でサブコマンドを見る）。環境の変数では手元に
+# ビルドしない
 rm -f "$WORK/nix.args" "$WORK/nix.config"
-bash "$SCRIPT" rebuild --local >"$WORK/out" 2>&1 || true
-# switch は sudoers がコマンド行を固定しているので引数を足せない。先に手元でビルドし、switch にビルドを残さない
-if ! grep -q "build --no-link .#nixosConfigurations.$(hostname).config.system.build.toplevel" "$WORK/nix.args" 2>/dev/null; then
-  ng "rebuild --local は、このホストの構成を先に手元でビルドする"
-elif grep -q "stub sudo called" "$WORK/out"; then
-  ng "rebuild --local は、手元のビルドに失敗したら switch しない"
+if bash "$SCRIPT" --local update >"$WORK/out" 2>&1 || [[ -e "$WORK/nix.args" ]]; then
+  ng "サブコマンドの前の --local は、nix を呼ばずに使い方の誤りで止まる"
 else
-  ok "rebuild --local は、このホストの構成を先に手元でビルドし、失敗したら switch しない"
+  ok "サブコマンドの前の --local は、nix を呼ばずに使い方の誤りで止まる"
 fi
+NIX_REBUILD_LOCAL=1 LOCAL=1 bash "$SCRIPT" update >"$WORK/out" 2>&1 || true
+if [[ ! -s "$WORK/nix.config" ]] || grep -q "builders =" "$WORK/nix.config"; then
+  ng "--local の無い update は、環境の変数があってもビルドの置き場を変えない"
+else
+  ok "--local の無い update は、環境の変数があってもビルドの置き場を変えない"
+fi
+
+echo "==> --local の switch は、sudoers の 2 つ目の固定のコマンド行で、手元でビルドさせる"
+# sudo のスタブは引数を残す。sudoers（modules/nix-rebuild-nopasswd.nix）の 2 つのコマンド行と同じ形かを見る
+printf '#!/bin/sh\necho "$*" >> "%s/sudo.args"\necho "stub sudo called" >&2\nexit 1\n' "$WORK" > "$WORK/bin/sudo"
+for mode in "" --local; do
+  rm -f "$WORK/sudo.args"
+  bash "$SCRIPT" rebuild $mode >"$WORK/out" 2>&1 || true
+  expected="/run/current-system/sw/bin/nixos-rebuild switch --flake $REPO"
+  [[ -z "$mode" ]] || expected+=" --builders @/dev/null --max-jobs auto"
+  if [[ "$(cat "$WORK/sudo.args" 2>/dev/null)" == "$expected" ]] &&
+    grep -qF "command = \"${expected/$REPO/\$\{nixdir\}}\";" "$ROOT/modules/nix-rebuild-nopasswd.nix"; then
+    ok "rebuild ${mode:-（--local なし）} は、sudoers の固定のコマンド行で switch する"
+  else
+    ng "rebuild ${mode:-（--local なし）} は、sudoers の固定のコマンド行で switch する: $(cat "$WORK/sudo.args" 2>/dev/null)"
+  fi
+done
+
+# update も同じ switch を呼ぶ。nix は成功するスタブ（検証のビルドまで進める）にし、受けた NIX_CONFIG を残す
+cat > "$WORK/bin/nix" <<STUB
+#!/bin/sh
+printf '%s\\n' "\$NIX_CONFIG" >> "$WORK/nix.config"
+case "\$1 \$2" in
+  "flake update") echo '{"updated":true}' > "$REPO/flake.lock" ;;
+  "eval "*) printf 'testhost' ;;
+  "build "*) echo /nix/store/fake-toplevel ;;
+esac
+STUB
+printf '#!/usr/bin/env bash\nexit 0\n' > "$CONTRACT"
+for mode in "" --local; do
+  git -C "$REPO" checkout -q -- flake.lock 2>/dev/null || true
+  rm -f "$WORK/sudo.args" "$WORK/nix.config"
+  bash "$SCRIPT" update $mode >"$WORK/out" 2>&1 || true
+  expected="/run/current-system/sw/bin/nixos-rebuild switch --flake $REPO"
+  [[ -z "$mode" ]] || expected+=" --builders @/dev/null --max-jobs auto"
+  if [[ "$(cat "$WORK/sudo.args" 2>/dev/null)" != "$expected" ]]; then
+    ng "update ${mode:-（--local なし）} は、sudoers の固定のコマンド行で switch する: $(cat "$WORK/sudo.args" 2>/dev/null)"
+  elif [[ -n "$mode" ]] && ! grep -qx "builders =" "$WORK/nix.config"; then
+    ng "update --local は、検証のビルドも手元でビルドさせる"
+  else
+    ok "update ${mode:-（--local なし）} は、sudoers の固定のコマンド行で switch する（--local は検証のビルドも手元）"
+  fi
+done
 
 echo
 echo "passed: $PASS, failed: $FAIL"
