@@ -121,8 +121,8 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
   離れうる
 - 悪い点: nixfiles の構成とハーネスのスクリプトの間に、名前と値の約束が残る（Slurm のパーティションの名前と NFS の入口、
   自動コミットの件名、rebuild する構成の目印の `nix-rebuild.sh`）。`modules/home/parts/tests/harness-contract.sh` が
-  突き合わせる。ただし目印は、こちらにファイルがあるかだけを確かめ、ハーネスの側の値とは照らさない（ハーネスの
-  post-merge-cleanup が Rust に移り、値は claude-hooks のソースの文字列になった。照らす方式は補足の 2026-11-14 の項）
+  突き合わせる。ハーネスの側は、lock の版のスクリプトと claude-hooks を偽物の下か一時のリポジトリで動かして見る
+  （補足の 2026-11-14 の項）
 - 外部のスキルと `lsp-det` の版は、nixfiles の `flake.lock` が決めるままにした（ハーネスの input を nixfiles の input に
   follows する）。毎日の自動更新が進める。ハーネスの `flake.lock` のそれらは、ハーネスのテストにだけ使う
 - 切り出したのは 2026-11-12、nixfiles の f02b191e。3916 コミットのうち 2752 件が `tagawa0525/claude-harness` の履歴に
@@ -151,3 +151,9 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
   残れば、目印を変えても通る。こちらにファイルがあるかだけを確かめる。ハーネスのテストの目印も同じ値を固定で持つので、
   ハーネスの側で値を変えたときの食い違いはどちらのテストも捕まえない。ロックした版の claude-hooks を動かして確かめる
   方式は #688 に書いた
+- 2026-11-14: Slurm の値と目印の照合を、ハーネスの本文の grep から、lock の版を動かして見る形に変えた（#688）。
+  slurm-run.sh は偽の sbatch、scontrol、squeue、hostname の下で投げて渡したパーティションと入口の案内を、slurm-history.sh
+  は一時の jobcomp のファイルと既定のファイルで、表に入れるパーティションと既定のパスを、post-merge-cleanup は
+  nixosConfigurations の claude-hooks を、目印のある一時のリポジトリと無い一時のリポジトリで動かし、hosts/ を変えた
+  マージの後の rebuild の知らせを見る。値を変えると落ちること（目印を `modules/home/scripts/rebuild.sh`、入口を
+  `/mnt/elsewhere` に変えて ✗）を確かめた

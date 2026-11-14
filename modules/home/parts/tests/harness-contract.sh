@@ -3,23 +3,23 @@
 # このリポジトリの構成とスクリプトが、ハーネス（flake input の claude-harness）との約束を守っていることを検証する
 # =============================================================================
 # ハーネスのスクリプトと hook は、このリポジトリの名前や値を約束として固定で持つ。片方だけ変えると、どちらの
-# リポジトリのテストも通ったまま食い違うので、構成とスクリプトを持つこちらで照合する。
+# リポジトリのテストも通ったまま食い違うので、構成とスクリプトを持つこちらで照合する。ハーネスの側は、本文を読まず、
+# lock の版を偽物の下か一時のリポジトリで動かして見る（本文の書き方や、中身を claude-hooks に移す直しで落ちないように）。
 #
 #   1. 自動コミットするスクリプトの件名が、ハーネスの commit-msg hook を通る
 #      （実際に起きた不整合: nix-rebuild.sh が `flake: update (host)` を書き、hook の型の一覧に flake が無かったので、
 #      Claude Code のセッションからの update が最後のコミットで必ず失敗した）
-#   2. Slurm のパーティションの名前、NFS の入口、終わったジョブの記録の置き場が、ハーネスの slurm-run.sh と
-#      slurm-history.sh の値と同じ
-#   3. ハーネスの post-merge-cleanup が「rebuild する構成のリポジトリ」の目印にするファイル（nix-rebuild.sh）がある
-#      （こちらの側だけ。ハーネスの側の値は下の照合しない約束）
+#   2. Slurm のパーティションの名前、NFS の入口、終わったジョブの記録の置き場で、ハーネスの slurm-run.sh と
+#      slurm-history.sh が動く
+#   3. ハーネスの post-merge-cleanup が、こちらの nix-rebuild.sh を「rebuild する構成のリポジトリ」の目印にして、マージの
+#      後に rebuild を知らせる
 #   4. nix-rebuild.sh が main に直接コミットするのは flake.lock だけ（hook の main への直接コミットの例外。hook の側の
 #      例外は、ハーネスの main-commit-gates.sh が確かめる）
 #
 # 照合しない約束: ハーネスの hook が rebuild として見るコマンドの名前（modules/home/parts/shell.nix の関数 rebuild と
-# update、スクリプト nix-rebuild）と、post-merge-cleanup が目印にするパスの、ハーネスの側の値。どちらも claude-hooks の
-# Rust のソースの文字列と照らすしかなく、ハーネスの書き方の直しで落ちる。
-# このスクリプトは毎日の自動更新を止めるので、挙動が変わらない直しで止まる照合は入れない（試して捨てた照合は ADR-0082 の
-# 補足 2026-11-14、ハーネスを動かして確かめる方式は #688）
+# update、スクリプト nix-rebuild）。PreToolUse の hook に Claude Code の入力を作って渡せば動かして確かめられるが、
+# まだ書いていない。このスクリプトは毎日の自動更新を止めるので、挙動が変わらない直しで止まる照合（ソースの本文の
+# 照合）は入れない（試して捨てた照合は ADR-0082 の補足 2026-11-14）
 #
 # 使い方（リポジトリルートで実行）:
 #   ./modules/home/parts/tests/harness-contract.sh [host]
@@ -93,7 +93,9 @@ if ((found == 0)); then
 fi
 
 # --- 2. Slurm のパーティションの名前と NFS の入口 -----------------------------------------------------
-echo "==> Slurm の構成（modules/slurm/）とハーネスのスクリプトを照合する"
+# ハーネスのスクリプトの本文でなく、偽の sbatch などの下で動かして、渡す値を見る（本文の書き方や、中身を claude-hooks に
+# 移す直しで落ちないように）
+echo "==> Slurm の構成（modules/slurm/）でハーネスのスクリプトを動かす"
 RUN="$HARNESS/.claude/scripts/slurm-run.sh"
 HISTORY="$HARNESS/.claude/scripts/slurm-history.sh"
 
@@ -103,39 +105,119 @@ default=$(grep -o '"[a-z0-9]* Nodes=[^"]*Default=YES' modules/slurm/common.nix |
 entry=$(grep -o '^"[^"]*"$' modules/slurm/nfs-entry.nix | tr -d '"' || true)
 jobcomp=$(grep -o 'JobCompLoc=[^ ]*' modules/slurm/common.nix | cut -d= -f2 || true)
 
-if [[ -n "$protected" ]] && grep -qF -- "--partition=$protected" "$RUN"; then
+# sbatch は引数を記録して番号を出し、ジョブを 0 で終える。scontrol show は終わったジョブを、squeue は空の待ち行列を返す。
+# hostname は FAKE_HOST
+SLURM_BIN="$WORK/slurm-bin"
+mkdir -p "$SLURM_BIN"
+cat >"$SLURM_BIN/sbatch" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" >"$FAKE_SLURM/sbatch.args"
+echo "Submitted batch job 42"
+EOF
+cat >"$SLURM_BIN/scontrol" <<'EOF'
+#!/usr/bin/env bash
+[[ $1 == show ]] && echo "JobId=42 RunTime=00:00:01 TimeLimit=00:01:00 SuspendTime=None Partition=x"
+exit 0
+EOF
+printf '#!/usr/bin/env bash\nexit 0\n' >"$SLURM_BIN/squeue"
+printf '#!/usr/bin/env bash\necho "$FAKE_HOST"\n' >"$SLURM_BIN/hostname"
+chmod +x "$SLURM_BIN"/*
+mkdir -p "$WORK/home/github/contract"
+
+# submit <host> <cwd> <slurm-run.sh の引数…>: 偽物の下で slurm-run.sh を投げ、標準エラーを $WORK/slurm.err に残す
+submit() {
+  local host=$1 dir=$2
+  shift 2
+  rm -f "$WORK/sbatch.args"
+  (cd "$dir" && env -u SLURM_RUN_NFS_ENTRY -u CLAUDE_CODE_SESSION_ID HOME="$WORK/home" PATH="$SLURM_BIN:$PATH" \
+    FAKE_HOST="$host" FAKE_SLURM="$WORK" "$RUN" --ref '#0' --purpose 'ハーネスとの約束の確認' -t 1 "$@" contract true) \
+    >/dev/null 2>"$WORK/slurm.err" || true
+}
+
+submit r995 "$WORK/home/github/contract" --class timed
+if [[ -n "$protected" ]] && grep -qxF -- "--partition=$protected" "$WORK/sbatch.args" 2>/dev/null; then
   ok "割り込まれないパーティション（$protected）に、slurm-run.sh が時間を記録するジョブを投げる"
 else
-  ng "割り込まれないパーティション（'$protected'）が slurm-run.sh の --partition= に無い"
+  ng "割り込まれないパーティション（'$protected'）に、slurm-run.sh --class timed が投げない: $(cat "$WORK/slurm.err")"
 fi
-if [[ -n "$protected" ]] && grep -qF "kv[\"Partition\"] != \"$protected\"" "$HISTORY"; then
-  ok "割り込まれないパーティション（$protected）のジョブを、slurm-history.sh が表に入れる"
-else
-  ng "割り込まれないパーティション（'$protected'）が slurm-history.sh の判定に無い"
-fi
-if [[ -n "$default" ]] && grep -qF -- "--partition=$default" "$RUN"; then
+submit r995 "$WORK/home/github/contract" --class trial
+if [[ -n "$default" ]] && grep -qxF -- "--partition=$default" "$WORK/sbatch.args" 2>/dev/null; then
   ok "既定のパーティション（$default）を、slurm-run.sh が明示して投げる"
 else
-  ng "既定のパーティション（'$default'）が slurm-run.sh の --partition= に無い"
+  ng "既定のパーティション（'$default'）を、slurm-run.sh が明示して投げない: $(cat "$WORK/slurm.err")"
 fi
-if [[ -n "$entry" && "$(grep -o 'SLURM_RUN_NFS_ENTRY:-[^}]*' "$RUN" | cut -d- -f2-)" == "$entry" ]]; then
+# r995 の外で、入口の外から投げると、既定の入口の下で投げるよう求めて止まる
+submit t14g4 "$WORK" --class trial
+if [[ -n "$entry" ]] && [[ ! -e "$WORK/sbatch.args" ]] && grep -qF -- "$entry の下で" "$WORK/slurm.err"; then
   ok "NFS の入口（$entry）が、slurm-run.sh の既定の入口と同じ"
 else
-  ng "NFS の入口（'$entry'）が slurm-run.sh の既定の入口と違う"
+  ng "NFS の入口（'$entry'）が slurm-run.sh の既定の入口と違う: $(cat "$WORK/slurm.err")"
 fi
-if [[ -n "$jobcomp" ]] && grep -qF "FILE=\"\${FILE:-$jobcomp}\"" "$HISTORY"; then
+
+# jobcomp の 1 件（slurm-history.sh が読む形）
+job() {
+  printf 'JobId=%s UserId=u(1000) GroupId=g(100) Name=%s JobState=COMPLETED Partition=%s TimeLimit=10 StartTime=2026-11-01T10:00:00 EndTime=2026-11-01T10:05:00 NodeList=r995 NodeCnt=1 ProcCnt=32 WorkDir=/w\n' "$@"
+}
+{
+  job 1 contract-protected "$protected"
+  job 2 contract-other "$protected-other"
+} >"$WORK/job_completions"
+history_out=$("$HISTORY" "$WORK/job_completions" 2>&1 || true)
+if [[ -n "$protected" ]] && grep -qF contract-protected <<<"$history_out" && ! grep -qF contract-other <<<"$history_out"; then
+  ok "割り込まれないパーティション（$protected）のジョブを、slurm-history.sh が表に入れる"
+else
+  ng "割り込まれないパーティション（'$protected'）のジョブだけを slurm-history.sh が表に入れない: $history_out"
+fi
+# 既定のファイルを読めなければ、そのパスを示して止まる（読めるホストでは、読んで 0 で終わる）
+if history_err=$("$HISTORY" 2>&1 >/dev/null); then
+  [[ -n "$jobcomp" && -r "$jobcomp" ]] && ok "終わったジョブの記録の置き場（$jobcomp）を、slurm-history.sh が既定で読む" ||
+    ng "slurm-history.sh が既定のファイルを読んで終わったが、'$jobcomp' はこのホストで読めない（別の既定を読んだ）"
+elif [[ -n "$jobcomp" ]] && grep -qF -- "$jobcomp" <<<"$history_err"; then
   ok "終わったジョブの記録の置き場（$jobcomp）が、slurm-history.sh の既定のファイルと同じ"
 else
-  ng "終わったジョブの記録の置き場（'$jobcomp'）が slurm-history.sh の既定のファイルと違う"
+  ng "終わったジョブの記録の置き場（'$jobcomp'）が slurm-history.sh の既定のファイルと違う: $history_err"
 fi
 
 # --- 3. rebuild する構成のリポジトリの目印 ------------------------------------------------------------
-echo "==> post-merge-cleanup の目印を確かめる"
+# lock の版の claude-hooks の post-merge-cleanup を、目印のあるリポジトリとないリポジトリで動かし、hosts/ を変えた
+# マージの後に rebuild を知らせるのが、目印のあるほうだけかを見る。gh は PATH に置かない（open PR を確かめずに残す）
+echo "==> post-merge-cleanup を一時のリポジトリで動かす"
 MARKER=modules/home/scripts/nix-rebuild.sh
-if [[ -f "$MARKER" ]]; then
-  ok "post-merge-cleanup が目印にする $MARKER がある（ハーネスの側の値とは照らさない）"
+# 配置の source は「<パッケージ>/bin/claude-hooks」の文字列で、nix build に渡せないので、文字列の元の derivation を作る
+HOOKS_DRV=$(nix eval --raw --impure --option warn-dirty false --expr "builtins.head (builtins.attrNames (builtins.getContext
+  (builtins.getFlake \"git+file://$ROOT\").nixosConfigurations.${HOST}.config.home-manager.users.tagawa.home.file.\".claude/bin/claude-hooks\".source))")
+HOOKS="$(nix build --no-link --print-out-paths --option warn-dirty false "$HOOKS_DRV^out")/bin/claude-hooks"
+GIT_BIN="$WORK/git-bin"
+mkdir -p "$GIT_BIN"
+ln -s "$(command -v git)" "$GIT_BIN/git"
+cleanup_note() {
+  local name=$1 marker=$2 r="$WORK/cleanup-$1"
+  (
+    export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=c GIT_AUTHOR_EMAIL=c@example.com \
+      GIT_COMMITTER_NAME=c GIT_COMMITTER_EMAIL=c@example.com
+    git init -q --bare -b main "$r/origin.git"
+    git clone -q "$r/origin.git" "$r/repo" 2>/dev/null
+    cd "$r/repo"
+    if [[ -n "$marker" ]]; then
+      mkdir -p "$(dirname "$marker")" && touch "$marker"
+    else
+      touch README
+    fi
+    git add -A && git commit -q -m init && git push -q origin main
+    git switch -q -c feat && mkdir hosts && touch hosts/x && git add hosts && git commit -q -m feat
+    git push -q origin feat feat:main
+    git switch -q main
+    PATH="$GIT_BIN" "$HOOKS" script post-merge-cleanup feat 2>&1
+  ) || true
+}
+with=$(cleanup_note with "$MARKER")
+without=$(cleanup_note without "")
+if [[ -f "$MARKER" ]] && grep -q '^NOTE: rebuild' <<<"$with" && ! grep -q '^NOTE: rebuild' <<<"$without"; then
+  ok "post-merge-cleanup が $MARKER を目印に、マージの後に rebuild を知らせる"
 else
-  ng "$MARKER が無い（post-merge-cleanup がマージの後に rebuild の知らせを出さなくなる）"
+  ng "$MARKER が無いか、post-merge-cleanup がそれを目印に rebuild を知らせない:
+目印あり: $with
+目印なし: $without"
 fi
 
 # --- 4. main に直接コミットするのは flake.lock だけ ---------------------------------------------------
