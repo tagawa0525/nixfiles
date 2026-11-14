@@ -31,7 +31,8 @@ GCROOTS=~/.local/state/nix-rebuild/gcroots
 # 固定した 2 つ目のコマンド行で呼ぶ（sudoers の 2 つ目のルール）。`--builders ""` の空の引数は sudoers の完全一致で
 # 「引数なし」と紛れるので、空のファイルを読ませる `@/dev/null` で外す（捨てた方式は #692）
 nixos_rebuild_switch() {
-  # sudo は前面で実行する（背面に回すと、bash が標準入力を /dev/null にし、Ctrl+C も届かない）。監視のほうを背面に置く
+  # sudo はフォアグラウンドで実行する（バックグラウンドにすると、bash が標準入力を /dev/null にし、Ctrl+C も届かない）。
+  # 監視のほうをバックグラウンドに置く
   local watcher rc=0
   watch_store_lock &
   watcher=$!
@@ -56,54 +57,78 @@ LOCK_POLL=${NIX_REBUILD_LOCK_POLL:-5}
 # 長くつなぐクライアントがいると、切れるまで待つ。nix は待っていることを標準エラーに出すが、nixos-rebuild が
 # その出力をパイプで受けていて表示されない。何も出ないまま、何日でも止まる（#694）。
 #
-# 待ちは /proc/locks で見る（root のプロセスの中は読めないが、ロックの表は誰でも読める）。待ちが 2 回続けて
-# 見えたら（瞬間的な待ちを拾わない）、待っていることを 1 回知らせ、共有で持つワーカーのクライアントを調べる。
-# switch は止めない（クライアントが終われば、そのまま先へ進む）。
+# 待ちは /proc/locks で見る（root のプロセスの中は読めないが、ロックの表は誰でも読める）。nix のコマンドの待ちが
+# 2 回続けて見えたら（瞬間的な待ちを拾わない）、待っていることを 1 回知らせ、ロックを共有で持つプロセスを調べる。
+# switch は止めない（持ち主が終われば、そのまま先へ進む）。
 watch_store_lock() {
-  local inode tick waiting=0 announced="" reported=" "
+  local inode tick kind pid nix_waits holders waiting=0 announced="" reported=" "
   inode=$(stat -c %i "$STORE_LOCK" 2> /dev/null) || return 0
   # 間隔は、書き手のいないパイプを時間切れまで読んで待つ。sleep を子にすると、監視を止めた後も残り、
   # 呼んだ側の標準出力を間隔のぶん持ち続ける（出力をパイプで受ける呼び出しが、そのぶん終わらない）
   exec {tick}<> <(:)
   # 親（このスクリプト）が Ctrl+C などで終わったら、何もせずに終わる
   while { read -r -t "$LOCK_POLL" -u "$tick" _ || true; } && kill -0 $$ 2> /dev/null; do
-    # /proc/locks の待ちの行は「1: -> FLOCK ADVISORY WRITE <pid> <dev>:<inode> ...」。dev は照らさない
-    # （btrfs では、stat の返す dev とロックの表の dev が違う）。inode の一致と、下の nix-daemon の確認で絞る
-    if ! awk -v ino="$inode" '$2 == "->" && $3 == "FLOCK" && $5 == "WRITE" && $7 ~ ":" ino "$" { found = 1 } END { exit !found }' "$PROC_LOCKS"; then
+    nix_waits=""
+    holders=()
+    # ロックの表の行は「1: FLOCK ADVISORY READ <pid> <dev>:<inode> ...」で、待ちの行は 2 列目に「->」が入る。
+    # 待ちと持ち主を、同じ時点の表から 1 回で読む。
+    # dev と inode では big-lock を特定しきれない（btrfs は subvolume ごとに inode 番号を振り、表の dev は
+    # subvolume で変わらない。stat の返す dev とも違う）。待つ側が nix のコマンドであることで絞る
+    while read -r kind pid; do
+      case "$kind" in
+        waiter) [[ "$(command_name "$pid")" != nix* ]] || nix_waits=1 ;;
+        holder) holders+=("$pid") ;;
+      esac
+    done < <(awk -v ino="$inode" '
+      $2 == "->" && $3 == "FLOCK" && $5 == "WRITE" && $7 ~ ":" ino "$" { print "waiter", $6 }
+      $2 == "FLOCK" && $4 == "READ" && $6 ~ ":" ino "$" { print "holder", $5 }
+    ' "$PROC_LOCKS")
+    if [[ -z "$nix_waits" ]]; then
       waiting=0
       continue
     fi
     ((++waiting >= 2)) || continue
-    # 持ち主を下で読み取れなくても（ワーカーの題名の形が変わった、持ち主が nix-daemon でない）、待ちだけは知らせる
+    # 持ち主を下で 1 つも読み取れなくても、待ちだけは知らせる
     if [[ -z "$announced" ]]; then
       announced=1
-      echo "⏳ ストアの DB の排他ロックを待っています（$STORE_LOCK）。nix-daemon につないだままのプロセスが終わるまで進みません"
+      echo "⏳ ストアの DB の排他ロックを待っています（$STORE_LOCK）。共有で持つプロセスが終わるまで進みません"
     fi
-    release_store_lock "$inode"
+    for pid in "${holders[@]}"; do
+      release_holder "$pid"
+    done
   done
 }
 
-# big-lock を共有で持つ nix-daemon のワーカーから、つないでいるクライアントを調べる。nixd の評価プロセスなら止め、
-# それ以外は知らせる。同じクライアントは 1 回だけ扱う（reported は呼び出し元の変数）
-release_store_lock() {
-  local inode=$1 worker name client args
-  while read -r worker; do
-    # ワーカーのプロセスの題名は「nix-daemon <クライアントの pid>」
-    read -r name client _ <<< "$(ps -o args= -p "$worker" 2> /dev/null)" || true
-    [[ "$name" == nix-daemon && "$client" =~ ^[0-9]+$ ]] || continue
-    [[ "$reported" != *" $client "* ]] || continue
-    reported+="$client "
-    args=$(ps -o args= -p "$client" 2> /dev/null) || continue
-    name=${args%% *}
-    if [[ "${name##*/}" == nixd-attrset-eval ]]; then
-      # nixd（Nix の言語サーバー）の評価プロセスは、エディタや Claude Code が閉じるまでつなぎ続ける。言語サーバーの
-      # 補助のプロセスで、止めても失うものがない。SIGTERM はブロックしているので KILL で止める
-      echo "🔓 つないだままの nixd-attrset-eval（pid $client）を止めます"
-      kill -KILL "$client" || echo "⚠️  pid $client を止められませんでした。止めると先へ進みます"
-    else
-      echo "   つないでいるプロセス: $client $args"
-    fi
-  done < <(awk -v ino="$inode" '$2 == "FLOCK" && $4 == "READ" && $6 ~ ":" ino "$" { print $5 }' "$PROC_LOCKS")
+# プロセスのコマンドの名前（引数の先頭の basename）。ps の comm は 15 文字で切れる（nixd-attrset-ev）ので使わない
+command_name() {
+  local args
+  args=$(ps -o args= -p "$1" 2> /dev/null) || return 0
+  args=${args%% *}
+  echo "${args##*/}"
+}
+
+# big-lock を共有で持つプロセスを 1 つ扱う。nix-daemon のワーカーなら、ロックを持たせているのはつないでいる
+# クライアントなので、そちらを見る。nixd の評価プロセスなら止め、それ以外は知らせる。
+# 同じプロセスは 1 回だけ扱う（reported は呼び出し元の変数）
+release_holder() {
+  local pid=$1 args name client
+  args=$(ps -o args= -p "$pid" 2> /dev/null) || return 0
+  # ワーカーのプロセスのタイトルは「nix-daemon <クライアントの pid>」
+  read -r name client _ <<< "$args"
+  if [[ "${name##*/}" == nix-daemon && "$client" =~ ^[0-9]+$ ]]; then
+    pid=$client
+    args=$(ps -o args= -p "$pid" 2> /dev/null) || return 0
+  fi
+  [[ "$reported" != *" $pid "* ]] || return 0
+  reported+="$pid "
+  if [[ "$(command_name "$pid")" == nixd-attrset-eval ]]; then
+    # nixd（Nix の言語サーバー）の評価プロセスは、エディタや Claude Code が閉じるまでつなぎ続ける。言語サーバーの
+    # 補助のプロセスで、止めても失うものがない。SIGTERM はブロックしているので KILL で止める
+    echo "🔓 つないだままの nixd-attrset-eval（pid $pid）を止めます"
+    kill -KILL "$pid" || echo "⚠️  pid $pid を止められませんでした。止めると先へ進みます"
+  else
+    echo "   ロックを持たせているプロセス: $pid $args"
+  fi
 }
 
 rebuild() {
