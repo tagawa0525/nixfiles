@@ -84,7 +84,7 @@ spawn_worker() {
 }
 
 # 排他ロックを待つ root の nix（nixos-rebuild が最初に呼ぶ）。全部の場面で再利用する
-spawn nix-instantiate --find-file
+spawn nix-instantiate
 WAITER=$SPAWNED
 
 alive() { kill -0 "$1" 2> /dev/null; }
