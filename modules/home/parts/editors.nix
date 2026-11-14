@@ -108,6 +108,13 @@ in
         "nix.enableLanguageServer" = true;
         "nix.serverPath" = "nixd"; # nixdをLSPとして使用
         "chat.tools.terminal.outputLocation" = "chat";
+        # Claude Code 拡張が使うシェル。NixOS には /bin/bash がないため、システムの bash を明示する
+        "claudeCode.environmentVariables" = [
+          {
+            name = "SHELL";
+            value = "/run/current-system/sw/bin/bash";
+          }
+        ];
         # Todo Tree は VS Code 同梱の vscode-ripgrep を探すが Nix 版 VS Code では
         # その resolve に失敗するため、明示的に nixpkgs の ripgrep を指定する。
         "todo-tree.ripgrep.ripgrep" = "${pkgs.ripgrep}/bin/rg";
