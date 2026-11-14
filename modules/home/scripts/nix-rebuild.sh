@@ -341,8 +341,9 @@ parse_args() {
       *) ARGS+=("$arg") ;;
     esac
   done
-  if [[ -n "$LOCAL" && "$HOSTNAME" == r995 ]]; then
-    echo "❌ r995 の上では --local でも r995 でビルドします（--local はラップトップで r995 に投げないための逃げ道）"
+  # Slurm の計算ノード（ラップトップのリモートのビルダー）かは、名前でなく scontrol で見る（scontrol が無いホストはノードでない）
+  if [[ -n "$LOCAL" ]] && scontrol show node "$HOSTNAME" >/dev/null 2>&1; then
+    echo "❌ 計算ノードの上では --local でもこのノードでビルドします（--local はラップトップで計算ノードに投げないための逃げ道）"
     exit 1
   fi
 }
