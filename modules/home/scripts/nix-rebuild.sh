@@ -5,6 +5,8 @@
 # origin/main を取り込んでから NixOS を再構築
 # Usage: nix-rebuild.sh rebuild            main にいれば origin/main まで進めてからビルドする。ほかのブランチはそのままビルドする
 #        nix-rebuild.sh update [input...]   input を挙げると、その input だけを進める（例: update claude-harness）
+#        --local（rebuild か update の後に付ける）: ラップトップでも r995 に投げず、手元でビルドする。既定は r995 に
+#        投げる（速い）。r995 が時間を記録する Slurm のジョブを実行している間に、その時間を乱さずにビルドするための逃げ道
 
 set -e
 
@@ -72,6 +74,16 @@ rebuild() {
     if [[ -n "$ahead" ]]; then
       echo "ℹ️  origin に無いコミットを含めてビルドします（push していない手元のコミット）:"
       while IFS= read -r line; do echo "     $line"; done <<< "$ahead"
+    fi
+  fi
+  # switch は sudoers がコマンド行を固定していて引数を足せないので、手元でビルドするときは先にこのホストの構成を
+  # ビルドし、switch にビルドを残さない（root の nixos-rebuild は NIX_CONFIG を受けず、残れば r995 に投げる）
+  if [[ -n "${NIX_REBUILD_LOCAL:-}" ]]; then
+    echo "🔨 Building locally..."
+    if ! nix build --no-link ".#nixosConfigurations.${HOSTNAME}.config.system.build.toplevel"; then
+      echo "❌ 手元のビルドに失敗しました。switch しません"
+      cd - > /dev/null
+      return 1
     fi
   fi
   echo "🔨 Rebuilding NixOS..."
@@ -313,6 +325,24 @@ exclusive() {
   exit "$rc"
 }
 
+# --local を引数から外し、子（exclusive が実行し直すこのスクリプト、nix、ハーネスとの約束の確認）へは環境で渡す。
+# ラップトップは r995 だけでビルドする設定（max-jobs = 0）なので、手元のジョブも許す。NIX_CONFIG は wheel
+# （trusted-users）のユーザーの設定として nix-daemon に渡る
+args=()
+for arg in "$@"; do
+  if [[ "$arg" == --local ]]; then
+    export NIX_REBUILD_LOCAL=1
+  else
+    args+=("$arg")
+  fi
+done
+set -- "${args[@]}"
+if [[ -n "${NIX_REBUILD_LOCAL:-}" ]]; then
+  export NIX_CONFIG="${NIX_CONFIG:+$NIX_CONFIG
+}builders =
+max-jobs = auto"
+fi
+
 # メイン処理
 case "${1:-}" in
   rebuild)
@@ -324,7 +354,7 @@ case "${1:-}" in
     update "${@:2}"
     ;;
   *)
-    echo "Usage: $0 {rebuild|update [input...]}"
+    echo "Usage: $0 {rebuild|update [input...]} [--local]"
     exit 1
     ;;
 esac
