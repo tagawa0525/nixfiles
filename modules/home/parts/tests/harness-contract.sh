@@ -18,7 +18,7 @@
 #
 # 照合しない約束: ハーネスの hook が rebuild として見るコマンドの名前（modules/home/parts/shell.nix の関数 rebuild と
 # update、スクリプト nix-rebuild）。PreToolUse の hook に Claude Code の入力を作って渡せば動かして確かめられるが、
-# まだ書いていない。このスクリプトは毎日の自動更新を止めるので、挙動が変わらない直しで止まる照合（ソースの本文の
+# まだ書いていない（#690）。このスクリプトは毎日の自動更新を止めるので、挙動が変わらない直しで止まる照合（ソースの本文の
 # 照合）は入れない（試して捨てた照合は ADR-0082 の補足 2026-11-14）
 #
 # 使い方（リポジトリルートで実行）:
@@ -154,9 +154,9 @@ else
   ng "NFS の入口（'$entry'）が slurm-run.sh の既定の入口と違う: $(cat "$WORK/slurm.err")"
 fi
 
-# jobcomp の 1 件（slurm-history.sh が読む形）
+# jobcomp の 1 件（slurm-history.sh が読む形）。時刻は、ハーネスが割り込みを数え始める時刻を後へ動かしても越えない先に置く
 job() {
-  printf 'JobId=%s UserId=u(1000) GroupId=g(100) Name=%s JobState=COMPLETED Partition=%s TimeLimit=10 StartTime=2026-11-01T10:00:00 EndTime=2026-11-01T10:05:00 NodeList=r995 NodeCnt=1 ProcCnt=32 WorkDir=/w\n' "$@"
+  printf 'JobId=%s UserId=u(1000) GroupId=g(100) Name=%s JobState=COMPLETED Partition=%s TimeLimit=10 StartTime=2099-01-01T10:00:00 EndTime=2099-01-01T10:05:00 NodeList=r995 NodeCnt=1 ProcCnt=32 WorkDir=/w\n' "$@"
 }
 {
   job 1 contract-protected "$protected"
@@ -168,10 +168,20 @@ if [[ -n "$protected" ]] && grep -qF contract-protected <<<"$history_out" && ! g
 else
   ng "割り込まれないパーティション（'$protected'）のジョブだけを slurm-history.sh が表に入れない: $history_out"
 fi
-# 既定のファイルは、読めないホストで、読めないと止まる案内のパスを見る。読めるホスト（r995）では、動かすと slurmctld が
-# 書き足している本物の記録を読み、何と比べたかも分からないので確かめない（ほかのホストの毎日の自動更新が確かめる）
+# 既定のファイルは、読めるホスト（r995）では、引数なしの出力が $jobcomp を渡したときと同じかを見る（間に slurmctld が
+# 書き足せば違うので、1 度だけやり直す）。読めないホストでは、読めないと止まる案内のパスを見る
+history_same() {
+  local a b
+  a=$(timeout 60 "$HISTORY" 2>&1; echo "exit=$?")
+  b=$(timeout 60 "$HISTORY" "$jobcomp" 2>&1; echo "exit=$?")
+  [[ "$a" == "$b" ]]
+}
 if [[ -n "$jobcomp" && -r "$jobcomp" ]]; then
-  echo "- 終わったジョブの記録の置き場（$jobcomp）は、このホストで読めるので確かめない"
+  if history_same || history_same; then
+    ok "終わったジョブの記録の置き場（$jobcomp）を、slurm-history.sh が既定で読む"
+  else
+    ng "slurm-history.sh の既定のファイルが、終わったジョブの記録の置き場（'$jobcomp'）と違う（引数なしと出力が違う）"
+  fi
 elif history_err=$(timeout 60 "$HISTORY" 2>&1 >/dev/null); then
   ng "slurm-history.sh が既定のファイルを読んで終わったが、'$jobcomp' はこのホストで読めない（別の既定を読んだ）"
 elif [[ -n "$jobcomp" && "$history_err" == *": $jobcomp" ]]; then
@@ -191,7 +201,8 @@ HOOKS_DRV=$(nix eval --raw --impure --option warn-dirty false --expr "builtins.h
 HOOKS="$(nix build --no-link --print-out-paths --option warn-dirty false "$HOOKS_DRV^out")/bin/claude-hooks"
 GIT_BIN="$WORK/git-bin"
 mkdir -p "$GIT_BIN"
-ln -s "$(command -v git)" "$GIT_BIN/git"
+# 包むスクリプトでなく本体を置く（PATH はこれだけなので、#! の bash や env を引けない）
+ln -s "$(readlink -f "$(command -v git)")" "$GIT_BIN/git"
 # cleanup_note <名前> <目印のパス | 空>: 一時のリポジトリを作り、post-merge-cleanup の出力を返す。git はすべて -C で
 # 一時のリポジトリに向け、作れなければ動かさない（呼ぶ側は || true なので set -e が効かず、cd の失敗の後の手順が
 # このリポジトリで走ってしまう）
@@ -202,9 +213,9 @@ cleanup_note() {
     export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=c GIT_AUTHOR_EMAIL=c@example.com \
       GIT_COMMITTER_NAME=c GIT_COMMITTER_EMAIL=c@example.com
     git init -q --bare -b main "$r/origin.git" &&
-      git clone -q "$r/origin.git" "$repo" 2>/dev/null &&
+      git init -q -b main "$repo" && git -C "$repo" remote add origin "$r/origin.git" &&
       mkdir -p "$repo/$(dirname "${marker:-README}")" && touch "$repo/${marker:-README}" &&
-      git -C "$repo" add -A && git -C "$repo" commit -q -m init && git -C "$repo" push -q origin main &&
+      git -C "$repo" add -A && git -C "$repo" commit -q -m init && git -C "$repo" push -q -u origin main &&
       git -C "$repo" switch -q -c feat && mkdir "$repo/hosts" && touch "$repo/hosts/x" &&
       git -C "$repo" add hosts && git -C "$repo" commit -q -m feat && git -C "$repo" push -q origin feat:main &&
       git -C "$repo" switch -q main || { echo "一時のリポジトリを作れない: $repo"; exit 1; }
@@ -214,7 +225,9 @@ cleanup_note() {
 }
 with=$(cleanup_note with "$MARKER")
 without=$(cleanup_note without "")
-if [[ -f "$MARKER" ]] && grep -q '^NOTE: rebuild' <<<"$with" && ! grep -q '^NOTE: rebuild' <<<"$without"; then
+# 目印の無いほうも、知らせを出す前の手順（ブランチの削除）まで進んだことを確かめてから、知らせが無いことを見る
+if [[ -f "$MARKER" ]] && grep -q '^NOTE: rebuild' <<<"$with" && grep -q '^LOCAL_BRANCH: deleted' <<<"$without" &&
+  ! grep -q '^NOTE: rebuild' <<<"$without"; then
   ok "post-merge-cleanup が $MARKER を目印に、マージの後に rebuild を知らせる"
 else
   ng "$MARKER が無いか、post-merge-cleanup がそれを目印に rebuild を知らせない:
