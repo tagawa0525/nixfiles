@@ -45,7 +45,8 @@ in
           command = "/run/current-system/sw/bin/nixos-rebuild switch --flake ${nixdir}";
           options = [ "NOPASSWD" ];
         }
-        # nix-rebuild --local（r995 に投げず手元でビルドする。r995 が時間を記録するジョブを実行している間の逃げ道）。
+        # nix-rebuild --local（リモートのビルダーに投げず手元でビルドする。計算ノードが時間を記録するジョブを実行している
+        # 間の逃げ道）。
         # 足すのはビルドの置き場を決める固定の引数だけで、上と同じく任意の flake やコマンドには使えない
         {
           command = "/run/current-system/sw/bin/nixos-rebuild switch --flake ${nixdir} --builders @/dev/null --max-jobs auto";

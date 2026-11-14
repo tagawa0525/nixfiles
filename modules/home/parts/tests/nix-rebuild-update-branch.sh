@@ -431,6 +431,7 @@ else
   ok "--local の無い update は、環境の変数があってもビルドの置き場を変えない"
 fi
 
+
 echo "==> --local の switch は、sudoers の 2 つ目の固定のコマンド行で、手元でビルドさせる"
 # sudo のスタブは引数を残す。sudoers（modules/nix-rebuild-nopasswd.nix）の 2 つのコマンド行と同じ形かを見る
 printf '#!/bin/sh\necho "$*" >> "%s/sudo.args"\necho "stub sudo called" >&2\nexit 1\n' "$WORK" > "$WORK/bin/sudo"
