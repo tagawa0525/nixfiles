@@ -12,8 +12,8 @@ repos:
         types: [text]
         verbose: true # 通ったときも warning を見せる
       # ハーネス（flake input の claude-harness）のスクリプトが固定で持つ名前と値を、こちらの構成と照合する。
-      # 約束に関わるファイルと、ハーネスの版を決める flake.lock を変えるコミットでだけ走る（hook をビルドするので、
-      # 数秒から数十秒かかる）
+      # 約束に関わるファイルと、ハーネスの版を決める flake.lock を変えるコミットでだけ走る（commit-msg の hook と
+      # claude-hooks をビルドするので、ハーネスの版が新しいと数分かかる）
       - id: harness-contract
         name: harness-contract
         entry: bash modules/home/parts/tests/harness-contract.sh
