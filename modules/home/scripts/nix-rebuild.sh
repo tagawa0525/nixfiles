@@ -57,20 +57,28 @@ LOCK_POLL=${NIX_REBUILD_LOCK_POLL:-5}
 # その出力をパイプで受けていて表示されない。何も出ないまま、何日でも止まる（#694）。
 #
 # 待ちは /proc/locks で見る（root のプロセスの中は読めないが、ロックの表は誰でも読める）。待ちが 2 回続けて
-# 見えたら（瞬間的な待ちを拾わない）、共有で持つワーカーのクライアントを調べる。switch は止めない
-# （クライアントが終われば、そのまま先へ進む）。
+# 見えたら（瞬間的な待ちを拾わない）、待っていることを 1 回知らせ、共有で持つワーカーのクライアントを調べる。
+# switch は止めない（クライアントが終われば、そのまま先へ進む）。
 watch_store_lock() {
-  local inode waiting=0 reported=" "
+  local inode tick waiting=0 announced="" reported=" "
   inode=$(stat -c %i "$STORE_LOCK" 2> /dev/null) || return 0
-  # 親（このスクリプト）が Ctrl+C などで終わったら、残らずに終わる
-  while sleep "$LOCK_POLL" && kill -0 $$ 2> /dev/null; do
+  # 間隔は、書き手のいないパイプを時間切れまで読んで待つ。sleep を子にすると、監視を止めた後も残り、
+  # 呼んだ側の標準出力を間隔のぶん持ち続ける（出力をパイプで受ける呼び出しが、そのぶん終わらない）
+  exec {tick}<> <(:)
+  # 親（このスクリプト）が Ctrl+C などで終わったら、何もせずに終わる
+  while { read -r -t "$LOCK_POLL" -u "$tick" _ || true; } && kill -0 $$ 2> /dev/null; do
     # /proc/locks の待ちの行は「1: -> FLOCK ADVISORY WRITE <pid> <dev>:<inode> ...」。dev は照らさない
     # （btrfs では、stat の返す dev とロックの表の dev が違う）。inode の一致と、下の nix-daemon の確認で絞る
-    if ! awk -v ino="$inode" '$2 == "->" && $3 == "FLOCK" && $7 ~ ":" ino "$" { found = 1 } END { exit !found }' "$PROC_LOCKS"; then
+    if ! awk -v ino="$inode" '$2 == "->" && $3 == "FLOCK" && $5 == "WRITE" && $7 ~ ":" ino "$" { found = 1 } END { exit !found }' "$PROC_LOCKS"; then
       waiting=0
       continue
     fi
     ((++waiting >= 2)) || continue
+    # 持ち主を下で読み取れなくても（ワーカーの題名の形が変わった、持ち主が nix-daemon でない）、待ちだけは知らせる
+    if [[ -z "$announced" ]]; then
+      announced=1
+      echo "⏳ ストアの DB の排他ロックを待っています（$STORE_LOCK）。nix-daemon につないだままのプロセスが終わるまで進みません"
+    fi
     release_store_lock "$inode"
   done
 }
@@ -90,13 +98,12 @@ release_store_lock() {
     if [[ "${name##*/}" == nixd-attrset-eval ]]; then
       # nixd（Nix の言語サーバー）の評価プロセスは、エディタや Claude Code が閉じるまでつなぎ続ける。言語サーバーの
       # 補助のプロセスで、止めても失うものがない。SIGTERM はブロックしているので KILL で止める
-      echo "🔓 ストアの DB の排他ロックを待っています。つないだままの nixd-attrset-eval（pid $client）を止めます"
+      echo "🔓 つないだままの nixd-attrset-eval（pid $client）を止めます"
       kill -KILL "$client" || echo "⚠️  pid $client を止められませんでした。止めると先へ進みます"
     else
-      echo "⏳ ストアの DB の排他ロックを待っています。次のプロセスが nix-daemon につないでいる間は進みません"
-      echo "   $client $args"
+      echo "   つないでいるプロセス: $client $args"
     fi
-  done < <(awk -v ino="$inode" '$2 == "FLOCK" && $6 ~ ":" ino "$" { print $5 }' "$PROC_LOCKS")
+  done < <(awk -v ino="$inode" '$2 == "FLOCK" && $4 == "READ" && $6 ~ ":" ino "$" { print $5 }' "$PROC_LOCKS")
 }
 
 rebuild() {
