@@ -41,9 +41,10 @@ for cmd in nix sudo; do
 done
 # nix のスタブは、受けた引数も 1 回の呼び出しを 1 行にして残し、呼ばれたときの NIX_CONFIG も残す
 printf '#!/bin/sh\necho "$*" >> "%s/nix.args"\nprintf "%%s\\n" "$NIX_CONFIG" >> "%s/nix.config"\necho "stub nix called" >&2\nexit 1\n' "$WORK" "$WORK" > "$WORK/bin/nix"
-# scontrol は、FAKE_NODE と同じ名前のノードだけを Slurm の計算ノードとして見せる（既定はどのホストもノードでない）
-printf '#!/bin/sh\n[ "$1 $2" = "show node" ] && [ -n "$FAKE_NODE" ] && [ "$3" = "$FAKE_NODE" ]\n' > "$WORK/bin/scontrol"
-chmod +x "$WORK/bin/scontrol"
+# リモートのビルダー（NIX_CONF_DIR/machines）。既定はラップトップと同じく計算ノードに投げる
+mkdir -p "$WORK/nix-conf" "$WORK/nix-conf-none"
+echo 'ssh-ng://nix-ssh@r995 x86_64-linux - 16 4 kvm - -' > "$WORK/nix-conf/machines"
+export NIX_CONF_DIR="$WORK/nix-conf"
 export PATH="$WORK/bin:$PATH"
 
 # origin（bare）と clone を用意し、origin/main を clone より 1 コミット進める
@@ -434,14 +435,14 @@ else
   ok "--local の無い update は、環境の変数があってもビルドの置き場を変えない"
 fi
 
-# Slurm の計算ノード（ラップトップのリモートのビルダー）の上の --local は、そのノードでビルドするので断る。ノードかは
-# 名前でなく scontrol で見る
+# リモートのビルダーの無いホスト（計算ノード自身）の --local は、同じく手元でビルドするので断る。ビルダーは
+# ホストの名前でなく machines で見る
 rm -f "$WORK/nix.args"
-if FAKE_NODE=$(hostname) bash "$SCRIPT" update --local >"$WORK/out" 2>&1 || [[ -e "$WORK/nix.args" ]] ||
-  ! grep -q "計算ノード" "$WORK/out"; then
-  ng "計算ノードの上の --local は、nix を呼ばずに断る"
+if NIX_CONF_DIR="$WORK/nix-conf-none" bash "$SCRIPT" update --local >"$WORK/out" 2>&1 || [[ -e "$WORK/nix.args" ]] ||
+  ! grep -q "リモートのビルダーが無く" "$WORK/out"; then
+  ng "リモートのビルダーの無いホストの --local は、nix を呼ばずに断る"
 else
-  ok "計算ノードの上の --local は、nix を呼ばずに断る"
+  ok "リモートのビルダーの無いホストの --local は、nix を呼ばずに断る"
 fi
 
 echo "==> --local の switch は、sudoers の 2 つ目の固定のコマンド行で、手元でビルドさせる"
