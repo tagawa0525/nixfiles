@@ -26,6 +26,8 @@ export HOME="$WORK/home"
 mkdir -p "$HOME/nix"
 export GIT_CONFIG_GLOBAL="$HOME/.gitconfig"
 export GIT_CONFIG_NOSYSTEM=1
+# 呼ぶ側の NIX_CONFIG を持ち込まない（--local の有無を、スクリプトが足した設定だけで見る）
+unset NIX_CONFIG
 git config --global user.name test
 git config --global user.email test@example.com
 git config --global init.defaultBranch main
@@ -148,7 +150,10 @@ for bad in claude-harnes --commit-lock-file; do
     ng "flake に無い input の名前（$bad）では失敗終了する"
   elif [[ -e "$WORK/nix.args" ]]; then
     ng "flake に無い input の名前（$bad）では nix を呼ばない"
-  elif ! grep -qF -- "$bad" "$WORK/out" || ! grep -q "claude-harness" "$WORK/out"; then
+  elif ! grep -qF -- "$bad" "$WORK/out"; then
+    ng "flake に無い input の名前（$bad）を出力する"
+  elif [[ "$bad" != -* ]] && ! grep -q "claude-harness" "$WORK/out"; then
+    # - で始まる語は、input の名前の前に、知らないオプションとして止まる
     ng "flake に無い input の名前（$bad）と、使える名前の一覧を出力する"
   else
     ok "flake に無い input の名前（$bad）では、nix を呼ばずに、使える名前を示して失敗終了する"
@@ -461,12 +466,22 @@ for mode in "" --local; do
   [[ -z "$mode" ]] || expected+=" --builders @/dev/null --max-jobs auto"
   if [[ "$(cat "$WORK/sudo.args" 2>/dev/null)" != "$expected" ]]; then
     ng "update ${mode:-（--local なし）} は、sudoers の固定のコマンド行で switch する: $(cat "$WORK/sudo.args" 2>/dev/null)"
-  elif [[ -n "$mode" ]] && ! grep -qx "builders =" "$WORK/nix.config"; then
+  elif [[ -n "$mode" ]] && ! { grep -qx "builders =" "$WORK/nix.config" && grep -qx "max-jobs = auto" "$WORK/nix.config"; }; then
     ng "update --local は、検証のビルドも手元でビルドさせる"
   else
     ok "update ${mode:-（--local なし）} は、sudoers の固定のコマンド行で switch する（--local は検証のビルドも手元）"
   fi
 done
+
+# 知らないオプションは、ロックも fetch もせずに使い方の誤りで止まる
+before=$(git -C "$REPO" rev-parse HEAD)
+rm -f "$WORK/nix.args"
+if bash "$SCRIPT" update --Local claude-harness >"$WORK/out" 2>&1 || [[ -e "$WORK/nix.args" ]] ||
+  ! grep -q "知らないオプション" "$WORK/out"; then
+  ng "update の知らないオプションは、nix を呼ばずに使い方の誤りで止まる"
+else
+  ok "update の知らないオプションは、nix を呼ばずに使い方の誤りで止まる"
+fi
 
 echo
 echo "passed: $PASS, failed: $FAIL"

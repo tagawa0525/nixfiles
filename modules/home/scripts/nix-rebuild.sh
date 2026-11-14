@@ -324,25 +324,34 @@ exclusive() {
 }
 
 # --local（サブコマンドの後）: 手元でビルドする。引数からだけ読む（環境から受けると、残った変数で毎朝の自動更新まで
-# 手元でビルドしうる）。exclusive が実行し直した子が読み、NIX_CONFIG で nix と、ハーネスとの約束の確認に渡す。
-# ラップトップは r995 だけでビルドする設定（max-jobs = 0）なので、手元のジョブも許す。NIX_CONFIG は wheel
-# （trusted-users）のユーザーの設定として nix-daemon に渡る
+# 手元でビルドしうる）。NIX_CONFIG で nix と、ハーネスとの約束の確認に渡す。ラップトップは r995 だけでビルドする
+# 設定（max-jobs = 0）なので、手元のジョブも許す。NIX_CONFIG は wheel（trusted-users）のユーザーの設定として
+# nix-daemon に渡る。switch の 2 つ目の sudoers の行は、それを入れた rebuild の後に効く（最初の 1 回は --local なしで入れる）
 LOCAL=
-use_local_builds() {
-  local arg rest=()
+ARGS=()
+parse_args() {
+  local arg
   for arg in "$@"; do
-    if [[ "$arg" == --local ]]; then
-      LOCAL=1
-    else
-      rest+=("$arg")
-    fi
+    case "$arg" in
+      --local) LOCAL=1 ;;
+      -*)
+        echo "❌ 知らないオプションです: $arg"
+        usage
+        ;;
+      *) ARGS+=("$arg") ;;
+    esac
   done
-  ARGS=("${rest[@]}")
-  if [[ -n "$LOCAL" ]]; then
-    export NIX_CONFIG="${NIX_CONFIG:+$NIX_CONFIG
+  if [[ -n "$LOCAL" && "$HOSTNAME" == r995 ]]; then
+    echo "❌ r995 の上では --local でも r995 でビルドします（--local はラップトップで r995 に投げないための逃げ道）"
+    exit 1
+  fi
+}
+
+use_local_builds() {
+  [[ -n "$LOCAL" ]] || return 0
+  export NIX_CONFIG="${NIX_CONFIG:+$NIX_CONFIG
 }builders =
 max-jobs = auto"
-  fi
 }
 
 usage() {
@@ -350,17 +359,19 @@ usage() {
   exit 1
 }
 
-# メイン処理
+# メイン処理。引数はロックを取る前に確かめる（誤りを、ほかの nix-rebuild の実行中の知らせに隠さない）
 case "${1:-}" in
   rebuild)
-    exclusive "$@"
-    use_local_builds "${@:2}"
+    parse_args "${@:2}"
     ((${#ARGS[@]} == 0)) || usage
+    exclusive "$@"
+    use_local_builds
     rebuild
     ;;
   update)
+    parse_args "${@:2}"
     exclusive "$@"
-    use_local_builds "${@:2}"
+    use_local_builds
     update "${ARGS[@]}"
     ;;
   *)
