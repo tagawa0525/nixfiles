@@ -155,6 +155,28 @@ for bad in claude-harnes --commit-lock-file; do
   fi
 done
 
+echo "==> --local は、r995 に投げずに手元でビルドする（既定は r995 に投げる）"
+git -C "$REPO" switch -q main
+rm -f "$WORK/nix.args" "$WORK/nix.config"
+bash "$SCRIPT" update >"$WORK/out" 2>&1 || true
+if grep -q "builders =" "$WORK/nix.config" 2>/dev/null; then
+  ng "--local の無い update は、ビルドの置き場を変えない"
+else
+  ok "--local の無い update は、ビルドの置き場を変えない"
+fi
+rm -f "$WORK/nix.args" "$WORK/nix.config"
+bash "$SCRIPT" update --local claude-harness >"$WORK/out" 2>&1 || true
+if [[ "$(head -1 "$WORK/nix.args" 2>/dev/null)" == "flake update claude-harness" ]]; then
+  ok "update --local は、--local を input の名前に数えない"
+else
+  ng "update --local は、--local を input の名前に数えない"
+fi
+if grep -qx "builders =" "$WORK/nix.config" 2>/dev/null && grep -qx "max-jobs = auto" "$WORK/nix.config"; then
+  ok "update --local は、リモートのビルダーを使わず手元でビルドするよう nix に渡す"
+else
+  ng "update --local は、リモートのビルダーを使わず手元でビルドするよう nix に渡す"
+fi
+
 echo "==> update は、lock を進めた後、検証のビルドと切り替えの前に、ハーネスとの約束の照合を通す"
 # nix は成功するスタブにする（flake update は lock を書き換え、eval はホストの名前を、build はパスを返す）
 cat > "$WORK/bin/nix" <<STUB
@@ -386,27 +408,10 @@ else
 fi
 git -C "$REPO" remote set-url origin "$WORK/origin.git"
 
-echo "==> --local は、r995 に投げずに手元でビルドする（既定は r995 に投げる）"
+echo "==> rebuild --local は、switch の前に手元でビルドする"
 git -C "$REPO" switch -q main
-rm -f "$WORK/nix.args" "$WORK/nix.config"
-bash "$SCRIPT" update >"$WORK/out" 2>&1 || true
-if grep -q "builders =" "$WORK/nix.config" 2>/dev/null; then
-  ng "--local の無い update は、ビルドの置き場を変えない"
-else
-  ok "--local の無い update は、ビルドの置き場を変えない"
-fi
-rm -f "$WORK/nix.args" "$WORK/nix.config"
-bash "$SCRIPT" update --local claude-harness >"$WORK/out" 2>&1 || true
-if [[ "$(head -1 "$WORK/nix.args" 2>/dev/null)" == "flake update claude-harness" ]]; then
-  ok "update --local は、--local を input の名前に数えない"
-else
-  ng "update --local は、--local を input の名前に数えない"
-fi
-if grep -qx "builders =" "$WORK/nix.config" 2>/dev/null && grep -qx "max-jobs = auto" "$WORK/nix.config"; then
-  ok "update --local は、リモートのビルダーを使わず手元でビルドするよう nix に渡す"
-else
-  ng "update --local は、リモートのビルダーを使わず手元でビルドするよう nix に渡す"
-fi
+# 引数を残して失敗する nix に戻す（上の照合のテストが成功するスタブに替えている）
+printf '#!/bin/sh\necho "$*" >> "%s/nix.args"\necho "stub nix called" >&2\nexit 1\n' "$WORK" > "$WORK/bin/nix"
 rm -f "$WORK/nix.args" "$WORK/nix.config"
 bash "$SCRIPT" rebuild --local >"$WORK/out" 2>&1 || true
 # switch は sudoers がコマンド行を固定しているので引数を足せない。先に手元でビルドし、switch にビルドを残さない
