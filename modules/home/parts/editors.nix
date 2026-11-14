@@ -4,6 +4,7 @@
 # VSCode, Neovim, Zed, Alacritty などエディタ・ターミナルの設定
 # =============================================================================
 {
+  config,
   lib,
   pkgs,
   nur-vscode-latest,
@@ -13,6 +14,17 @@
 let
   # パッケージから拡張機能IDを抽出
   getExtensionId = ext: "${ext.vscodeExtPublisher}.${ext.vscodeExtName}";
+
+  # Claude Code 拡張は、シェルから解決した PATH を、claudeCode.environmentVariables の PATH で丸ごと置き換える。
+  # そのため、シェルで足す ~/.local/bin（home.sessionPath）も含めて並べる。
+  # 解決した PATH を使う案は、拡張がその値を上書きするので効かない（レビューで確認）。
+  claudeCodePath = lib.concatStringsSep ":" [
+    "${config.home.homeDirectory}/.local/bin"
+    "/run/wrappers/bin"
+    "${config.home.homeDirectory}/.nix-profile/bin"
+    "/etc/profiles/per-user/${config.home.username}/bin"
+    "/run/current-system/sw/bin"
+  ];
 
   # リモートにもインストールする拡張機能（ワークスペース拡張機能）
   workspaceExtensions = [
@@ -108,8 +120,7 @@ in
         "nix.enableLanguageServer" = true;
         "nix.serverPath" = "nixd"; # nixdをLSPとして使用
         "chat.tools.terminal.outputLocation" = "chat";
-        # Claude Code 拡張が使うシェルと PATH。NixOS には /bin/bash がないため、システムの bash を明示し、
-        # PATH は NixOS の既定の場所（ラッパー、プロファイル）を並べる
+        # Claude Code 拡張が使うシェル。NixOS には /bin/bash がないため、システムの bash を明示する
         "claudeCode.environmentVariables" = [
           {
             name = "SHELL";
@@ -117,7 +128,7 @@ in
           }
           {
             name = "PATH";
-            value = "/run/wrappers/bin:/home/tagawa/.nix-profile/bin:/etc/profiles/per-user/tagawa/bin:/run/current-system/sw/bin";
+            value = claudeCodePath;
           }
         ];
         # Todo Tree は VS Code 同梱の vscode-ripgrep を探すが Nix 版 VS Code では
