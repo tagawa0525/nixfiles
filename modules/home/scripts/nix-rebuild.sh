@@ -342,13 +342,6 @@ parse_args() {
       *) ARGS+=("$arg") ;;
     esac
   done
-  # リモートのビルダーの無いホスト（計算ノード自身）では、--local でも同じく手元でビルドするので、逃げ道にならない。
-  # ビルダーは NixOS の nix.buildMachines が書く ${NIX_CONF_DIR:-/etc/nix}/machines（ホストの名前でなく、ネットワークも使わずに見る）
-  local machines="${NIX_CONF_DIR:-/etc/nix}/machines"
-  if [[ -n "$LOCAL" && ! -s "$machines" ]]; then
-    echo "❌ このホストにはリモートのビルダーが無く（$machines）、--local でもこのホストでビルドします（--local はビルドをリモートのビルダーに投げないための逃げ道）"
-    exit 1
-  fi
 }
 
 use_local_builds() {

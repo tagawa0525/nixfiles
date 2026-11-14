@@ -41,10 +41,6 @@ for cmd in nix sudo; do
 done
 # nix のスタブは、受けた引数も 1 回の呼び出しを 1 行にして残し、呼ばれたときの NIX_CONFIG も残す
 printf '#!/bin/sh\necho "$*" >> "%s/nix.args"\nprintf "%%s\\n" "$NIX_CONFIG" >> "%s/nix.config"\necho "stub nix called" >&2\nexit 1\n' "$WORK" "$WORK" > "$WORK/bin/nix"
-# リモートのビルダー（NIX_CONF_DIR/machines）。既定はラップトップと同じく計算ノードに投げる
-mkdir -p "$WORK/nix-conf" "$WORK/nix-conf-none"
-echo 'ssh-ng://nix-ssh@r995 x86_64-linux - 16 4 kvm - -' > "$WORK/nix-conf/machines"
-export NIX_CONF_DIR="$WORK/nix-conf"
 export PATH="$WORK/bin:$PATH"
 
 # origin（bare）と clone を用意し、origin/main を clone より 1 コミット進める
@@ -435,15 +431,6 @@ else
   ok "--local の無い update は、環境の変数があってもビルドの置き場を変えない"
 fi
 
-# リモートのビルダーの無いホスト（計算ノード自身）の --local は、同じく手元でビルドするので断る。ビルダーは
-# ホストの名前でなく machines で見る
-rm -f "$WORK/nix.args"
-if NIX_CONF_DIR="$WORK/nix-conf-none" bash "$SCRIPT" update --local >"$WORK/out" 2>&1 || [[ -e "$WORK/nix.args" ]] ||
-  ! grep -q "リモートのビルダーが無く" "$WORK/out"; then
-  ng "リモートのビルダーの無いホストの --local は、nix を呼ばずに断る"
-else
-  ok "リモートのビルダーの無いホストの --local は、nix を呼ばずに断る"
-fi
 
 echo "==> --local の switch は、sudoers の 2 つ目の固定のコマンド行で、手元でビルドさせる"
 # sudo のスタブは引数を残す。sudoers（modules/nix-rebuild-nopasswd.nix）の 2 つのコマンド行と同じ形かを見る
