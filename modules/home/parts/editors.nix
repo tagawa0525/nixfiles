@@ -108,11 +108,16 @@ in
         "nix.enableLanguageServer" = true;
         "nix.serverPath" = "nixd"; # nixdをLSPとして使用
         "chat.tools.terminal.outputLocation" = "chat";
-        # Claude Code 拡張が使うシェル。NixOS には /bin/bash がないため、システムの bash を明示する
+        # Claude Code 拡張が使うシェルと PATH。NixOS には /bin/bash がないため、システムの bash を明示し、
+        # PATH は NixOS の既定の場所（ラッパー、プロファイル）を並べる
         "claudeCode.environmentVariables" = [
           {
             name = "SHELL";
             value = "/run/current-system/sw/bin/bash";
+          }
+          {
+            name = "PATH";
+            value = "/run/wrappers/bin:/home/tagawa/.nix-profile/bin:/etc/profiles/per-user/tagawa/bin:/run/current-system/sw/bin";
           }
         ];
         # Todo Tree は VS Code 同梱の vscode-ripgrep を探すが Nix 版 VS Code では
