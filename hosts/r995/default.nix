@@ -130,6 +130,14 @@ in
     # nucrawler eval で LLM の採点と比べる（nucrawler の計画 010）
     embeddingServer.enable = true;
   };
+  # 一時停止: 巡回（embedding のサーバーを起こす）と依頼の和訳の timer を timers.target から外す。
+  # embedding のサーバー（podman のコンテナで約 27 GB）が Slurm の xlc のジョブ（60 GB 超）と重なり、
+  # カーネルの OOM killer がジョブを殺した（2026-11-15 16:01）。巡回は Claude の利用枠も使う。
+  # Slurm の長いジョブが終わったらこのブロックを消して戻す
+  home-manager.users.tagawa.systemd.user.timers = {
+    nucrawler-crawl.Install.WantedBy = lib.mkForce [ ];
+    nucrawler-requests.Install.WantedBy = lib.mkForce [ ];
+  };
 
   # user unit の timer をログインしていない間も動かす
   users.users.tagawa.linger = true;
