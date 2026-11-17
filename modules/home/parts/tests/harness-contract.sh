@@ -169,11 +169,12 @@ else
   ng "割り込まれないパーティション（'$protected'）のジョブだけを slurm-history.sh が表に入れない: $history_out"
 fi
 # 既定のファイルは、読めるホスト（r995）では、引数なしの出力が $jobcomp を渡したときと同じかを見る（間に slurmctld が
-# 書き足せば違うので、1 度だけやり直す）。読めないホストでは、読めないと止まる案内のパスを見る
+# 書き足せば違うので、1 度だけやり直す）。引数なしは sacct も読むので、$jobcomp を渡す側にも --sacct を付けて条件を揃える
+# （ファイルだけを渡すと sacct を呼ばず、MaxRSS と排他でないジョブの除外が違う）。読めないホストでは、読めないと止まる案内のパスを見る
 history_same() {
   local a b
   a=$(timeout 60 "$HISTORY" 2>&1; echo "exit=$?")
-  b=$(timeout 60 "$HISTORY" "$jobcomp" 2>&1; echo "exit=$?")
+  b=$(timeout 60 "$HISTORY" --sacct "$jobcomp" 2>&1; echo "exit=$?")
   [[ "$a" == "$b" ]]
 }
 if [[ -n "$jobcomp" && -r "$jobcomp" ]]; then

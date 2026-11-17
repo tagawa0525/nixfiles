@@ -2,7 +2,7 @@
 # 開発環境の設定
 # =============================================================================
 # 開発ツール、activation scripts、言語設定など
-# Git関連は git.nix、Claude Code の本体は claude-apps.nix、ハーネスは flake input の claude-harness を参照
+# Git関連は git.nix、Claude Code の本体は claude-apps.nix、ハーネス（markdownlint の設定と本体を含む）は flake input の claude-harness を参照
 # =============================================================================
 { pkgs, lib, ... }:
 
@@ -33,30 +33,9 @@
     nixfmt # Formatter（RFC 166 公式スタイル）
     statix # Linter（静的解析）
 
-    # Markdown品質チェックツール
-    markdownlint-cli # Linter（スタイルチェック）
-
     # Shell品質チェックツール
     shellcheck # Linter（静的解析）
   ];
-
-  # ===========================================================================
-  # markdownlint設定（グローバル）
-  # ===========================================================================
-  home.file.".markdownlintrc".text = builtins.toJSON {
-    default = true;
-    MD013 = false; # 行の長さ制限を無効化
-    MD024 = {
-      siblings_only = true;
-    }; # 異なるセクション間の見出し重複は許可
-    MD029 = false; # 番号つきリストのプレフィックス順序を強制しない
-    MD033 = false; # インラインHTMLを許可
-    MD034 = false; # URLの直書きを許可
-    MD036 = false; # 強調テキストを見出し代わりに使うことを許可
-    MD041 = false; # 先頭行がH1でなくてもよい
-    MD056 = true; # 表の列数の一貫性を強制
-    MD059 = false; # リンクURLの重複チェックを無効化
-  };
 
   # ===========================================================================
   # アクティベーションスクリプト
