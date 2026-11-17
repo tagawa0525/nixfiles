@@ -126,7 +126,7 @@ in
             "source.fixAll.markdownlint" = "explicit";
           };
         };
-        # markdownlint設定は ~/.markdownlintrc を参照（development.nixで管理）
+        # markdownlint設定は ~/.markdownlintrc を参照（claude-harness の git-hooks.nix で管理）
         # Rust設定（rust-analyzer）
         "[rust]" = {
           "editor.defaultFormatter" = "rust-lang.rust-analyzer";
