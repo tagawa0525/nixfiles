@@ -48,11 +48,9 @@ ng() { FAIL=$((FAIL + 1)); echo "✗ $1" >&2; }
 echo "==> ハーネスのソースを lock の版で取り出す"
 HARNESS=$(nix eval --raw --impure --option warn-dirty false \
   --expr "(builtins.getFlake \"git+file://$ROOT\").inputs.claude-harness.outPath")
-# ハーネスの配る元は claude/（claude-harness の ADR-0094）。改名より前の lock の版は .claude/ に持つ。lock が改名の後の版に
-# 進んだら、古い名前の分岐を消す（#700）
+# ハーネスの配る元は claude/（claude-harness の ADR-0094）
 HARNESS_SCRIPTS="$HARNESS/claude/scripts"
-[[ -d "$HARNESS_SCRIPTS" ]] || HARNESS_SCRIPTS="$HARNESS/.claude/scripts"
-[[ -d "$HARNESS_SCRIPTS" ]] || { echo "✗ ハーネスのソースが読めない: $HARNESS" >&2; exit 1; }
+[[ -d "$HARNESS_SCRIPTS" ]] || { echo "✗ ハーネスのスクリプトが読めない: $HARNESS_SCRIPTS" >&2; exit 1; }
 
 # --- 1. 自動コミットするスクリプトの件名 -------------------------------------------------------------
 echo "==> commit-msg hook をビルドする（nixosConfigurations.${HOST}）"
