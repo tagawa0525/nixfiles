@@ -48,7 +48,11 @@ ng() { FAIL=$((FAIL + 1)); echo "✗ $1" >&2; }
 echo "==> ハーネスのソースを lock の版で取り出す"
 HARNESS=$(nix eval --raw --impure --option warn-dirty false \
   --expr "(builtins.getFlake \"git+file://$ROOT\").inputs.claude-harness.outPath")
-[[ -d "$HARNESS/.claude/scripts" ]] || { echo "✗ ハーネスのソースが読めない: $HARNESS" >&2; exit 1; }
+# ハーネスの配る元は claude/（claude-harness の ADR-0094）。改名より前の lock の版は .claude/ に持つ。lock が改名の後の版に
+# 進んだら、古い名前の分岐を消す（#700）
+HARNESS_SCRIPTS="$HARNESS/claude/scripts"
+[[ -d "$HARNESS_SCRIPTS" ]] || HARNESS_SCRIPTS="$HARNESS/.claude/scripts"
+[[ -d "$HARNESS_SCRIPTS" ]] || { echo "✗ ハーネスのソースが読めない: $HARNESS" >&2; exit 1; }
 
 # --- 1. 自動コミットするスクリプトの件名 -------------------------------------------------------------
 echo "==> commit-msg hook をビルドする（nixosConfigurations.${HOST}）"
@@ -96,8 +100,8 @@ fi
 # ハーネスのスクリプトの本文でなく、偽の sbatch などの下で動かして、渡す値を見る（本文の書き方や、中身を claude-hooks に
 # 移す直しで落ちないように）
 echo "==> Slurm の構成（modules/slurm/）でハーネスのスクリプトを動かす"
-RUN="$HARNESS/.claude/scripts/slurm-run.sh"
-HISTORY="$HARNESS/.claude/scripts/slurm-history.sh"
+RUN="$HARNESS_SCRIPTS/slurm-run.sh"
+HISTORY="$HARNESS_SCRIPTS/slurm-history.sh"
 
 # 見つからないときは空にして、下の ✗ で知らせる（set -e と pipefail で、何も出さずに止まらないように）
 protected=$(grep -o '"[a-z0-9]* Nodes=[^"]*PreemptMode=OFF' modules/slurm/common.nix | cut -d' ' -f1 | tr -d '"' || true)
