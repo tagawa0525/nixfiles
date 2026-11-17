@@ -71,11 +71,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794921024,
-        "narHash": "sha256-xpkwxWAzK1lNl+TDZEziiCR9nnY3n7Oe1u99vAtVBeU=",
+        "lastModified": 1794922518,
+        "narHash": "sha256-P54GHWqyOOfS+aLw7JS9EsIqmyt7ZQN8zQa6GyUBEBM=",
         "owner": "tagawa0525",
         "repo": "claude-harness",
-        "rev": "1f6d4977840035c75442f33e7a298ba32165d577",
+        "rev": "818d98cbc6d4a287bd0e6615e228293a11a9b6da",
         "type": "github"
       },
       "original": {
@@ -229,11 +229,11 @@
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
-        "lastModified": 1794921364,
-        "narHash": "sha256-KTfCrTBBwundsCbP75V1rjtUR8VOTYHFWUkxGjk1PPs=",
+        "lastModified": 1794922472,
+        "narHash": "sha256-1A3XeJeVx5X5W2yJsiWqeGJ0HG4EKzRygvT7ydX9JrI=",
         "owner": "numtide",
         "repo": "llm-agents.nix",
-        "rev": "1d2599438a3f467782614853d471a6039f48e915",
+        "rev": "cc6255a8a195e622ee436fec4ff88a91cdf78044",
         "type": "github"
       },
       "original": {
