@@ -71,11 +71,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1795120423,
-        "narHash": "sha256-FHIshF8Fang9kqQgd/cChvak6JMlAfhX2OjVOC4quK0=",
+        "lastModified": 1795121507,
+        "narHash": "sha256-DyYcDGVRQWHfMxNIrdWueeqqAD6ogVeGA8hjqo9RAeY=",
         "owner": "tagawa0525",
         "repo": "claude-harness",
-        "rev": "34f0c45ad2e347f73fc12d7141ec07e295bee82c",
+        "rev": "e00c40381b4825b669fbc81dd3cb08e5518e27ec",
         "type": "github"
       },
       "original": {
