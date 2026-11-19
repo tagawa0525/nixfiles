@@ -157,3 +157,9 @@ nixfiles は、PC の設定（NixOS と home-manager）のリポジトリとし�
   nixosConfigurations の claude-hooks を、目印のある一時のリポジトリと無い一時のリポジトリで動かし、hosts/ を変えた
   マージの後の rebuild の知らせを見る。値を変えると落ちること（目印を `modules/home/scripts/rebuild.sh`、入口を
   `/mnt/elsewhere` に変えて ✗）を確かめた
+- 2026-11-19: ハーネスの ja-terms が、共通の辞書をビルドに埋めず、ホームの下のファイルから読むようになった
+  （claude-harness の ADR-0097）。辞書を配るのは切り替えの activation で、契約の検査はその前に走るので、辞書のまだ無い
+  機械では commit-msg hook が辞書の無いことで止まり、update が lock を戻して終わった。`harness-contract.sh` は、lock の版の
+  claude-sync で一時のホームに配り、hook をそのホームで動かす。試して捨てた形: 取り出したハーネスのソースの中の辞書の
+  パスを、ja-terms の環境変数で hook に渡す形。ハーネスの内部の置き場をこちらに書くことになり、辞書の配られた実際の
+  ホームでは、渡す行を消しても検査が通って、退行を見つけられなかった

@@ -313,7 +313,7 @@ update() {
   fi
   # ハーネス（flake input の claude-harness）のスクリプトが固定で持つ名前と値が、この構成と合っていることを確かめる。
   # ハーネスの lock を進めた版が約束を変えていたら、切り替える前に止める（照合する中身はスクリプトの冒頭）。
-  # ビルドするのは commit-msg の hook と claude-hooks だけなので、全ホストのビルドの前に置く。hook を取り出すために、
+  # ビルドするのは commit-msg の hook、claude-hooks、claude-sync（claude-setup）だけなので、全ホストのビルドの前に置く。hook を取り出すために、
   # 進めた lock でこのホストの構成を評価するので、新しい nixpkgs で評価できないときもここで止まる
   contract="$NIXDIR/modules/home/parts/tests/harness-contract.sh"
   echo "🤝 Checking the contract with claude-harness..."
