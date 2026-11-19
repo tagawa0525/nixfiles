@@ -71,10 +71,12 @@ mkdir -p "$HOOK_HOME"
 # 構成の claude-sync の source は、derivation でなく、その中のファイルを指す文字列なので、nix build に直に渡せない。
 # 文字列が頼る derivation を取り出してビルドする
 CLAUDE_SYNC_DRV=$(nix eval --raw --impure --option warn-dirty false --expr \
-  "builtins.head (builtins.attrNames (builtins.getContext (builtins.getFlake \"git+file://$ROOT\").nixosConfigurations.${HOST}.config.home-manager.users.tagawa.home.file.\".local/bin/claude-sync\".source))")
+  "builtins.head (builtins.attrNames (builtins.getContext (builtins.getFlake \"git+file://$ROOT\").nixosConfigurations.${HOST}.config.home-manager.users.tagawa.home.file.\".local/bin/claude-sync\".source))") || {
+  echo "✗ 構成（nixosConfigurations.${HOST}）から、ハーネスの claude-sync（.local/bin/claude-sync）を取り出せない" >&2
+  exit 1
+}
 CLAUDE_SYNC="$(nix build --no-link --print-out-paths --option warn-dirty false "${CLAUDE_SYNC_DRV}^out")/bin/claude-sync"
-# 実際のホームに書かせない（ホームから決まる置き場を、一時のホームの下に向ける）
-if ! HOME="$HOOK_HOME" XDG_CONFIG_HOME="$HOOK_HOME/.config" "$CLAUDE_SYNC" "$HARNESS" >"$WORK/sync.out" 2>&1; then
+if ! HOME="$HOOK_HOME" "$CLAUDE_SYNC" "$HARNESS" >"$WORK/sync.out" 2>&1; then
   echo "✗ lock の版の claude-setup sync が、一時のホームに配れない" >&2
   sed 's/^/    /' "$WORK/sync.out" >&2
   exit 1
