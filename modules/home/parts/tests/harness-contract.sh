@@ -51,6 +51,10 @@ HARNESS=$(nix eval --raw --impure --option warn-dirty false \
 # ハーネスの配る元は claude/（claude-harness の ADR-0094）
 HARNESS_SCRIPTS="$HARNESS/claude/scripts"
 [[ -d "$HARNESS_SCRIPTS" ]] || { echo "✗ ハーネスのスクリプトが読めない: $HARNESS_SCRIPTS" >&2; exit 1; }
+# ハーネスの ja-terms（commit-msg hook が呼ぶ）は、共通の辞書をホームの下のファイルから読む（claude-harness の
+# ADR-0097）。そのファイルを配るのは切り替えの activation で、この検査はその前に走る。ホームの辞書（まだ無いか、前の
+# lock の版）でなく、検査する hook と同じ lock の版の辞書を渡す。辞書の無い版のハーネスでは、hook が読まないので害が無い
+export JA_TERMS_COMMON_DICTIONARY="$HARNESS/crates/ja-terms/prh.yml"
 
 # --- 1. 自動コミットするスクリプトの件名 -------------------------------------------------------------
 echo "==> commit-msg hook をビルドする（nixosConfigurations.${HOST}）"
