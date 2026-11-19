@@ -126,14 +126,18 @@ fi
 # ハーネスのスクリプトの本文でなく、偽の sbatch などの下で動かして、渡す値を見る（本文の書き方や、中身を claude-hooks に
 # 移す修正で落ちないように）
 echo "==> Slurm の構成（modules/slurm/）でハーネスのスクリプトを動かす"
-# ハーネスの slurm-run.sh などは、中身を claude-hooks に持ち、sh はそれを呼ぶだけ（claude-harness の ADR-0101）。sh は
-# バイナリを $HOME/.claude/bin から引くが、配置するのは切り替えの activation で、この検査はその前に走る。lock の版の
-# バイナリをビルドして、CLAUDE_HOOKS_BIN で渡す（下の post-merge-cleanup の検査も同じバイナリを使う）
+# ハーネスの slurm-run.sh は、中身を claude-hooks に持ち、sh はそれを呼ぶだけ（claude-harness の ADR-0101）。sh は
+# バイナリを $HOME/.claude/bin から引くが、下の submit は一時のホームで動かすので、そこには無い。実際のホームの
+# バイナリは前の lock の版で、進めた lock の版は切り替えの activation まで配置されない。lock の版のバイナリを
+# ビルドして、CLAUDE_HOOKS_BIN で渡す（下の post-merge-cleanup の検査も同じバイナリを使う）
 # 配置の source は「<パッケージ>/bin/claude-hooks」の文字列で、nix build に渡せないので、文字列の元の derivation を作る
 HOOKS_DRV=$(nix eval --raw --impure --option warn-dirty false --expr "builtins.head (builtins.attrNames (builtins.getContext
   (builtins.getFlake \"git+file://$ROOT\").nixosConfigurations.${HOST}.config.home-manager.users.tagawa.home.file.\".claude/bin/claude-hooks\".source))")
-HOOKS="$(nix build --no-link --print-out-paths --option warn-dirty false "$HOOKS_DRV^out")/bin/claude-hooks"
-# slurm-history.sh なども、中身を claude-hooks に移した版では同じバイナリを引くので、この後の検査の全体に渡す
+HOOKS="$(nix build --no-link --print-out-paths --option warn-dirty false "$HOOKS_DRV^out")/bin/claude-hooks" || {
+  echo "✗ 構成（nixosConfigurations.${HOST}）から、ハーネスの claude-hooks（.claude/bin/claude-hooks）をビルドできない" >&2
+  exit 1
+}
+# この後に動かすハーネスの sh が、実際のホームの前の lock の版のバイナリを引かないよう、検査の全体に渡す
 export CLAUDE_HOOKS_BIN="$HOOKS"
 RUN="$HARNESS_SCRIPTS/slurm-run.sh"
 HISTORY="$HARNESS_SCRIPTS/slurm-history.sh"
@@ -145,7 +149,8 @@ entry=$(grep -o '^"[^"]*"$' modules/slurm/nfs-entry.nix | tr -d '"' || true)
 jobcomp=$(grep -o 'JobCompLoc=[^ ]*' modules/slurm/common.nix | cut -d= -f2 || true)
 
 # sbatch は引数を記録して番号を出し、ジョブを 0 で終える。scontrol show は終わったジョブを、squeue は空の待ち行列を返す。
-# ハーネスは Slurm の状態を --json で読むので、--json が付いていれば JSON で返す。hostname は FAKE_HOST
+# ハーネスは Slurm の状態を --json で読むので、--json が付いていれば JSON で返す。hostname は FAKE_HOST。sacct は偽物を
+# 置かず（見るのは sbatch に渡す値で、sbatch はその前に呼ばれる）、終わりの記録を待つ回数を 1 回にして待たない
 SLURM_BIN="$WORK/slurm-bin"
 mkdir -p "$SLURM_BIN"
 cat >"$SLURM_BIN/sbatch" <<'EOF'
@@ -177,7 +182,7 @@ submit() {
   shift 2
   rm -f "$WORK/sbatch.args"
   (cd "$dir" && env -u SLURM_RUN_NFS_ENTRY -u CLAUDE_CODE_SESSION_ID HOME="$WORK/home" PATH="$SLURM_BIN:$PATH" \
-    CLAUDE_HOOKS_BIN="$HOOKS" FAKE_HOST="$host" FAKE_SLURM="$WORK" timeout 60 "$RUN" --ref '#0' --purpose 'ハーネスとの約束の確認' -t 1 "$@" contract true) \
+    SLURM_RUN_SACCT_TRIES=1 FAKE_HOST="$host" FAKE_SLURM="$WORK" timeout 60 "$RUN" --ref '#0' --purpose 'ハーネスとの約束の確認' -t 1 "$@" contract true) \
     >/dev/null 2>"$WORK/slurm.err" || true
 }
 
