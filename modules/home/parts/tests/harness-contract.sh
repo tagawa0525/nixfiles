@@ -51,10 +51,6 @@ HARNESS=$(nix eval --raw --impure --option warn-dirty false \
 # ハーネスの配る元は claude/（claude-harness の ADR-0094）
 HARNESS_SCRIPTS="$HARNESS/claude/scripts"
 [[ -d "$HARNESS_SCRIPTS" ]] || { echo "✗ ハーネスのスクリプトが読めない: $HARNESS_SCRIPTS" >&2; exit 1; }
-# ハーネスの ja-terms（commit-msg hook が呼ぶ）は、共通の辞書をホームの下のファイルから読む（claude-harness の
-# ADR-0097）。そのファイルを配るのは切り替えの activation で、この検査はその前に走る。ホームの辞書（まだ無いか、前の
-# lock の版）でなく、検査する hook と同じ lock の版の辞書を渡す。辞書の無い版のハーネスでは、hook が読まないので害が無い
-export JA_TERMS_COMMON_DICTIONARY="$HARNESS/crates/ja-terms/prh.yml"
 
 # --- 1. 自動コミットするスクリプトの件名 -------------------------------------------------------------
 echo "==> commit-msg hook をビルドする（nixosConfigurations.${HOST}）"
@@ -62,6 +58,27 @@ cp "$(nix build --no-link --print-out-paths --option warn-dirty false \
   ".#nixosConfigurations.${HOST}.config.home-manager.users.tagawa.xdg.configFile.\"git/hooks/commit-msg\".source")" \
   "$WORK/commit-msg"
 chmod +x "$WORK/commit-msg"
+
+# ハーネスの ja-terms（commit-msg hook が呼ぶ）は、共通の辞書をホームの下のファイルから読む（claude-harness の
+# ADR-0097）。そのファイルを配るのは切り替えの activation（lock の版の claude-setup sync）で、この検査はその前に走る。
+# 実際のホームの辞書（まだ無いか、前の lock の版）に頼らないよう、activation と同じ sync で一時のホームに配り、hook は
+# そのホームで動かす（辞書の置き場をここに書かない。共通の辞書をビルドに埋めていた版のハーネスでも、同じ手順で通る）
+echo "==> lock の版の claude-setup sync で、一時のホームにハーネスを配る"
+HOOK_HOME="$WORK/hook-home"
+mkdir -p "$HOOK_HOME"
+# 構成の claude-sync の source は、derivation でなく、その中のファイルを指す文字列なので、nix build に直に渡せない。
+# 文字列が頼る derivation を取り出してビルドし、構成の書いたパスをそのまま使う
+CLAUDE_SYNC_ATTR="(builtins.getFlake \"git+file://$ROOT\").nixosConfigurations.${HOST}.config.home-manager.users.tagawa.home.file.\".local/bin/claude-sync\".source"
+CLAUDE_SYNC=$(nix eval --raw --impure --option warn-dirty false --expr "$CLAUDE_SYNC_ATTR")
+nix build --no-link --option warn-dirty false "$(nix eval --raw --impure --option warn-dirty false \
+  --expr "builtins.head (builtins.attrNames (builtins.getContext ($CLAUDE_SYNC_ATTR)))")^out"
+if ! HOME="$HOOK_HOME" "$CLAUDE_SYNC" "$HARNESS" >"$WORK/sync.out" 2>&1; then
+  echo "✗ lock の版の claude-setup sync が、一時のホームに配れない" >&2
+  sed 's/^/    /' "$WORK/sync.out" >&2
+  exit 1
+fi
+# hook を、配った一時のホームで、一時のリポジトリを相手に動かす
+commit_msg_hook() { (cd "$WORK/repo" && HOME="$HOOK_HOME" "$WORK/commit-msg" "$WORK/msg") >"$WORK/out" 2>&1; }
 
 # hook は Claude Code のセッションのコミットにだけ効く
 export CLAUDECODE=1
@@ -71,7 +88,7 @@ git init -q "$WORK/repo"
 
 # hook が件名を検査していることを先に確かめる（何でも通す状態だと、下の ✓ は何も確かめていない）
 printf '%s\n' "flake: update (testhost)" > "$WORK/msg"
-if (cd "$WORK/repo" && "$WORK/commit-msg" "$WORK/msg") >"$WORK/out" 2>&1; then
+if commit_msg_hook; then
   ng "commit-msg hook が、型の一覧に無い件名（flake: update）を通した（検査が走っていない）"
 else
   ok "commit-msg hook は、型の一覧に無い件名を止める"
@@ -87,7 +104,7 @@ while IFS= read -r line; do
   msg="${msg//\$\{HOSTNAME\}/testhost}"
   found=$((found + 1))
   printf '%s\n' "$msg" > "$WORK/msg"
-  if (cd "$WORK/repo" && "$WORK/commit-msg" "$WORK/msg") >"$WORK/out" 2>&1; then
+  if commit_msg_hook; then
     ok "modules/home/scripts: $msg"
   else
     ng "modules/home/scripts の件名が commit-msg hook に止められる: $msg"
