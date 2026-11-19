@@ -9,6 +9,8 @@
 #   1. 自動コミットするスクリプトの件名が、ハーネスの commit-msg hook を通る
 #      （実際に起きた不整合: nix-rebuild.sh が `flake: update (host)` を書き、hook の型の一覧に flake が無かったので、
 #      Claude Code のセッションからの update が最後のコミットで必ず失敗した）
+#      hook は、lock の版の claude-sync（構成の `.local/bin/claude-sync`）で一時のホームに配ってから動かす。hook の
+#      ja-terms がホームの下の共通の辞書を読み、辞書を配る activation はこの検査の後に走るため
 #   2. Slurm のパーティションの名前、NFS の入口、終わったジョブの記録の置き場で、ハーネスの slurm-run.sh と
 #      slurm-history.sh が動く
 #   3. ハーネスの post-merge-cleanup が、こちらの nix-rebuild.sh を「rebuild する構成のリポジトリ」の目印にして、マージの
@@ -62,23 +64,26 @@ chmod +x "$WORK/commit-msg"
 # ハーネスの ja-terms（commit-msg hook が呼ぶ）は、共通の辞書をホームの下のファイルから読む（claude-harness の
 # ADR-0097）。そのファイルを配るのは切り替えの activation（lock の版の claude-setup sync）で、この検査はその前に走る。
 # 実際のホームの辞書（まだ無いか、前の lock の版）に頼らないよう、activation と同じ sync で一時のホームに配り、hook は
-# そのホームで動かす（辞書の置き場をここに書かない。共通の辞書をビルドに埋めていた版のハーネスでも、同じ手順で通る）
+# そのホームで動かす（辞書の置き場をここに書かない。比べた形は ADR-0082 の補足 2026-11-19）
 echo "==> lock の版の claude-setup sync で、一時のホームにハーネスを配る"
 HOOK_HOME="$WORK/hook-home"
 mkdir -p "$HOOK_HOME"
 # 構成の claude-sync の source は、derivation でなく、その中のファイルを指す文字列なので、nix build に直に渡せない。
-# 文字列が頼る derivation を取り出してビルドし、構成の書いたパスをそのまま使う
-CLAUDE_SYNC_ATTR="(builtins.getFlake \"git+file://$ROOT\").nixosConfigurations.${HOST}.config.home-manager.users.tagawa.home.file.\".local/bin/claude-sync\".source"
-CLAUDE_SYNC=$(nix eval --raw --impure --option warn-dirty false --expr "$CLAUDE_SYNC_ATTR")
-nix build --no-link --option warn-dirty false "$(nix eval --raw --impure --option warn-dirty false \
-  --expr "builtins.head (builtins.attrNames (builtins.getContext ($CLAUDE_SYNC_ATTR)))")^out"
-if ! HOME="$HOOK_HOME" "$CLAUDE_SYNC" "$HARNESS" >"$WORK/sync.out" 2>&1; then
+# 文字列が頼る derivation を取り出してビルドする
+CLAUDE_SYNC_DRV=$(nix eval --raw --impure --option warn-dirty false --expr \
+  "builtins.head (builtins.attrNames (builtins.getContext (builtins.getFlake \"git+file://$ROOT\").nixosConfigurations.${HOST}.config.home-manager.users.tagawa.home.file.\".local/bin/claude-sync\".source))")
+CLAUDE_SYNC="$(nix build --no-link --print-out-paths --option warn-dirty false "${CLAUDE_SYNC_DRV}^out")/bin/claude-sync"
+# 実際のホームに書かせない（ホームから決まる置き場を、一時のホームの下に向ける）
+if ! HOME="$HOOK_HOME" XDG_CONFIG_HOME="$HOOK_HOME/.config" "$CLAUDE_SYNC" "$HARNESS" >"$WORK/sync.out" 2>&1; then
   echo "✗ lock の版の claude-setup sync が、一時のホームに配れない" >&2
   sed 's/^/    /' "$WORK/sync.out" >&2
   exit 1
 fi
-# hook を、配った一時のホームで、一時のリポジトリを相手に動かす
-commit_msg_hook() { (cd "$WORK/repo" && HOME="$HOOK_HOME" "$WORK/commit-msg" "$WORK/msg") >"$WORK/out" 2>&1; }
+# hook を、配った一時のホームで、一時のリポジトリを相手に動かす。辞書の置き場を差し替える変数が呼んだ側の環境に
+# あると、配った辞書を読まずに通るので、外す
+commit_msg_hook() {
+  (cd "$WORK/repo" && env -u JA_TERMS_COMMON_DICTIONARY HOME="$HOOK_HOME" "$WORK/commit-msg" "$WORK/msg") >"$WORK/out" 2>&1
+}
 
 # hook は Claude Code のセッションのコミットにだけ効く
 export CLAUDECODE=1
