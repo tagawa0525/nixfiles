@@ -4,7 +4,7 @@
 # =============================================================================
 # ハーネスのスクリプトと hook は、このリポジトリの名前や値を約束として固定で持つ。片方だけ変えると、どちらの
 # リポジトリのテストも通ったまま食い違うので、構成とスクリプトを持つこちらで照合する。ハーネスの側は、本文を読まず、
-# lock の版を偽物の下か一時のリポジトリで動かして見る（本文の書き方や、中身を claude-hooks に移す直しで落ちないように）。
+# lock の版を偽物の下か一時のリポジトリで動かして見る（本文の書き方や、中身を claude-hooks に移す修正で落ちないように）。
 #
 #   1. 自動コミットするスクリプトの件名が、ハーネスの commit-msg hook を通る
 #      （実際に起きた不整合: nix-rebuild.sh が `flake: update (host)` を書き、hook の型の一覧に flake が無かったので、
@@ -20,7 +20,7 @@
 #
 # 照合しない約束: ハーネスの hook が rebuild として見るコマンドの名前（modules/home/parts/shell.nix の関数 rebuild と
 # update、スクリプト nix-rebuild）。PreToolUse の hook に Claude Code の入力を作って渡せば動かして確かめられるが、
-# まだ書いていない（#690）。このスクリプトは毎日の自動更新を止めるので、挙動が変わらない直しで止まる照合（ソースの本文の
+# まだ書いていない（#690）。このスクリプトは毎日の自動更新を止めるので、挙動が変わらない修正で止まる照合（ソースの本文の
 # 照合）は入れない（試して捨てた照合は ADR-0082 の補足 2026-11-14）
 #
 # 使い方（リポジトリルートで実行）:
@@ -124,8 +124,21 @@ fi
 
 # --- 2. Slurm のパーティションの名前と NFS の入口 -----------------------------------------------------
 # ハーネスのスクリプトの本文でなく、偽の sbatch などの下で動かして、渡す値を見る（本文の書き方や、中身を claude-hooks に
-# 移す直しで落ちないように）
+# 移す修正で落ちないように）
 echo "==> Slurm の構成（modules/slurm/）でハーネスのスクリプトを動かす"
+# ハーネスの slurm-run.sh は、中身を claude-hooks に持ち、sh はそれを呼ぶだけ（claude-harness の ADR-0101）。sh は
+# バイナリを $HOME/.claude/bin から引くが、下の submit は一時のホームで動かすので、そこには無い。実際のホームの
+# バイナリは前の lock の版で、進めた lock の版は切り替えの activation まで配置されない。lock の版のバイナリを
+# ビルドして、CLAUDE_HOOKS_BIN で渡す（下の post-merge-cleanup の検査も同じバイナリを使う）
+# 配置の source は「<パッケージ>/bin/claude-hooks」の文字列で、nix build に渡せないので、文字列の元の derivation を作る
+HOOKS_DRV=$(nix eval --raw --impure --option warn-dirty false --expr "builtins.head (builtins.attrNames (builtins.getContext
+  (builtins.getFlake \"git+file://$ROOT\").nixosConfigurations.${HOST}.config.home-manager.users.tagawa.home.file.\".claude/bin/claude-hooks\".source))")
+HOOKS="$(nix build --no-link --print-out-paths --option warn-dirty false "$HOOKS_DRV^out")/bin/claude-hooks" || {
+  echo "✗ 構成（nixosConfigurations.${HOST}）から、ハーネスの claude-hooks（.claude/bin/claude-hooks）をビルドできない" >&2
+  exit 1
+}
+# この後に動かすハーネスの sh が、実際のホームの前の lock の版のバイナリを引かないよう、検査の全体に渡す
+export CLAUDE_HOOKS_BIN="$HOOKS"
 RUN="$HARNESS_SCRIPTS/slurm-run.sh"
 HISTORY="$HARNESS_SCRIPTS/slurm-history.sh"
 
@@ -136,7 +149,8 @@ entry=$(grep -o '^"[^"]*"$' modules/slurm/nfs-entry.nix | tr -d '"' || true)
 jobcomp=$(grep -o 'JobCompLoc=[^ ]*' modules/slurm/common.nix | cut -d= -f2 || true)
 
 # sbatch は引数を記録して番号を出し、ジョブを 0 で終える。scontrol show は終わったジョブを、squeue は空の待ち行列を返す。
-# hostname は FAKE_HOST
+# ハーネスは Slurm の状態を --json で読むので、--json が付いていれば JSON で返す。hostname は FAKE_HOST。sacct は偽物を
+# 置かず（見るのは sbatch に渡す値で、sbatch はその前に呼ばれる）、終わりの記録を待つ回数を 1 回にして待たない
 SLURM_BIN="$WORK/slurm-bin"
 mkdir -p "$SLURM_BIN"
 cat >"$SLURM_BIN/sbatch" <<'EOF'
@@ -146,10 +160,18 @@ echo "Submitted batch job 42"
 EOF
 cat >"$SLURM_BIN/scontrol" <<'EOF'
 #!/usr/bin/env bash
-[[ $1 == show ]] && echo "JobId=42 RunTime=00:00:01 TimeLimit=00:01:00 SuspendTime=None Partition=x"
+if [[ $1 == show && " $* " == *" --json"* ]]; then
+  echo '{"jobs": [{"job_id": 42, "job_state": ["COMPLETED"]}]}'
+elif [[ $1 == show ]]; then
+  echo "JobId=42 RunTime=00:00:01 TimeLimit=00:01:00 SuspendTime=None Partition=x"
+fi
 exit 0
 EOF
-printf '#!/usr/bin/env bash\nexit 0\n' >"$SLURM_BIN/squeue"
+cat >"$SLURM_BIN/squeue" <<'EOF'
+#!/usr/bin/env bash
+[[ " $* " == *" --json"* ]] && echo '{"jobs": []}'
+exit 0
+EOF
 printf '#!/usr/bin/env bash\necho "$FAKE_HOST"\n' >"$SLURM_BIN/hostname"
 chmod +x "$SLURM_BIN"/*
 mkdir -p "$WORK/home/github/contract"
@@ -160,7 +182,7 @@ submit() {
   shift 2
   rm -f "$WORK/sbatch.args"
   (cd "$dir" && env -u SLURM_RUN_NFS_ENTRY -u CLAUDE_CODE_SESSION_ID HOME="$WORK/home" PATH="$SLURM_BIN:$PATH" \
-    FAKE_HOST="$host" FAKE_SLURM="$WORK" timeout 60 "$RUN" --ref '#0' --purpose 'ハーネスとの約束の確認' -t 1 "$@" contract true) \
+    SLURM_RUN_SACCT_TRIES=1 FAKE_HOST="$host" FAKE_SLURM="$WORK" timeout 60 "$RUN" --ref '#0' --purpose 'ハーネスとの約束の確認' -t 1 "$@" contract true) \
     >/dev/null 2>"$WORK/slurm.err" || true
 }
 
@@ -226,10 +248,6 @@ fi
 # マージの後に rebuild を知らせるのが、目印のあるほうだけかを見る。リモートは手元のパスで、gh は PATH に置かない
 echo "==> post-merge-cleanup を一時のリポジトリで動かす"
 MARKER=modules/home/scripts/nix-rebuild.sh
-# 配置の source は「<パッケージ>/bin/claude-hooks」の文字列で、nix build に渡せないので、文字列の元の derivation を作る
-HOOKS_DRV=$(nix eval --raw --impure --option warn-dirty false --expr "builtins.head (builtins.attrNames (builtins.getContext
-  (builtins.getFlake \"git+file://$ROOT\").nixosConfigurations.${HOST}.config.home-manager.users.tagawa.home.file.\".claude/bin/claude-hooks\".source))")
-HOOKS="$(nix build --no-link --print-out-paths --option warn-dirty false "$HOOKS_DRV^out")/bin/claude-hooks"
 GIT_BIN="$WORK/git-bin"
 mkdir -p "$GIT_BIN"
 # 包むスクリプトでなく本体を置く（PATH はこれだけなので、#! の bash や env を引けない）
