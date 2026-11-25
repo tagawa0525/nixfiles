@@ -74,12 +74,21 @@
   # Wayland/X11/TTYすべてで動作するキーリマッパー
   # CapsLockを「単独押し=Esc」「長押し/組み合わせ=Ctrl」に変更
   # Vim使用時に非常に便利
+  #
+  # 左右の Alt は、単押しを Hangul_Hanja（左）と Hangul（右）に変え、fcitx5 の IME のオフ・オンに使う
+  # （modules/home/parts/desktop.nix の fcitx5 のホットキーと対）。素の Alt の単押しはアプリにも届き、Claude Desktop
+  # などがメニューを開いて入力欄のフォーカスを奪うため、アプリには Alt の単押しを見せない。長押しと組み合わせは
+  # Alt のまま。keyd の modifier guard（既定で有効）が、Alt を押して離す間に Ctrl を挟み、単押しとして見えないようにする。
+  # 変換・無変換は Mozc に意味があり（Henkan の Reconvert など）、F13・F14 は xkb で XF86Tools・XF86Launch5 になって
+  # デスクトップ環境の操作に割り当てられうるので使わない。Hangul・Hanja は macOS の「かな」「英数」と同じ Lang1・Lang2
   services.keyd = {
     enable = true;
     keyboards.default = {
       ids = [ "*" ]; # 全キーボードに適用
       settings.main = {
         capslock = "overload(control, esc)";
+        leftalt = "overload(alt, hanja)";
+        rightalt = "overload(alt, hangeul)";
       };
     };
   };

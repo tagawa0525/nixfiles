@@ -153,6 +153,8 @@ in
   };
 
   # fcitx5のホットキー設定
+  # Hangul（右 Alt の単押し）でオン、Hangul_Hanja（左 Alt の単押し）でオフ。単押しの変換は keyd が行う
+  # （modules/profiles/workstation.nix の services.keyd。キーの選び方の理由もそこに書く）
   xdg.configFile."fcitx5/config".text = ''
     [Hotkey]
     EnumerateWithTriggerKeys=True
@@ -161,10 +163,10 @@ in
     0=Control+space
 
     [Hotkey/ActivateKeys]
-    0=Alt+Alt_R
+    0=Hangul
 
     [Hotkey/DeactivateKeys]
-    0=Alt+Alt_L
+    0=Hangul_Hanja
 
     [Behavior]
     ShareInputState=All
