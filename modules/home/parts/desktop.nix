@@ -154,19 +154,24 @@ in
 
   # fcitx5のホットキー設定
   # Hangul（右 Alt の単押し）でオン、Hangul_Hanja（左 Alt の単押し）でオフ。単押しの変換は keyd が行う
-  # （modules/profiles/workstation.nix の services.keyd。キーの選び方の理由もそこに書く）
+  # （modules/profiles/workstation.nix の services.keyd）。Alt+Alt_R・Alt+Alt_L は、keyd を通らない入力
+  # （keyd が止まっているときなど）のための控え。keyd を通ると Alt の間に Ctrl が挟まるので働かない。
+  # ConsumeRedundantActivateKeys は、すでにオンのときの Hangul などを fcitx5 で止め、アプリに届けないため
   xdg.configFile."fcitx5/config".text = ''
     [Hotkey]
     EnumerateWithTriggerKeys=True
+    ConsumeRedundantActivateKeys=True
 
     [Hotkey/TriggerKeys]
     0=Control+space
 
     [Hotkey/ActivateKeys]
     0=Hangul
+    1=Alt+Alt_R
 
     [Hotkey/DeactivateKeys]
     0=Hangul_Hanja
+    1=Alt+Alt_L
 
     [Behavior]
     ShareInputState=All

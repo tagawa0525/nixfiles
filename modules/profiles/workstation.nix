@@ -79,16 +79,23 @@
   # （modules/home/parts/desktop.nix の fcitx5 のホットキーと対）。素の Alt の単押しはアプリにも届き、Claude Desktop
   # などがメニューを開いて入力欄のフォーカスを奪うため、アプリには Alt の単押しを見せない。長押しと組み合わせは
   # Alt のまま。keyd の modifier guard（既定で有効）が、Alt を押して離す間に Ctrl を挟み、単押しとして見えないようにする。
-  # 変換・無変換は Mozc に意味があり（Henkan の Reconvert など）、F13・F14 は xkb で XF86Tools・XF86Launch5 になって
-  # デスクトップ環境の操作に割り当てられうるので使わない。Hangul・Hanja は macOS の「かな」「英数」と同じ Lang1・Lang2
+  # 右 Alt は altgr の層にして、Alt_R のまま送る（alt の層は Alt_L を送る）。キーの選び方（変換・無変換や F13・F14
+  # にしない理由）は issue #706
+  #
+  # overload_tap_timeout は、fcitx5 が修飾キーだけのホットキーに使っていた ModifierOnlyKeyTimeout の既定（250 ms）に
+  # 合わせる。keyd はマウスの入力を見ないので、制限がないと、Alt を押したままのクリックやドラッグの後にも単押しの
+  # キーを送り、IME が切り替わる
   services.keyd = {
     enable = true;
     keyboards.default = {
       ids = [ "*" ]; # 全キーボードに適用
+      settings.global = {
+        overload_tap_timeout = 250;
+      };
       settings.main = {
         capslock = "overload(control, esc)";
         leftalt = "overload(alt, hanja)";
-        rightalt = "overload(alt, hangeul)";
+        rightalt = "overload(altgr, hangeul)";
       };
     };
   };
