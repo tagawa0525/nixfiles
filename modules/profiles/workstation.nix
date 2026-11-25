@@ -82,9 +82,11 @@
   # 右 Alt は altgr の層にして、Alt_R のまま送る（alt の層は Alt_L を送る）。キーの選び方（変換・無変換や F13・F14
   # にしない理由）は issue #706
   #
-  # overload_tap_timeout は、fcitx5 が修飾キーだけのホットキーに使っていた ModifierOnlyKeyTimeout の既定（250 ms）に
-  # 合わせる。keyd はマウスの入力を見ないので、制限がないと、Alt を押したままのクリックやドラッグの後にも単押しの
-  # キーを送り、IME が切り替わる
+  # overload_tap_timeout により、250 ms より長く押してから離したときは単押しとみなさない。keyd はマウスの入力を
+  # 見ないので、制限がないと、Alt を押したままのクリックやドラッグの後にも単押しのキーを送り、IME が切り替わる
+  # （250 ms 以内のクリックは防げない）。値は fcitx5 の ModifierOnlyKeyTimeout の既定と同じ。[global] の設定なので
+  # CapsLock の Esc にもかかる（キーごとに変える手段は、層の有効化を遅らせる overloadt しかなく、Alt+クリックが
+  # 効かなくなる）
   services.keyd = {
     enable = true;
     keyboards.default = {
