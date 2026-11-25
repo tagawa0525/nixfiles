@@ -74,12 +74,30 @@
   # Wayland/X11/TTYすべてで動作するキーリマッパー
   # CapsLockを「単独押し=Esc」「長押し/組み合わせ=Ctrl」に変更
   # Vim使用時に非常に便利
+  #
+  # 左右の Alt は、単押しを Hangul_Hanja（左）と Hangul（右）に変え、fcitx5 の IME のオフ・オンに使う
+  # （modules/home/parts/desktop.nix の fcitx5 のホットキーと対）。素の Alt の単押しはアプリにも届き、Claude Desktop
+  # などがメニューを開いて入力欄のフォーカスを奪うため、アプリには Alt の単押しを見せない。長押しと組み合わせは
+  # Alt のまま。keyd の modifier guard（既定で有効）が、Alt を押して離す間に Ctrl を挟み、単押しとして見えないようにする。
+  # 右 Alt は altgr の層にして、Alt_R のまま送る（alt の層は Alt_L を送る）。キーの選び方（変換・無変換や F13・F14
+  # にしない理由）は issue #706
+  #
+  # overload_tap_timeout により、250 ms より長く押してから離したときは単押しとみなさない。keyd はマウスの入力を
+  # 見ないので、制限がないと、Alt を押したままのクリックやドラッグの後にも単押しのキーを送り、IME が切り替わる
+  # （250 ms 以内のクリックは防げない）。値は fcitx5 の ModifierOnlyKeyTimeout の既定と同じ。[global] の設定なので
+  # CapsLock の Esc にもかかる（キーごとに変える手段は、層の有効化を遅らせる overloadt しかなく、Alt+クリックが
+  # 効かなくなる）
   services.keyd = {
     enable = true;
     keyboards.default = {
       ids = [ "*" ]; # 全キーボードに適用
+      settings.global = {
+        overload_tap_timeout = 250;
+      };
       settings.main = {
         capslock = "overload(control, esc)";
+        leftalt = "overload(alt, hanja)";
+        rightalt = "overload(altgr, hangeul)";
       };
     };
   };
