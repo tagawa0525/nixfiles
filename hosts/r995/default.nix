@@ -53,7 +53,7 @@ in
   # ===========================================================================
   # Windows のデスクトップ（DSKTP-7900K。このリポジトリで管理しないホスト）から、Tailscale 越しに r995 へ入り、
   # r995 の上で Slurm にジョブを投げる（Windows では modules/slurm/submit.nix の命令のツールと NFS を使えない）。
-  # modules/users/tagawa.nix の keys/ の鍵は、tagawa が住むすべてのホストに入るので、r995 にだけ要る鍵はここに置く
+  # modules/home/users/tagawa/keys/ の鍵は、modules/users/tagawa.nix が tagawa の住むすべてのホストに入れるので、r995 にだけ要る鍵はここに置く
   # （リストは keys/ の鍵と合わさる）。
   users.users.tagawa.openssh.authorizedKeys.keyFiles = [ ./keys/dsktp-7900k.pub ];
 
