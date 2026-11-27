@@ -29,9 +29,13 @@ in
         "server min protocol" = "SMB2";
         "map to guest" = "never";
         "restrict anonymous" = 2;
-        # ファイアウォールに加え、Tailscale 以外の送信元は Samba の側でも断る
-        "hosts allow" = "100.64.0.0/10 127.0.0.1";
-        "hosts deny" = "0.0.0.0/0";
+        # ファイアウォールに加え、Tailscale 以外の送信元は Samba の側でも断る。IPv6 の送信元も断るよう、
+        # deny は ALL にし、allow に Tailscale の IPv6（fd7a:115c:a1e0::/48）と loopback を並べる
+        "hosts allow" = "100.64.0.0/10 127.0.0.1 fd7a:115c:a1e0::/48 ::1";
+        "hosts deny" = "ALL";
+        # r995 の Ghidra が同じファイルをローカルで書き換える。SMB のクライアントの oplock と lease は
+        # ローカルの書き込みでは破られず、Windows が古いキャッシュを返すので、使わない
+        "smb2 leases" = "no";
         "smb ports" = 445;
         # 共有を出すだけで、プリンタは使わない
         "load printers" = "no";
@@ -52,6 +56,9 @@ in
         # r995 の Ghidra（tagawa）と同じ所有者で作る
         "force user" = "tagawa";
         "force group" = "users";
+        oplocks = "no";
+        "level2 oplocks" = "no";
+        # Windows から作ったファイルには実行ビットを付けない（データの置き場。実行は r995 で chmod する）
         "create mask" = "0640";
         "directory mask" = "0750";
       };
