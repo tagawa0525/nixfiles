@@ -63,6 +63,7 @@ in
         # ハードリンクにしたファイルを読み取り専用にして、開いて上書きしたときに前の版の中身まで変わる事故を防ぐ。
         # store dos attributes（既定は yes）が有効だと、属性は xattr にしか入らず、map readonly などは効かない
         # （smb.conf(5) の store dos attributes）ので、no にする。hidden、system は保存されなくなる。
+        # ハードリンクは inode を共有するので、読み取り専用の付け外しは、ほかの版のフォルダの同じ中身にも及ぶ（意図した挙動）。
         # map archive は、既定の yes だとアーカイブ属性が所有者の実行ビットに対応するので、no にして実行ビットと切り離す
         "store dos attributes" = "no";
         "map readonly" = "permissions";
