@@ -100,3 +100,6 @@ r995 の btrfs に `/srv/ncsoft` を置き、Samba の共有 `ncsoft` を `tails
   読み取り専用のほかに属性を持たないので、外すと属性が 0 になり、0 は「変えない」と読まれる。NC は `SetFileAttributesW` に
   `FILE_ATTRIBUTE_NORMAL` を渡して外すように直した。そのため、`permissions` のままでも外せたか、`dos filemode = yes` が
   要ったかは、分けて確かめていない（`yes` は smb.conf(5) の定義では双方向の対応）。
+- 2026-11-27: `dos filemode = yes` を外した。前は、上の項の「あわせて `dos filemode = yes` を足した」。外せなかった原因が Windows の
+  Python の側だと分かり、共有に入る tagawa は force user の所有者で、`dos filemode` が無くても mode を変えられるはずなので、
+  最小限の設定に戻した。外した後も付ける→外す→消すが通ることは、NC が確かめる（結果は次の項に書く）。

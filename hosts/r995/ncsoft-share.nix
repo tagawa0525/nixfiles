@@ -69,9 +69,6 @@ in
         # yes は双方向: 付けると write ビットを全部外し、外すと所有者の write ビットを付ける。permissions は mode から報告するだけで、
         # Windows から外しても mode は戻らない（smb.conf(5) の map readonly）
         "map readonly" = "yes";
-        # 読み取り専用にした（所有者の書き込みの権限が無い）ファイルの属性と mode を、Windows から外せるようにする。
-        # 既定では、書き込みの権限が無いと属性を変えられない（smb.conf(5) の dos filemode）。共有に入れるのは tagawa だけ
-        "dos filemode" = "yes";
         "map archive" = "no";
         # Windows から作ったファイルには実行ビットを付けない（データの置き場。実行は r995 で chmod する）
         "create mask" = "0640";
