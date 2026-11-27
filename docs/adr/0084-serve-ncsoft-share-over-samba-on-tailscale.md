@@ -95,3 +95,8 @@ r995 の btrfs に `/srv/ncsoft` を置き、Samba の共有 `ncsoft` を `tails
   読み取り専用を報告するだけで、Windows から外しても mode が戻らず、NC の同期（置き換え、削除、版の更新の前に読み取り専用を外す）が
   動かなかった（NC が確認）。`yes` は付けると write ビットを外し、外すと所有者の write ビットを付ける（smb.conf(5)）。
   あわせて `dos filemode = yes` を足した（書き込みの権限が無いファイルの属性を変えるため）。
+- 2026-11-27: 上の項の原因の補足。`yes` に替えた後は、NC の確認で、読み取り専用の付け外しが双方向に効き（mode が 640 → 440 → 640）、
+  削除も通った。ただし、外せなかった原因の一部は、Windows の Python の `os.chmod(S_IWRITE)` の側にあった。共有のファイルは
+  読み取り専用のほかに属性を持たないので、外すと属性が 0 になり、0 は「変えない」と読まれる。NC は `SetFileAttributesW` に
+  `FILE_ATTRIBUTE_NORMAL` を渡して外すように直した。そのため、`permissions` のままでも外せたか、`dos filemode = yes` が
+  要ったかは、分けて確かめていない（`yes` は smb.conf(5) の定義では双方向の対応）。
