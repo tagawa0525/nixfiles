@@ -46,6 +46,7 @@ in
     ../../modules/nix-auto-update.nix # 毎朝の flake update + 全ホスト検証 + push
     ../../modules/users/tagawa.nix # 住人: tagawa
     ../../modules/slurm/server.nix # 重い計算の待ち行列（Slurm の管理と計算）
+    ./ghidra.nix # Ghidra のヘッドレス解析（GHIDRA_INSTALL_DIR、JAVA_HOME）
   ];
 
   # ===========================================================================
