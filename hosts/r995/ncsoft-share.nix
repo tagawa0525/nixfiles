@@ -5,6 +5,7 @@
 # btrfs に置き、r995 の Ghidra（./ghidra.nix）はここをローカルで読み書きし、Windows の PC は SMB で同じ場所を
 # 読み書きする。NFS（modules/slurm/server.nix）は Windows から使えないので、Windows 向けにだけ Samba を足す。
 #
+# 決定と、検討した代わりの案は docs/adr/0084-serve-ncsoft-share-over-samba-on-tailscale.md。
 # 受け付けるのは Tailscale（tailscale0、100.64.0.0/10）だけ。Samba のパスワードは秘密なので nix に書かない。
 # 初回に、利用者が r995 で `sudo smbpasswd -a tagawa` を実行して決める。
 { ... }:
