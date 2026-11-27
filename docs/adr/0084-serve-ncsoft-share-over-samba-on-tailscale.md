@@ -103,3 +103,7 @@ r995 の btrfs に `/srv/ncsoft` を置き、Samba の共有 `ncsoft` を `tails
 - 2026-11-27: `dos filemode = yes` を外した。前は、上の項の「あわせて `dos filemode = yes` を足した」。外せなかった原因が Windows の
   Python の側だと分かり、共有に入る tagawa は force user の所有者で、`dos filemode` が無くても mode を変えられるはずなので、
   最小限の設定に戻した。外した後も付ける→外す→消すが通ることは、NC が確かめる（結果は次の項に書く）。
+- 2026-11-27: `dos filemode` を外した後の確認（NC、23:32）。`map readonly = yes`、`store dos attributes = no` で、4 項目とも通った。
+  読み取り専用の付け外しで mode が 640 → 440 → 640 になり、外した後の削除が通り、読み取り専用のままの上書きと削除は
+  PermissionError（winerror 5）で拒まれた。NC の `copy_file`（読み取り専用のファイルの置き換え）と `remove_tree` も、共有の上で通った。
+  `dos filemode = yes` は戻さない。
