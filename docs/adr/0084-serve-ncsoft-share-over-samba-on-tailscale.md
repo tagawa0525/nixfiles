@@ -60,6 +60,13 @@ r995 の btrfs に `/srv/ncsoft` を置き、Samba の共有 `ncsoft` を `tails
 - Samba のパスワードは nix に書かない。利用者が r995 で `sudo smbpasswd -a tagawa` を実行して決める
 - 共有の中を指すsymlinkは、smbd がサーバー側で辿って Windows に実体として見せる（`follow symlinks` の既定）。
   共有の外を指すものは辿らない（`wide links` の既定の no）
+- Windows の読み取り専用の属性は、所有者の書き込みの権限（POSIX の mode）に対応させる（`map readonly = permissions`）。
+  NC は、版のフォルダの間でハードリンクにしたファイルを読み取り専用にして、開いて上書きしたときに前の版の中身まで
+  変わる事故を防ぐ。`store dos attributes`（既定は yes）が有効だと、属性は xattr にしか入らず `map readonly` が効かない
+  （smb.conf(5)）ので、no にする。hidden と system の属性は保存されなくなる。`map archive` は、既定の yes だと
+  アーカイブ属性が所有者の実行ビットに対応するので、no にする。xattr を残したまま r995 の側から mode を揃える案は、
+  Windows の属性の付け外しと mode が食い違うので採らない。ハードリンクは inode を共有するので、付け外しはほかの版の
+  フォルダの同じ中身にも及ぶ（xattr でも同じ）
 - r995 の Ghidra が同じファイルをローカルで書き換えるので、`oplocks`、`level2 oplocks`、`smb2 leases` を止める。
   SMB のクライアントの oplock と lease は、ローカルの書き込みでは破られない
 
@@ -69,6 +76,8 @@ r995 の btrfs に `/srv/ncsoft` を置き、Samba の共有 `ncsoft` を `tails
 - 認証は Samba の tdbsam のパスワード。再インストールや `/var/lib/samba` を消したときは、`smbpasswd -a tagawa` をやり直す
 - 置き場所の `/srv/ncsoft` は、btrfs の root（`@root`）にある。`/home` と同じ容量を共有するので、共有の増加は `/` と `/nix` の
   空きを減らす。容量の上限は付けていない
+- 所有者の書き込みの権限が無いファイル（導入時に 482,710 件）は、Windows から読み取り専用に見え、上書きできない。
+  Windows の属性の付け外しは、`create mask`（0640）の外の mode のビットを落とす
 - oplock を止めるので、Windows 側の大きなファイルの読み書きは、キャッシュが効かず遅くなりうる（測っていない）
 
 ### 確認
@@ -76,3 +85,9 @@ r995 の btrfs に `/srv/ncsoft` を置き、Samba の共有 `ncsoft` を `tails
 - `testparm` が設定を読めること（`nix flake check` の評価と、`environment.etc."samba/smb.conf"` のビルド）
 - 利用者が `smbpasswd -a tagawa` を実行した後、Windows の PC から Tailscale のアドレスで `\\<r995>\ncsoft` を開いて読み書きできること
 - Tailscale 以外の経路からは、445 に届かないこと
+
+## 変更
+
+- 2026-11-27: Windows の読み取り専用の属性を所有者の書き込みの権限に対応させる（`store dos attributes = no`、`map readonly = permissions`、
+  `map archive = no`）項を、決定と理由に足した。前は、この項が無く、属性は Samba の既定（xattr に保存）だった。NC が、
+  ハードリンクにした版の間のファイルを読み取り専用にして上書きの事故を防ぐのに、属性が mode に入る必要があったため。
