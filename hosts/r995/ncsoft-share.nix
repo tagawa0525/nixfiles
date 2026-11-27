@@ -66,7 +66,9 @@ in
         # ハードリンクは inode を共有するので、読み取り専用の付け外しは、ほかの版のフォルダの同じ中身にも及ぶ（意図した挙動）。
         # map archive は、既定の yes だとアーカイブ属性が所有者の実行ビットに対応するので、no にして実行ビットと切り離す
         "store dos attributes" = "no";
-        "map readonly" = "permissions";
+        # yes は双方向: 付けると write ビットを全部外し、外すと所有者の write ビットを付ける。permissions は mode から報告するだけで、
+        # Windows から外しても mode は戻らない（smb.conf(5) の map readonly）
+        "map readonly" = "yes";
         # 読み取り専用にした（所有者の書き込みの権限が無い）ファイルの属性と mode を、Windows から外せるようにする。
         # 既定では、書き込みの権限が無いと属性を変えられない（smb.conf(5) の dos filemode）。共有に入れるのは tagawa だけ
         "dos filemode" = "yes";

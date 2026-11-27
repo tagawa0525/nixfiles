@@ -60,7 +60,7 @@ r995 の btrfs に `/srv/ncsoft` を置き、Samba の共有 `ncsoft` を `tails
 - Samba のパスワードは nix に書かない。利用者が r995 で `sudo smbpasswd -a tagawa` を実行して決める
 - 共有の中を指すsymlinkは、smbd がサーバー側で辿って Windows に実体として見せる（`follow symlinks` の既定）。
   共有の外を指すものは辿らない（`wide links` の既定の no）
-- Windows の読み取り専用の属性は、所有者の書き込みの権限（POSIX の mode）に対応させる（`map readonly = permissions`）。
+- Windows の読み取り専用の属性は、所有者の書き込みの権限（POSIX の mode）に対応させる（`map readonly = yes`。付けると write ビットを外し、外すと所有者の write ビットを付ける双方向の対応）。
   NC は、版のフォルダの間でハードリンクにしたファイルを読み取り専用にして、開いて上書きしたときに前の版の中身まで
   変わる事故を防ぐ。`store dos attributes`（既定は yes）が有効だと、属性は xattr にしか入らず `map readonly` が効かない
   （smb.conf(5)）ので、no にする。hidden と system の属性は保存されなくなる。`map archive` は、既定の yes だと
@@ -88,6 +88,10 @@ r995 の btrfs に `/srv/ncsoft` を置き、Samba の共有 `ncsoft` を `tails
 
 ## 変更
 
-- 2026-11-27: Windows の読み取り専用の属性を所有者の書き込みの権限に対応させる（`store dos attributes = no`、`map readonly = permissions`、
+- 2026-11-27: Windows の読み取り専用の属性を所有者の書き込みの権限に対応させる（`store dos attributes = no`、`map readonly = permissions`（のちに `yes`。下の項）、
   `map archive = no`）項を、決定と理由に足した。前は、この項が無く、属性は Samba の既定（xattr に保存）だった。NC が、
   ハードリンクにした版の間のファイルを読み取り専用にして上書きの事故を防ぐのに、属性が mode に入る必要があったため。
+- 2026-11-27: `map readonly` を `permissions` から `yes` に替えた。前は「`map readonly = permissions`」。`permissions` は、mode から
+  読み取り専用を報告するだけで、Windows から外しても mode が戻らず、NC の同期（置き換え、削除、版の更新の前に読み取り専用を外す）が
+  動かなかった（NC が確認）。`yes` は付けると write ビットを外し、外すと所有者の write ビットを付ける（smb.conf(5)）。
+  あわせて `dos filemode = yes` を足した（書き込みの権限が無いファイルの属性を変えるため）。
