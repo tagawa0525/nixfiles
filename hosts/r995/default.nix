@@ -47,6 +47,7 @@ in
     ../../modules/users/tagawa.nix # 住人: tagawa
     ../../modules/slurm/server.nix # 重い計算の待ち行列（Slurm の管理と計算）
     ./ghidra.nix # Ghidra のヘッドレス解析（GHIDRA_INSTALL_DIR、JAVA_HOME）
+    ./ncsoft-share.nix # NC の解析資料の Samba 共有（tailscale0 だけ）
   ];
 
   # ===========================================================================
