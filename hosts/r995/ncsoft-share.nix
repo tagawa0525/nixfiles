@@ -67,6 +67,9 @@ in
         # map archive は、既定の yes だとアーカイブ属性が所有者の実行ビットに対応するので、no にして実行ビットと切り離す
         "store dos attributes" = "no";
         "map readonly" = "permissions";
+        # 読み取り専用にした（所有者の書き込みの権限が無い）ファイルの属性と mode を、Windows から外せるようにする。
+        # 既定では、書き込みの権限が無いと属性を変えられない（smb.conf(5) の dos filemode）。共有に入れるのは tagawa だけ
+        "dos filemode" = "yes";
         "map archive" = "no";
         # Windows から作ったファイルには実行ビットを付けない（データの置き場。実行は r995 で chmod する）
         "create mask" = "0640";
